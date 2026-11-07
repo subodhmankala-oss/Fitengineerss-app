@@ -23,7 +23,7 @@ const MAX_AGE_MS = 30 * 1000;
 
 const KEYS = ['tab', 'viewClient', 'clientTab', 'openMeasurements', 'openMuscleMap', 'section', 'openMonthlyReport', 'openTestimonial'];
 
-export const CLIENT_TABS = ['home', 'workouts', 'profile'];
+export const CLIENT_TABS = ['muscles', 'metrics', 'workouts', 'library', 'profile'];
 
 export function parseDeepLink(search) {
   const params = new URLSearchParams(search || '');
@@ -92,6 +92,9 @@ export function clearTestimonialLink() {
 export function tabForDeepLink(link) {
   if (!link) return null;
   if (link.openMeasurements === '1') return 'profile';
-  if (link.openMuscleMap === '1' || link.openMonthlyReport === '1' || link.openTestimonial === '1') return 'home';
+  if (link.openMuscleMap === '1' || link.openMonthlyReport === '1' || link.openTestimonial === '1') return 'muscles';
+  // Pushes (api/push.js) and already-delivered notifications still say
+  // ?tab=home, from before Muscles replaced the Home tab.
+  if (link.tab === 'home') return 'muscles';
   return CLIENT_TABS.includes(link.tab) ? link.tab : null;
 }

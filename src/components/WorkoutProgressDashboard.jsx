@@ -43,27 +43,37 @@ import './WorkoutProgressDashboard.css';
 // which exist yet — see conversation).
 const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
-const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null, openTestimonial = false, onTestimonialLinkUsed }) => {
+// view: which bottom-nav tab this is. 'muscles' carries the greeting cards and
+// Muscle Overview / Muscle Heat Map; 'metrics' carries Daily / Weekly / Monthly /
+// Progress (renderProgress draws that last one).
+const WorkoutProgressDashboard = ({ view = 'muscles', onNavigateToWorkouts, openedFromMuscleLink = false, renderProgress = null, initialMuscleSection = null, openTestimonial = false, onTestimonialLinkUsed }) => {
   const [userId, setUserId] = useState(null);
   // Read on the first render: seeding 'Warrior' and swapping in the saved
   // name from an effect flashed "Warrior" in the greeting for a frame.
   const [userName] = useState(() => localStorage.getItem('userName') || 'Warrior');
-  // initialTimeframe carries the ?openMuscleMap=1 deep link (see App.jsx) —
-  // lazy init so it only wins on first mount, same as the weekly/daily/
-  // monthly toggle buttons below normally would.
-  // Otherwise the last view the user was on, so a pull-to-refresh (full
-  // reload) doesn't bounce Daily/Weekly/Monthly back to Muscles.
-  const [timeframe, setTimeframe] = useState(() => {
-    if (initialTimeframe) return initialTimeframe;
+  // The last sub-tab the client was on, so a pull-to-refresh (full reload)
+  // doesn't bounce them back to the first one.
+  const [metricsTimeframe, setTimeframe] = useState(() => {
     try {
       const saved = localStorage.getItem('homeTimeframe');
-      if (['muscles', 'daily', 'weekly', 'monthly'].includes(saved)) return saved;
+      if (['daily', 'weekly', 'monthly', 'progress'].includes(saved)) return saved;
     } catch { /* storage unavailable */ }
-    return 'muscles';
+    return 'daily';
   });
   useEffect(() => {
-    try { localStorage.setItem('homeTimeframe', timeframe); } catch { /* storage unavailable */ }
-  }, [timeframe]);
+    try { localStorage.setItem('homeTimeframe', metricsTimeframe); } catch { /* storage unavailable */ }
+  }, [metricsTimeframe]);
+  const timeframe = view === 'muscles' ? 'muscles' : metricsTimeframe;
+  // A deep link's section (see App.jsx) wins on first mount.
+  const [muscleView, setMuscleView] = useState(() => {
+    if (initialMuscleSection) return initialMuscleSection === 'heatmap' ? 'heatmap' : 'overview';
+    try {
+      return localStorage.getItem('muscleView') === 'heatmap' ? 'heatmap' : 'overview';
+    } catch { return 'overview'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('muscleView', muscleView); } catch { /* storage unavailable */ }
+  }, [muscleView]);
   // 0 = current week, -1 = last week, and so on — lets the weekly view page
   // back through previous weeks instead of only ever showing the current one.
   const [weekOffset, setWeekOffset] = useState(0);
@@ -159,14 +169,14 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // doesn't see it again on a later open/reload — even if the no-plan
   // condition is still true.
   // Also seeded true when arriving via the Muscle Map deep link
-  // (initialTimeframe === 'muscles', see shareMuscleMapWithClient in
+  // (openedFromMuscleLink, see shareMuscleMapWithClient in
   // TrainerDashboard.jsx): the coach's share icon is meant to drop the
   // client straight onto Muscles, but Welcome Back sits in front of ALL
   // timeframe content (see showWelcomeBack below) whenever the client has
   // no active plan — silently swallowing the deep link's target tab behind
   // an extra "Show my progress" tap the client had no reason to expect.
   const [mountedAt] = useState(() => Date.now());
-  const [bypassWelcomeBack, setBypassWelcomeBack] = useState(() => initialTimeframe === 'muscles');
+  const [bypassWelcomeBack, setBypassWelcomeBack] = useState(() => openedFromMuscleLink);
 
   useEffect(() => {
     if (!userId) return;
@@ -845,7 +855,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // logged today, then reopened the app) goes straight to their dashboard.
   const latestLogDate = logs.reduce((m, l) => (l.log_date && l.log_date > m ? l.log_date : m), '');
   const daysSinceLastLog = latestLogDate ? (mountedAt - new Date(`${latestLogDate}T00:00:00`).getTime()) / 86400000 : Infinity;
-  const showWelcomeBack = !loading && logs.length > 0 && plansLoaded && clientPlans.length === 0 && !bypassWelcomeBack && daysSinceLastLog >= 7;
+  const showWelcomeBack = view === 'muscles' && !loading && logs.length > 0 && plansLoaded && clientPlans.length === 0 && !bypassWelcomeBack && daysSinceLastLog >= 7;
 
   return (
     <div className="workout-progress-container animate-slide-up">
@@ -913,6 +923,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         </div>
       </div>
 
+      {view === 'muscles' && <>
       {/* One-time welcome card for a brand-new client — shown in-app instead
           of as a push (a push can be missed/denied/arrive before they've
           even opened the dashboard). Stays until dismissed. */}
@@ -1044,7 +1055,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
       )}
 
       {/* A plan the coach just assigned — shown here until the client starts
-          it, then it lives only in Log Sets → Coach Assigned. Stays visible
+          it, then it lives only in Workout → Coach Assigned. Stays visible
           during a session: starting one plan must not hide the others. */}
       {!loading && (
         <CoachPlanHomeCard userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
@@ -1073,7 +1084,9 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         </div>
       )}
 
-      {!showWelcomeBack && isLinkedToCoach && (() => {
+      </>}
+
+      {view === 'metrics' && isLinkedToCoach && (() => {
         const hasConfiguredTotal = Number.isFinite(sessionsTotal) && sessionsTotal > 0;
         if (!hasConfiguredTotal) {
           // Connected, but the coach hasn't set a program length yet —
@@ -1235,14 +1248,24 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
 
       {/* Segment Timeframe Tab Switches — hidden behind the Welcome Back
           screen (it has its own "Show my progress" entry point back in). */}
-      {!showWelcomeBack && (
+      {!showWelcomeBack && view === 'muscles' && (
         <div className="timeframe-navigation">
           <button
-            className={`timeframe-btn ${timeframe === 'muscles' ? 'active' : ''}`}
-            onClick={() => setTimeframe('muscles')}
+            className={`timeframe-btn ${muscleView === 'overview' ? 'active' : ''}`}
+            onClick={() => setMuscleView('overview')}
           >
-            Muscles
+            Muscle Overview
           </button>
+          <button
+            className={`timeframe-btn ${muscleView === 'heatmap' ? 'active' : ''}`}
+            onClick={() => setMuscleView('heatmap')}
+          >
+            Muscle Heat Map
+          </button>
+        </div>
+      )}
+      {view === 'metrics' && (
+        <div className="timeframe-navigation">
           <button
             className={`timeframe-btn ${timeframe === 'daily' ? 'active' : ''}`}
             onClick={() => setTimeframe('daily')}
@@ -1261,10 +1284,18 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           >
             Monthly
           </button>
+          <button
+            className={`timeframe-btn ${timeframe === 'progress' ? 'active' : ''}`}
+            onClick={() => setTimeframe('progress')}
+          >
+            Progress
+          </button>
         </div>
       )}
 
-      {loading ? (
+      {timeframe === 'progress' ? (
+        renderProgress?.()
+      ) : loading ? (
         <div className="dashboard-loading-box">
           <div className="loading-spinner"></div>
           <p>Analyzing progress history...</p>
@@ -1690,6 +1721,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               setMonthOffset={setMonthOffset}
               monthlyStats={monthlyStats}
               focusSection={initialMuscleSection}
+              show={muscleView}
               // "+ Add" on a muscle-region suggestion queues it for the
               // Workouts tab, which adds it to the session on open. Tapping
               // a ticked chip un-queues it; ticks from every muscle add up.

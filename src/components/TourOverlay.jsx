@@ -11,56 +11,42 @@ import './TourOverlay.css';
 // if they don't spot the right tap target.
 const STEPS = {
   1: {
-    icon: '🏠',
-    selector: '[data-tour="nav-workout"]',
-    title: 'Log a Workout',
-    desc: 'Tap here to start tracking your training.',
+    icon: '📋',
+    selector: '[data-tour="wt-tab-templates"]',
+    title: 'Browse the Library',
+    desc: 'Tap here to see your plans and workout programs.',
     // Pure navigation, nothing created or saved — safe to tap for the user
     // if they're not doing it themselves.
     autoClick: true,
   },
   2: {
-    icon: '📋',
-    selector: '[data-tour="wt-tab-templates"]',
-    title: 'Browse the Library',
-    desc: 'Tap here to see workout programs.',
-    autoClick: true,
-  },
-  3: {
     icon: '🎯',
     selector: '[data-tour="wt-level-tabs"]',
     title: 'Pick Your Level',
     desc: 'These are ready-made generic templates — Beginner, Intermediate or Advanced.',
-    cta: { label: 'Next', action: 'next', to: 4 },
+    cta: { label: 'Next', action: 'next', to: 3 },
   },
-  4: {
-    icon: '✍️',
-    selector: '[data-tour="wt-tab-log"]',
-    title: 'Log Sets',
-    desc: "Tap here when you're ready to log your sets.",
-    autoClick: true,
-  },
-  5: {
+  3: {
     icon: '➕',
-    selector: '[data-tour="wt-start-empty-card"]',
+    selector: '[data-tour="nav-workout"]',
     title: 'Start a Workout',
-    desc: 'Tap here to start an empty workout from scratch.',
+    desc: 'Tap + to start logging an empty workout.',
     // Auto-clicked for idle users. This does start a real (empty) session,
-    // but it's the only way steps 6-8 can exist at all — their targets live
-    // inside the logging form. The session is a discardable draft, and step 8
+    // but it's the only way steps 4-6 can exist at all — their targets live
+    // inside the logging form. The session is a discardable draft, and step 6
     // (Save) is still never auto-fired, so nothing is ever persisted to the
     // user's history without a deliberate tap.
     autoClick: true,
   },
-  6: {
+  4: {
     icon: '✅',
     selector: '[data-tour="wt-log-exercise-card"]',
     title: 'Log Your Sets',
     desc: 'Enter reps & weight, then tick each set as you finish it.',
-    // No cta button — auto-advances to step 7 after AUTO_ADVANCE_MS, same as
+    // No cta button — auto-advances to step 5 after AUTO_ADVANCE_MS, same as
     // the tap-target-only steps above.
   },
-  7: {
+  5: {
     icon: '➕',
     selector: '[data-tour="wt-add-exercise-btn"]',
     title: 'Add More Exercises',
@@ -69,7 +55,7 @@ const STEPS = {
     // their session, so this only advances via a deliberate tap or the
     // auto-advance timer, never a fallback "Next" button.
   },
-  8: {
+  6: {
     icon: '🎉',
     selector: '[data-tour="wt-save-workout-btn"]',
     title: "You're All Set!",
@@ -135,16 +121,16 @@ export default function TourOverlay() {
   // than sit on a step whose target can never appear, jump forward to the
   // nearest later step that's actually present on screen right now.
   //
-  // Scoped to steps 1-4 only (getting the user into the log-workout screen).
-  // Steps 5-8 live *inside* an actual logging session — their targets are
+  // Scoped to steps 1-3 only (getting the user into the log-workout screen).
+  // Steps 4-6 live *inside* an actual logging session — their targets are
   // legitimately absent until the user starts one, and that's the point of
   // showing them, not a reason to skip past them to "Finish" before they've
   // done anything.
   useEffect(() => {
-    if (!config || step >= 5) return undefined;
+    if (!config || step >= 4) return undefined;
     const timer = setTimeout(() => {
       if (document.querySelector(config.selector)) return;
-      for (let n = step + 1; n <= 4; n++) {
+      for (let n = step + 1; n <= 3; n++) {
         if (document.querySelector(STEPS[n].selector)) {
           advanceIfStep(step, n);
           return;

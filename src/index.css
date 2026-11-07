@@ -550,3 +550,27 @@ html.keyboard-open .trainer-dashboard-container {
   top: -2px;
   right: -4px;
 }
+
+/* Centre "+" in the client bottom nav: starts a workout. */
+.nav-item.nav-plus .nav-plus-circle {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 2px solid rgba(var(--accent-rgb), 0.45);
+  color: var(--accent-text);
+  transition: transform var(--transition-spring), background var(--transition-smooth);
+}
+
+.nav-item.nav-plus:active .nav-plus-circle {
+  transform: scale(0.92);
+}
+
+.nav-item.nav-plus.active .nav-plus-circle {
+  background: rgba(var(--accent-rgb), 0.2);
+  border-color: rgba(var(--accent-rgb), 0.7);
+}

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Avatar from '../components/Avatar';
 import { liveBoard, liveSexCounts } from './gymView';
 
-const REFRESH_MS = 20000;
+const FULL_REFRESH_MS = 30000; // saved workouts for the day / week
+const LIVE_REFRESH_MS = 5000; // who is mid-workout, and their calories so far
 const ROW_H = 64;
 const PODIUM_ORDER = [1, 0, 2]; // 2nd, 1st, 3rd
 
@@ -22,10 +23,24 @@ export default function GymLive({ service }) {
   const prevRanks = useRef({});
   const boardRef = useRef(null);
   const moveTimer = useRef(null);
+  const liveRef = useRef(null);
+  const inFlight = useRef({});
 
-  const load = useCallback(async () => {
-    const r = await service.getGymLive();
+  // light = only the open workouts (every 5 s); otherwise everything (every 30 s).
+  // A set ticked in the app is saved to the member's open workout within a second,
+  // so it shows up here on the next light refresh.
+  const load = useCallback(async (light = false) => {
+    const kind = light ? 'light' : 'full';
+    if (inFlight.current[kind]) return;
+    inFlight.current[kind] = true;
+    let r;
+    try { r = await service.getGymLive({ light }); } finally { inFlight.current[kind] = false; }
     if (!r.success) { setError(r.error); return; }
+    if (light) {
+      if (!liveRef.current) return;
+      r = { ...liveRef.current, inProgress: r.inProgress || [] };
+    }
+    liveRef.current = r;
     // Who moved up since the last refresh, per period.
     const up = {};
     for (const p of ['today', 'week']) {
@@ -47,10 +62,11 @@ export default function GymLive({ service }) {
   }, [service]);
 
   useEffect(() => {
-    const first = setTimeout(load, 0);
-    const id = setInterval(load, REFRESH_MS);
+    const first = setTimeout(() => load(false), 0);
+    const id = setInterval(() => load(false), FULL_REFRESH_MS);
+    const fast = setInterval(() => load(true), LIVE_REFRESH_MS);
     const clock = setInterval(() => setNow(Date.now()), 5000);
-    return () => { clearTimeout(first); clearInterval(id); clearInterval(clock); clearTimeout(moveTimer.current); };
+    return () => { clearTimeout(first); clearInterval(id); clearInterval(fast); clearInterval(clock); clearTimeout(moveTimer.current); };
   }, [load]);
 
   const rows = liveBoard(live, period, sex);
@@ -74,7 +90,7 @@ export default function GymLive({ service }) {
       <div className="gx-head">
         <div>
           <h1 className="gx-h1">Live board</h1>
-          <p className="gx-sub">Who is burning the most calories. Updates by itself every 20 seconds.</p>
+          <p className="gx-sub">Who is burning the most calories. A set ticked in the app shows up here within a few seconds.</p>
         </div>
         <button type="button" className="gx-btn gx-btn-soft" onClick={fullScreen}>Full screen</button>
       </div>
@@ -119,7 +135,7 @@ export default function GymLive({ service }) {
                   return (
                     <div key={r.id} className={`gx-live-pod p${i + 1}${moved[r.id] ? ' moved' : ''}`}>
                       <span className="gx-live-avatar"><Avatar email={r.email} name={r.name} avatarUrl={r.avatarUrl} size={42} /></span>
-                      <span className="gx-live-pod-name">{r.name}</span>
+                      <span className="gx-live-pod-name">{r.working && <i className="gx-live-pod-live" aria-label="working out now" />}{r.name}</span>
                       <span className="gx-live-pod-bar"><i>{i + 1}</i><b>{fmt(r.kcal)}</b><small>kcal</small></span>
                     </div>
                   );
@@ -140,12 +156,13 @@ export default function GymLive({ service }) {
                   <span className="gx-live-who">
                     <span className="gx-live-name">{r.name}</span>
                     <span className="gx-live-meta">
-                      {r.sessions ? `${r.sessions} workout${r.sessions === 1 ? '' : 's'}` : 'No workout yet'}
+                      {r.working ? <span className="gx-live-working"><i aria-hidden="true" />{r.withTrainer ? 'With trainer' : 'Working out'} · {r.workingSets} set{r.workingSets === 1 ? '' : 's'} done</span>
+                        : r.sessions ? `${r.sessions} workout${r.sessions === 1 ? '' : 's'}` : 'No workout yet'}
                       {moved[r.id] ? <em> · up {moved[r.id]}</em> : null}
                     </span>
                   </span>
                   <span className="gx-live-bar" aria-hidden="true"><i style={{ width: `${Math.round((r.kcal / top) * 100)}%` }} /></span>
-                  <span className="gx-live-kcal"><b>{fmt(r.kcal)}</b> kcal</span>
+                  <span className="gx-live-kcal"><b key={r.kcal} className={r.working ? 'flash' : ''}>{fmt(r.kcal)}</b> kcal</span>
                 </li>
               ))}
             </ol>

@@ -12,6 +12,7 @@
 // rewrites each old path to /api/data-read?resource=<name>, so no frontend
 // code had to change.
 
+import { computeLiveCalories } from '../src/utils/liveWorkoutTimer.js';
 import { buildOwnerGymPayload, buildMemberPayload, TREND_WEEKS } from './_ownerInsights.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -914,7 +915,7 @@ async function handleCoachGym(req, res) {
   }
 }
 
-export const __test = { ownerGymPayload, buildMemberPayload, liveSessions };
+export const __test = { ownerGymPayload, buildMemberPayload, liveSessions, liveInProgress };
 
 // The gym owner's money + settings: plans, memberships, payments, settings.
 // Reads for the gym the VERIFIED caller owns (sql/gym_business.sql).
@@ -1032,6 +1033,60 @@ function liveSessions(rows) {
   return out;
 }
 
+// A workout counts as "working out now" while its draft (saved on every ticked
+// set) was touched in the last 90 minutes. Its calories are the client's own
+// live calculation (computeLiveCalories) over the draft's ticked sets, using
+// the member's saved body weight when there is one. Nobody shows up before
+// their first ticked set.
+const WORKING_OUT_MS = 90 * 60000;
+
+function liveInProgress(drafts, weightOf = {}, now = Date.now()) {
+  const by = new Map();
+  for (const d of drafts) {
+    if (now - Date.parse(d.updated_at) > WORKING_OUT_MS) continue;
+    const exercises = Array.isArray(d.exercises) ? d.exercises : [];
+    let sets = 0;
+    let lastTick = 0;
+    for (const ex of exercises) {
+      for (const set of (ex && ex.sets) || []) {
+        if (set && set.isCompleted && set.completedAt) { sets += 1; lastTick = Math.max(lastTick, Number(set.completedAt) || 0); }
+      }
+    }
+    if (!sets) continue;
+    let kcal = 0;
+    try {
+      const w = parseFloat(weightOf[d.user_id]);
+      kcal = computeLiveCalories(exercises, d.timer_started_at, Array.isArray(d.pause_intervals) ? d.pause_intervals : [], w > 0 ? w : undefined).totalKcal;
+    } catch { continue; }
+    const cur = by.get(d.user_id) || { memberId: d.user_id, kcal: 0, sets: 0, lastTickAt: 0, withTrainer: false };
+    cur.kcal = Math.round((cur.kcal + kcal) * 10) / 10;
+    cur.sets += sets;
+    cur.lastTickAt = Math.max(cur.lastTickAt, lastTick);
+    if (d.source === 'coach') cur.withTrainer = true;
+    by.set(d.user_id, cur);
+  }
+  return [...by.values()].map((r) => ({ ...r, lastTickAt: r.lastTickAt ? new Date(r.lastTickAt).toISOString() : null }));
+}
+
+// Open workouts for these members: the drafts, then each owner's saved weight.
+async function gymInProgress(ids) {
+  const since = new Date(Date.now() - WORKING_OUT_MS).toISOString();
+  const drafts = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    drafts.push(...await svcSelect(
+      `workout_drafts?user_id=in.(${ids.slice(i, i + 150).join(',')})&updated_at=gte.${since}&select=user_id,source,exercises,timer_started_at,pause_intervals,updated_at`,
+      'gym-live drafts'
+    ));
+  }
+  const weightOf = {};
+  const owners = [...new Set(drafts.map((d) => d.user_id))];
+  for (let i = 0; i < owners.length; i += 150) {
+    const rows = await svcSelect(`clients?user_id=in.(${owners.slice(i, i + 150).join(',')})&select=user_id,weight_kg`, 'gym-live weights').catch(() => []);
+    rows.forEach((r) => { weightOf[r.user_id] = r.weight_kg; });
+  }
+  return liveInProgress(drafts, weightOf);
+}
+
 // Live calorie board on the gym site: one entry per real workout this week
 // (IST, Monday start) for the caller's gym members (see liveSessions). Reads
 // every row in pages — a busy gym logs well over the 1000-row read cap.
@@ -1052,6 +1107,10 @@ async function handleGymLive(req, res) {
     const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
     const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url&limit=5000`, 'gym-live members');
     const ids = members.map((m) => m.id);
+    // The board polls every few seconds for who is mid-workout (light: just the
+    // open drafts) and less often for the saved sessions (full).
+    const inProgress = await gymInProgress(ids).catch((e) => { console.warn('gym-live in-progress skipped:', e.message); return []; });
+    if (req.body && req.body.light === true) return res.status(200).json({ gym: { id: gid }, today, light: true, inProgress });
     const rows = [];
     for (let i = 0; i < ids.length; i += 150) {
       rows.push(...await svcSelectAll(
@@ -1068,7 +1127,7 @@ async function handleGymLive(req, res) {
       chunk.forEach((c) => { if (c.sex === 'male' || c.sex === 'female') sexOf[c.user_id] = c.sex; });
     }
     return res.status(200).json({
-      gym: { id: gid }, today, weekStart,
+      gym: { id: gid }, today, weekStart, inProgress,
       members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: sexOf[m.id] || null })),
       sessions
     });

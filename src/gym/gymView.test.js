@@ -196,3 +196,20 @@ describe('live board by sex', () => {
     expect(liveSexCounts(live)).toEqual({ all: 3, male: 1, female: 1, unset: 1 });
   });
 });
+
+describe('live board in-progress workouts', () => {
+  const live = {
+    today: 'd',
+    members: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }],
+    sessions: [{ memberId: 'a', date: 'd', kcal: 100, at: '1' }],
+    inProgress: [{ memberId: 'b', kcal: 150.4, sets: 3, lastTickAt: '2026-11-07T10:00:00.000Z', withTrainer: true }]
+  };
+  it('counts calories so far and marks who is working out', () => {
+    const rows = liveBoard(live, 'today');
+    expect(rows.map((r) => [r.id, r.kcal, r.working])).toEqual([['b', 150, true], ['a', 100, false]]);
+    expect(rows[0]).toMatchObject({ workingSets: 3, withTrainer: true, sessions: 0 });
+  });
+  it('adds to the weekly total too', () => {
+    expect(liveBoard(live, 'week')[0]).toMatchObject({ id: 'b', kcal: 150 });
+  });
+});

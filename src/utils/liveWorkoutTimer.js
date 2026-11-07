@@ -5,7 +5,7 @@
 // non-drifting approach a server-side timer would use, just running on the
 // coach's single device since there's no multi-viewer requirement here.
 
-import { isWarmupExercise, isBodyweightExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
+import { isWarmupExercise, isBodyweightExercise, isLoadedCarryExercise } from '../data/exerciseLibrary.js';
 
 // Calories reflect ONLY logged work — there is no background/idle burn, so the
 // number never moves on its own just because the session clock is running.

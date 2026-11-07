@@ -232,9 +232,13 @@ export function liveBoard(live, period, sex = 'all') {
     b.sessions += 1;
     if (s.at > b.lastAt) b.lastAt = s.at;
   }
+  // Workouts still open (a set has been ticked, not finished): their calories
+  // so far count right away, and the member shows as working out.
+  const working = {};
+  for (const w of live.inProgress || []) working[w.memberId] = w;
   return (live.members || [])
     .filter((m) => sex === 'all' || m.sex === sex)
-    .map((m) => ({ id: m.id, name: m.name || 'Member', email: m.email || null, avatarUrl: m.avatarUrl || null, kcal: Math.round(by[m.id]?.kcal || 0), sessions: by[m.id]?.sessions || 0, lastAt: by[m.id]?.lastAt || '' }))
+    .map((m) => ({ id: m.id, name: m.name || 'Member', email: m.email || null, avatarUrl: m.avatarUrl || null, kcal: Math.round((by[m.id]?.kcal || 0) + (working[m.id]?.kcal || 0)), sessions: by[m.id]?.sessions || 0, lastAt: working[m.id]?.lastTickAt || by[m.id]?.lastAt || '', working: !!working[m.id], workingSets: working[m.id]?.sets || 0, withTrainer: !!working[m.id]?.withTrainer }))
     .sort((a, b) => (b.kcal - a.kcal) || (a.kcal && b.kcal ? a.lastAt.localeCompare(b.lastAt) : 0) || (b.sessions - a.sessions) || a.name.localeCompare(b.name));
 }
 

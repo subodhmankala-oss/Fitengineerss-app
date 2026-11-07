@@ -3,9 +3,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 let liveSessions;
+let liveInProgress;
 beforeEach(async () => {
   vi.resetModules();
-  ({ liveSessions } = (await import('./data-read.js')).__test);
+  ({ liveSessions, liveInProgress } = (await import('./data-read.js')).__test);
 });
 
 // n set rows of one saved session (calories/duration repeated on each row).
@@ -34,5 +35,43 @@ describe('liveSessions', () => {
 
   it('keeps sessions with no recorded duration', () => {
     expect(liveSessions(session('old', { seconds: null }))).toHaveLength(1);
+  });
+});
+
+describe('liveInProgress', () => {
+  const NOW = Date.parse('2026-11-07T10:00:00Z');
+  const tick = (at, reps = 10, weight = 60) => ({ reps: String(reps), weight: String(weight), isCompleted: true, completedAt: at });
+  const draft = (user, sets, over = {}) => ({
+    user_id: user, source: 'self', exercises: [{ name: 'Bench Press', sets }], timer_started_at: NOW - 20 * 60000,
+    pause_intervals: [], updated_at: new Date(NOW - 60000).toISOString(), ...over
+  });
+
+  it('counts calories from the ticked sets of an open workout', () => {
+    const out = liveInProgress([draft('u1', [tick(NOW - 600000), tick(NOW - 300000), { reps: '10', weight: '60', isCompleted: false }])], {}, NOW);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ memberId: 'u1', sets: 2, withTrainer: false });
+    expect(out[0].kcal).toBeGreaterThan(0);
+    expect(out[0].lastTickAt).toBe(new Date(NOW - 300000).toISOString());
+  });
+
+  it('shows nobody before their first ticked set', () => {
+    expect(liveInProgress([draft('u1', [{ reps: '10', weight: '60', isCompleted: false }])], {}, NOW)).toEqual([]);
+  });
+
+  it('drops a workout left open for over 90 minutes', () => {
+    const stale = draft('u1', [tick(NOW - 600000)], { updated_at: new Date(NOW - 100 * 60000).toISOString() });
+    expect(liveInProgress([stale], {}, NOW)).toEqual([]);
+  });
+
+  it('marks a trainer-logged workout and adds two open workouts of one member together', () => {
+    const out = liveInProgress([draft('u1', [tick(NOW - 600000)]), draft('u1', [tick(NOW - 500000)], { source: 'coach' })], {}, NOW);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ sets: 2, withTrainer: true });
+  });
+
+  it('uses the saved body weight of the member when it is known', () => {
+    const light = liveInProgress([draft('u1', [{ reps: '20', weight: '0', isCompleted: true, completedAt: NOW - 600000 }], { exercises: [{ name: 'Push-up', sets: [{ reps: '20', weight: '0', isCompleted: true, completedAt: NOW - 600000 }] }] })], { u1: 50 }, NOW);
+    const heavy = liveInProgress([draft('u1', [], { exercises: [{ name: 'Push-up', sets: [{ reps: '20', weight: '0', isCompleted: true, completedAt: NOW - 600000 }] }] })], { u1: 100 }, NOW);
+    expect(heavy[0].kcal).toBeGreaterThan(light[0].kcal);
   });
 });

@@ -51,4 +51,13 @@ describe('GymLive', () => {
     fireEvent.click(screen.getByRole('tab', { name: /All/ }));
     expect(names()).toHaveLength(3);
   });
+
+  it('shows who is mid-workout and their calories so far', async () => {
+    const withProgress = { ...live, inProgress: [{ memberId: 'c', kcal: 90, sets: 4, lastTickAt: '2026-10-23T08:00:00Z', withTrainer: false }] };
+    const service = { getGymLive: vi.fn().mockResolvedValue(withProgress) };
+    render(<GymLive service={service} />);
+    const list = await screen.findByRole('list');
+    expect(within(list).getByText(/Working out · 4 sets done/)).toBeTruthy();
+    expect(within(list).getAllByRole('listitem')[2].querySelector('.gx-live-name').textContent).toBe('Chitra M');
+  });
 });

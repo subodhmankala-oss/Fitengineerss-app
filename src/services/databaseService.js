@@ -3388,10 +3388,11 @@ const databaseService = {
   },
 
   // Live calorie board: this week's sessions (one calorie value each) for the owner's gym.
-  async getGymLive() {
+  // light: only who is mid-workout right now (cheap enough to poll every few seconds).
+  async getGymLive({ light = false } = {}) {
     try {
       const { headers, email } = await serverFallbackAuth();
-      const res = await fetch('/api/data-read?resource=gym-live', { method: 'POST', headers, body: JSON.stringify({ email }) });
+      const res = await fetch('/api/data-read?resource=gym-live', { method: 'POST', headers, body: JSON.stringify({ email, light }) });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || !data.gym) return { success: false, error: (data && data.error) || 'Could not load the live board.' };
       return { success: true, ...data };

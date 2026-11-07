@@ -60,4 +60,15 @@ describe('GymLive', () => {
     expect(within(list).getByText(/Working out · 4 sets done/)).toBeTruthy();
     expect(within(list).getAllByRole('listitem')[2].querySelector('.gx-live-name').textContent).toBe('Chitra M');
   });
+
+  it('gives the owner a link to share, and hides it on the shared page', async () => {
+    const service = { getGymLive: vi.fn().mockResolvedValue({ ...live, boardToken: 'abc' }) };
+    const { unmount } = render(<GymLive service={service} />);
+    const box = await screen.findByLabelText('Link to the live board');
+    expect(box.value).toContain('/gym/board/abc');
+    unmount();
+    render(<GymLive service={service} publicView />);
+    await screen.findByRole('list');
+    expect(screen.queryByLabelText('Link to the live board')).toBeNull();
+  });
 });

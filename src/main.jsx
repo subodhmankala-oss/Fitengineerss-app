@@ -15,13 +15,16 @@ import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
 // none of the coach/client app (App.jsx) mounted. Lazy so the coach app's
 // bundle doesn't carry it and vice versa.
 const isGymSite = window.location.pathname === '/gym' || window.location.pathname.startsWith('/gym/');
-const GymPortal = isGymSite ? lazy(() => import('./gym/GymPortal.jsx')) : null;
+// /gym/board/<token> is the shareable Live board: no login page at all.
+const isGymBoard = window.location.pathname.startsWith('/gym/board/');
+const GymPortal = isGymSite && !isGymBoard ? lazy(() => import('./gym/GymPortal.jsx')) : null;
+const GymPublicBoard = isGymBoard ? lazy(() => import('./gym/GymPublicBoard.jsx')) : null;
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
       {isGymSite ? (
-        <Suspense fallback={null}><GymPortal /></Suspense>
+        <Suspense fallback={null}>{isGymBoard ? <GymPublicBoard /> : <GymPortal />}</Suspense>
       ) : (
         <>
           <TourProvider>

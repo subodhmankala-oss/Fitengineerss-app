@@ -3402,6 +3402,24 @@ const databaseService = {
     }
   },
 
+  // The shared Live board: no login, the link's token is the only key.
+  async getPublicGymLive(token, { light = false } = {}) {
+    try {
+      const res = await fetch('/api/data-read?resource=gym-live-public', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, light })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.gym) return { success: false, error: (data && data.error) || 'Could not load the live board.' };
+      return { success: true, ...data };
+    } catch (e) {
+      console.error('[getPublicGymLive] error:', e);
+      return { success: false, error: e.message || 'Could not load the live board.' };
+    }
+  },
+  gymResetBoardLink() { return this.gymBusinessWrite('gym-reset-board', {}); },
+
   // One verified-token POST to an admin-write gym action.
   async gymBusinessWrite(action, body) {
     try {

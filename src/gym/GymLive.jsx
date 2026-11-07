@@ -10,9 +10,10 @@ const PODIUM_ORDER = [1, 0, 2]; // 2nd, 1st, 3rd
 const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
 
 // Live calorie board: members ranked by calories burned (today or this week),
-// refreshed every 20 s. Rows slide to their new place when someone moves up.
+// refreshed every few seconds. Rows slide to their new place when someone moves up.
 // Made to be left open on a gym TV (Full screen).
-export default function GymLive({ service }) {
+// publicView = the shared no-login page (GymPublicBoard): no owner controls.
+export default function GymLive({ service, publicView = false, fullMs = FULL_REFRESH_MS, lightMs = LIVE_REFRESH_MS }) {
   const [live, setLive] = useState(null);
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('today');
@@ -20,6 +21,8 @@ export default function GymLive({ service }) {
   const [updatedAt, setUpdatedAt] = useState(0);
   const [now, setNow] = useState(0);
   const [moves, setMoves] = useState({});
+  const [shareMsg, setShareMsg] = useState('');
+  const [confirmReset, setConfirmReset] = useState(false);
   const prevRanks = useRef({});
   const boardRef = useRef(null);
   const moveTimer = useRef(null);
@@ -63,11 +66,11 @@ export default function GymLive({ service }) {
 
   useEffect(() => {
     const first = setTimeout(() => load(false), 0);
-    const id = setInterval(() => load(false), FULL_REFRESH_MS);
-    const fast = setInterval(() => load(true), LIVE_REFRESH_MS);
+    const id = setInterval(() => load(false), fullMs);
+    const fast = setInterval(() => load(true), lightMs);
     const clock = setInterval(() => setNow(Date.now()), 5000);
     return () => { clearTimeout(first); clearInterval(id); clearInterval(fast); clearInterval(clock); clearTimeout(moveTimer.current); };
-  }, [load]);
+  }, [load, fullMs, lightMs]);
 
   const rows = liveBoard(live, period, sex);
   const counts = liveSexCounts(live);
@@ -84,16 +87,44 @@ export default function GymLive({ service }) {
 
   const ago = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : null;
   const totalKcal = active.reduce((s, r) => s + r.kcal, 0);
+  const shareUrl = live?.boardToken ? `${window.location.origin}/gym/board/${live.boardToken}` : '';
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); setShareMsg('Link copied.'); } catch { setShareMsg('Could not copy. Select the link and copy it.'); }
+  };
+  const resetLink = async () => {
+    setConfirmReset(false);
+    const r = await service.gymResetBoardLink();
+    setShareMsg(r.success ? 'New link made. The old one no longer works.' : r.error);
+    if (r.success) load(false);
+  };
 
   return (
     <div className="gx-stack">
       <div className="gx-head">
         <div>
-          <h1 className="gx-h1">Live board</h1>
+          <h1 className="gx-h1">{publicView && live?.gym?.name ? `${live.gym.name} live board` : 'Live board'}</h1>
           <p className="gx-sub">Who is burning the most calories. A set ticked in the app shows up here within a few seconds.</p>
         </div>
         <button type="button" className="gx-btn gx-btn-soft" onClick={fullScreen}>Full screen</button>
       </div>
+
+      {!publicView && shareUrl && (
+        <section className="gx-card gx-share">
+          <div>
+            <h2 className="gx-h2">Share this board</h2>
+            <p className="gx-sub">Anyone with this link can watch the board without logging in. It shows first name, last initial, photo and calories.</p>
+          </div>
+          <input className="gx-input" readOnly value={shareUrl} aria-label="Link to the live board" onFocus={(e) => e.target.select()} />
+          <div className="gx-actions">
+            <button type="button" className="gx-btn gx-btn-dark" onClick={copyLink}>Copy link</button>
+            {confirmReset
+              ? <><button type="button" className="gx-btn gx-btn-soft" onClick={resetLink}>Yes, stop the old link</button><button type="button" className="gx-link" onClick={() => setConfirmReset(false)}>Cancel</button></>
+              : <button type="button" className="gx-btn gx-btn-soft" onClick={() => setConfirmReset(true)}>Change link</button>}
+          </div>
+          {shareMsg && <p className="gx-sub" role="status">{shareMsg}</p>}
+        </section>
+      )}
 
       <section ref={boardRef} className="gx-live">
         <div className="gx-live-top">

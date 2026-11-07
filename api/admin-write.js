@@ -523,6 +523,7 @@ const handleGymOwnerMarkDay = gymBusinessAction('gym_owner_mark_day', 'gym-owner
     ? { p_owner_id: c.id, p_trainer_id: b.trainerId, p_day: b.day, p_status: b.status ?? null }
     : null
 ));
+const handleGymResetBoard = gymBusinessAction('gym_reset_board_token', 'gym-reset-board', (b, c) => ({ p_owner_id: c.id }));
 const handleGymHighFive = gymBusinessAction('gym_high_five', 'gym-high-five', (b, c) => ({ p_member_id: c.id }));
 
 // A trainer joins / leaves a gym with its code (sql/gym_coach_join_leave.sql).
@@ -605,6 +606,7 @@ const ACTION_HANDLERS = {
   'gym-trainer-today': handleGymTrainerToday,
   'gym-owner-mark-day': handleGymOwnerMarkDay,
   'gym-high-five': handleGymHighFive,
+  'gym-reset-board': handleGymResetBoard,
   'coach-join-gym': handleCoachJoinGym,
   'coach-leave-gym': handleCoachLeaveGym,
   'client-join-gym': handleClientJoinGym

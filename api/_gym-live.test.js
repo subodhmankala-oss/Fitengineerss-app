@@ -4,9 +4,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 let liveSessions;
 let liveInProgress;
+let publicLivePayload;
+let shortName;
 beforeEach(async () => {
   vi.resetModules();
-  ({ liveSessions, liveInProgress } = (await import('./data-read.js')).__test);
+  ({ liveSessions, liveInProgress, publicLivePayload, shortName } = (await import('./data-read.js')).__test);
 });
 
 // n set rows of one saved session (calories/duration repeated on each row).
@@ -73,5 +75,36 @@ describe('liveInProgress', () => {
     const light = liveInProgress([draft('u1', [{ reps: '20', weight: '0', isCompleted: true, completedAt: NOW - 600000 }], { exercises: [{ name: 'Push-up', sets: [{ reps: '20', weight: '0', isCompleted: true, completedAt: NOW - 600000 }] }] })], { u1: 50 }, NOW);
     const heavy = liveInProgress([draft('u1', [], { exercises: [{ name: 'Push-up', sets: [{ reps: '20', weight: '0', isCompleted: true, completedAt: NOW - 600000 }] }] })], { u1: 100 }, NOW);
     expect(heavy[0].kcal).toBeGreaterThan(light[0].kcal);
+  });
+});
+
+describe('shared board payload', () => {
+  const full = {
+    gym: { id: 'g1' }, today: '2026-11-07', weekStart: '2026-11-02',
+    inProgress: [{ memberId: 'u1', kcal: 50, sets: 2, lastTickAt: null, withTrainer: false }],
+    members: [{ id: 'u1', name: 'Vinay Kumar Naidu', email: 'vinay@x.com', avatarUrl: 'http://p/1.jpg', sex: 'male' }],
+    sessions: [{ memberId: 'u1', date: '2026-11-07', kcal: 100, at: 't' }]
+  };
+
+  it('never carries emails or real ids', () => {
+    const text = JSON.stringify(publicLivePayload(full, 'Test Gym'));
+    expect(text).not.toContain('vinay@x.com');
+    expect(text).not.toContain('"u1"');
+    expect(text).not.toContain('g1');
+    expect(text).not.toContain('Naidu');
+  });
+
+  it('keeps the same member linked across members, sessions and open workouts', () => {
+    const out = publicLivePayload(full, 'Test Gym');
+    expect(out.sessions[0].memberId).toBe(out.members[0].id);
+    expect(out.inProgress[0].memberId).toBe(out.members[0].id);
+    expect(out.gym).toEqual({ name: 'Test Gym' });
+  });
+
+  it('shortens names', () => {
+    expect(shortName('Vinay Naidu')).toBe('Vinay N.');
+    expect(shortName('gk.goginenikiran')).toBe('gk.goginenikiran');
+    expect(shortName('someone@gmail.com')).toBe('someone');
+    expect(shortName('')).toBe('Member');
   });
 });

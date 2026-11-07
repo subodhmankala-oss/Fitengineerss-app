@@ -495,3 +495,8 @@
   .gx-live-row, .gx-live-pod, .gx-live-bar i { transition: none; }
   .gx-live-dot, .gx-live-pod.moved, .gx-live-working i, .gx-live-pod-live, .gx-live-kcal b.flash { animation: none; }
 }
+
+/* shared Live board page + the owner's share card */
+.gx-public { max-width: 1100px; margin: 0 auto; padding: 22px 18px 32px; }
+.gx-share { display: flex; flex-direction: column; gap: 10px; }
+.gx-share .gx-input { width: 100%; font-size: 0.85rem; }

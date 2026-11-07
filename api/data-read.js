@@ -12,6 +12,7 @@
 // rewrites each old path to /api/data-read?resource=<name>, so no frontend
 // code had to change.
 
+import { createHash } from 'node:crypto';
 import { computeLiveCalories } from '../src/utils/liveWorkoutTimer.js';
 import { buildOwnerGymPayload, buildMemberPayload, TREND_WEEKS } from './_ownerInsights.js';
 
@@ -915,7 +916,7 @@ async function handleCoachGym(req, res) {
   }
 }
 
-export const __test = { ownerGymPayload, buildMemberPayload, liveSessions, liveInProgress };
+export const __test = { ownerGymPayload, buildMemberPayload, liveSessions, liveInProgress, publicLivePayload, shortName };
 
 // The gym owner's money + settings: plans, memberships, payments, settings.
 // Reads for the gym the VERIFIED caller owns (sql/gym_business.sql).
@@ -1087,6 +1088,83 @@ async function gymInProgress(ids) {
   return liveInProgress(drafts, weightOf);
 }
 
+// Everything the Live board shows for one gym. light = only who is mid-workout.
+async function gymLivePayload(gid, light) {
+  const ist = new Date(Date.now() + 5.5 * 3600000);
+  const today = ist.toISOString().slice(0, 10);
+  const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
+  const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url&limit=5000`, 'gym-live members');
+  const ids = members.map((m) => m.id);
+  // The board polls every few seconds for who is mid-workout (light: just the
+  // open drafts) and less often for the saved sessions (full).
+  const inProgress = await gymInProgress(ids).catch((e) => { console.warn('gym-live in-progress skipped:', e.message); return []; });
+  if (light) return { gym: { id: gid }, today, light: true, inProgress };
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    rows.push(...await svcSelectAll(
+      `workout_logs?user_id=in.(${ids.slice(i, i + 150).join(',')})&log_date=gte.${weekStart}&select=id,user_id,log_date,session_id,plan_name,calories_burned,duration_seconds,created_at&order=id.asc`,
+      'gym-live logs'
+    ));
+  }
+  const sessions = liveSessions(rows);
+  // clients.sex is optional (male | female | not set); a failed read just
+  // leaves everyone under "not set" instead of breaking the board.
+  const sexOf = {};
+  for (let i = 0; i < ids.length; i += 150) {
+    const chunk = await svcSelect(`clients?user_id=in.(${ids.slice(i, i + 150).join(',')})&select=user_id,sex`, 'gym-live sex').catch(() => []);
+    chunk.forEach((c) => { if (c.sex === 'male' || c.sex === 'female') sexOf[c.user_id] = c.sex; });
+  }
+  return {
+    gym: { id: gid }, today, weekStart, inProgress,
+    members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: sexOf[m.id] || null })),
+    sessions
+  };
+}
+
+// "Vinay Naidu" -> "Vinay N."; an email-style name keeps only what is before the @.
+function shortName(full) {
+  const parts = String(full || '').split('@')[0].trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'Member';
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0];
+}
+
+// What an anonymous viewer of the shared link may see: short names, photo and
+// numbers. No emails, and ids replaced by a one-way hash (rows still need a
+// stable key to slide when someone moves up).
+function publicLivePayload(payload, gymName) {
+  const opaque = (id) => createHash('sha256').update(`${payload.gym.id}:${id}`).digest('hex').slice(0, 16);
+  const out = {
+    gym: { name: gymName }, today: payload.today, light: payload.light,
+    inProgress: payload.inProgress.map((w) => ({ ...w, memberId: opaque(w.memberId) }))
+  };
+  if (payload.light) return out;
+  return {
+    ...out,
+    weekStart: payload.weekStart,
+    members: payload.members.map((m) => ({ id: opaque(m.id), name: shortName(m.name), avatarUrl: m.avatarUrl, sex: m.sex })),
+    sessions: payload.sessions.map((x) => ({ ...x, memberId: opaque(x.memberId) }))
+  };
+}
+
+// The shared Live board: no login, the token in the link is the only key. A
+// wrong token, or a suspended gym, reads as "not found".
+async function handleGymLivePublic(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const token = String(req.body?.token || '');
+  if (!/^[0-9a-f]{32}$/.test(token)) return res.status(404).json({ error: 'This link isn’t valid any more.' });
+  try {
+    const gyms = await svcSelect(`gyms?board_token=eq.${token}&status=eq.active&select=id,name&limit=1`, 'gym-live-public gym');
+    if (!gyms[0]) return res.status(404).json({ error: 'This link isn’t valid any more.' });
+    const payload = await gymLivePayload(gyms[0].id, req.body?.light === true);
+    return res.status(200).json(publicLivePayload(payload, gyms[0].name));
+  } catch (err) {
+    console.error('gym-live-public error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read the live board.' });
+  }
+}
+
 // Live calorie board on the gym site: one entry per real workout this week
 // (IST, Monday start) for the caller's gym members (see liveSessions). Reads
 // every row in pages — a busy gym logs well over the 1000-row read cap.
@@ -1102,35 +1180,10 @@ async function handleGymLive(req, res) {
     const gyms = await svcSelect(`gyms?owner_id=eq.${me[0].id}&select=id&order=created_at.asc&limit=1`, 'gym-live gym');
     if (!gyms[0]) return res.status(200).json({ gym: null });
     const gid = gyms[0].id;
-    const ist = new Date(Date.now() + 5.5 * 3600000);
-    const today = ist.toISOString().slice(0, 10);
-    const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
-    const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url&limit=5000`, 'gym-live members');
-    const ids = members.map((m) => m.id);
-    // The board polls every few seconds for who is mid-workout (light: just the
-    // open drafts) and less often for the saved sessions (full).
-    const inProgress = await gymInProgress(ids).catch((e) => { console.warn('gym-live in-progress skipped:', e.message); return []; });
-    if (req.body && req.body.light === true) return res.status(200).json({ gym: { id: gid }, today, light: true, inProgress });
-    const rows = [];
-    for (let i = 0; i < ids.length; i += 150) {
-      rows.push(...await svcSelectAll(
-        `workout_logs?user_id=in.(${ids.slice(i, i + 150).join(',')})&log_date=gte.${weekStart}&select=id,user_id,log_date,session_id,plan_name,calories_burned,duration_seconds,created_at&order=id.asc`,
-        'gym-live logs'
-      ));
-    }
-    const sessions = liveSessions(rows);
-    // clients.sex is optional (male | female | not set); a failed read just
-    // leaves everyone under "not set" instead of breaking the board.
-    const sexOf = {};
-    for (let i = 0; i < ids.length; i += 150) {
-      const chunk = await svcSelect(`clients?user_id=in.(${ids.slice(i, i + 150).join(',')})&select=user_id,sex`, 'gym-live sex').catch(() => []);
-      chunk.forEach((c) => { if (c.sex === 'male' || c.sex === 'female') sexOf[c.user_id] = c.sex; });
-    }
-    return res.status(200).json({
-      gym: { id: gid }, today, weekStart, inProgress,
-      members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: sexOf[m.id] || null })),
-      sessions
-    });
+    const payload = await gymLivePayload(gid, req.body?.light === true);
+    // The shareable link's token; undefined until sql/gym_board_link.sql is applied.
+    const tokenRow = await svcSelect(`gyms?id=eq.${gid}&select=board_token&limit=1`, 'gym-live token').catch(() => []);
+    return res.status(200).json({ ...payload, boardToken: tokenRow[0]?.board_token || null });
   } catch (err) {
     console.error('gym-live error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read the live board.' });
@@ -1153,6 +1206,7 @@ const RESOURCE_HANDLERS = {
   'owner-member': handleOwnerMember,
   'gym-business': handleGymBusiness,
   'gym-live': handleGymLive,
+  'gym-live-public': handleGymLivePublic,
   'coach-gym': handleCoachGym
 };
 

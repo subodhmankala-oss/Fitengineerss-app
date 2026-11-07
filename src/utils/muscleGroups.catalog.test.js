@@ -99,7 +99,7 @@ describe('Every muscle but Tibialis has an "Inside" breakdown', () => {
 describe('Log Sets "Behind this week" gaps', () => {
   it('lists untrained parts first, each with one exercise to add', async () => {
     const { getMuscleGaps } = await import('./muscleRegions');
-    const set = (name, n, date = '2026-10-06') => Array.from({ length: n }, () => ({ exercise_name: name, log_date: date }));
+    const set = (name, n, date = '2026-10-06') => Array.from({ length: n }, () => ({ exercise_name: name, log_date: date, weight_kg: 10, reps: 10 }));
     const logs = [...set('Barbell Row', 3), ...set('Lat Pulldown', 1), ...set('Bench Press', 5)];
     const gaps = getMuscleGaps(logs, '2026-10-07');
     const labels = gaps.map(g => g.label);

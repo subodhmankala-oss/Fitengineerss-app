@@ -59,7 +59,7 @@ export function sessionsToLogRows(sessions, clientName) {
     const date = String(s.date || '').slice(0, 10);
     if (!date) return;
     (s.exercises || []).forEach(ex => (ex.sets || []).forEach(set => {
-      rows.push({ exercise_name: ex.name, log_date: date, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : (set.setType || null) });
+      rows.push({ exercise_name: ex.name, log_date: date, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : (set.setType || null) });
     }));
   });
   return rows;

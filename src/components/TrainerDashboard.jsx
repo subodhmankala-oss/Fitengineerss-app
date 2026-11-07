@@ -2698,7 +2698,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const liveGapLogs = useMemo(() => {
     const rows = [...rawWorkoutLogs];
     liveExercises.forEach(ex => (ex.sets || []).forEach(set => {
-      if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: liveDate, set_type: set.isWarmup ? 'warmup' : null });
+      if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: liveDate, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup ? 'warmup' : null });
     }));
     return rows;
   }, [rawWorkoutLogs, liveExercises, liveDate]);

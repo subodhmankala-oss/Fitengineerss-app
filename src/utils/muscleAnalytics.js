@@ -22,7 +22,7 @@
 // under `vercel dev`.
 import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, OPTIONAL_MUSCLES, getMuscleGroupsForExercise, getMuscleWeight } from './muscleGroups.js';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from './dateUtils.js';
-import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary.js';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary.js';
 
 // ── Configurable targets (Smart Calculations: large 12–20, small 8–15) ──
 // Exported so thresholds can be retuned later without touching the logic
@@ -81,7 +81,18 @@ export function getHeatMapTier(muscleStat) {
 
 // Working sets only — warmups don't count toward training volume (matches
 // how the logger itself treats them elsewhere in the app).
-const isWorkingSet = (log) => log.set_type !== 'warmup';
+// A ticked set with nothing in it isn't work either: a weighted lift ticked
+// with the kg box empty (or reps empty) used to light up the heat map and
+// count as a full set, while calories already priced it at 0. Rep-based moves
+// need reps; weighted ones also need kg. Cardio, timed holds and carries keep
+// their own fields (distance, duration, metres), so they're left as they were.
+const hasRealWork = (log) => {
+  const name = log.exercise_name;
+  if (isCardioExercise(name) || isTimedExercise(name) || isLoadedCarryExercise(name) || isWarmupExercise(name)) return true;
+  if ((parseInt(log.reps, 10) || 0) <= 0) return false;
+  return isBodyweightExercise(name) || (parseFloat(log.weight_kg) || 0) > 0;
+};
+const isWorkingSet = (log) => log.set_type !== 'warmup' && hasRealWork(log);
 
 /**
  * Tonnage (kg) contributed by a single workout_logs row.

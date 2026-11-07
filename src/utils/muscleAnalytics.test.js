@@ -522,3 +522,41 @@ describe('month view — sets averaged per week', () => {
     expect(recs.some(t => /Add \d+ more .* a week\./.test(t))).toBe(true);
   });
 });
+
+// Reported 2026-11-07: ticking a weighted set with the kg box empty (reps
+// typed) still lit up the heat map and counted as a set.
+describe('empty sets do not count', () => {
+  const chest = (logs) => getWeeklyMuscleStats(logs, '2026-07-20', '2026-07-26').find(s => s.muscle === 'Chest');
+
+  it('skips a weighted lift ticked with no kg', () => {
+    expect(chest([log({ weight_kg: 0, reps: 10 })])?.sets || 0).toBe(0);
+    expect(chest([log({ weight_kg: null, reps: 10 })])?.sets || 0).toBe(0);
+  });
+
+  it('skips a weighted lift ticked with no reps', () => {
+    expect(chest([log({ weight_kg: 40, reps: 0 })])?.sets || 0).toBe(0);
+  });
+
+  it('still counts a real weighted set next to an empty one', () => {
+    expect(chest([log({}), log({ weight_kg: 0 })]).sets).toBe(1);
+  });
+
+  it('still counts bodyweight moves with no kg', () => {
+    expect(chest([log({ exercise_name: 'Push-up', weight_kg: 0, reps: 15 })]).sets).toBeGreaterThan(0);
+  });
+
+  it('skips a bodyweight move ticked with no reps', () => {
+    expect(chest([log({ exercise_name: 'Push-up', weight_kg: 0, reps: 0 })])?.sets || 0).toBe(0);
+  });
+
+  it('still counts timed holds and cardio, which store no kg or reps', () => {
+    const stats = getWeeklyMuscleStats([
+      log({ exercise_name: 'Plank', weight_kg: 0, reps: 0 }),
+    ], '2026-07-20', '2026-07-26');
+    expect(stats.some(s => s.totalSets > 0)).toBe(true);
+  });
+
+  it('keeps an empty set out of recovery (last trained)', () => {
+    expect(getMuscleRecovery([log({ weight_kg: 0 })], 'Chest', new Date('2026-07-21T10:00:00.000Z'))).toBeNull();
+  });
+});

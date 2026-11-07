@@ -200,6 +200,16 @@
   margin-top: auto;
 }
 
+.muscle-volume-line {
+  margin-top: -2px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .muscle-sets-target {
   font-size: 0.66rem;
   font-weight: 600;

@@ -76,6 +76,7 @@ describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
     expect(screen.getByRole('tab', { name: 'Month' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByText(monthName(0))).toBeTruthy();
     expect(screen.getAllByText(/avg\/wk/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/kg volume$/).length).toBeGreaterThan(0);
 
     // Chest: 3 sets a day → 21 a week, whatever the month length so far
     // (fewer than 7 days counts as one week, so it can only be lower).

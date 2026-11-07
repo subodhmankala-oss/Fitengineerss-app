@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import MuscleThumbnail from './MuscleThumbnail';
 
 const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
-  const { muscle, sets, target, completionPercent, status } = stat;
+  const { muscle, sets, volume, target, completionPercent, status } = stat;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -22,8 +22,8 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
       onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}
       aria-label={`${muscle} details`}
     >
-      {/* Quiet tile: picture and % on top, name, status dot, thin bar, sets.
-          Volume lives in the detail screen (tap the card). */}
+      {/* Quiet tile: picture and % on top, name, status dot, thin bar,
+          sets and volume. */}
       <div className="muscle-card-top">
         <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={32} />
         <span className="muscle-completion">{completionPercent}%</span>
@@ -42,6 +42,9 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
           <div className="muscle-progress-fill" style={{ width: `${fillWidth}%` }} />
         </div>
         <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'avg/wk' : 'sets'}</span>
+        {/* "this week/month" doesn't fit a third-width card; the Week/Month
+            chips above already say which. */}
+        <span className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg volume</span>
       </div>
     </div>
   );

@@ -20,9 +20,11 @@ describe('tabForDeepLink', () => {
   it('maps each link to the client tab it lands on', () => {
     expect(tabForDeepLink(null)).toBeNull();
     expect(tabForDeepLink({ openMeasurements: '1' })).toBe('profile');
-    expect(tabForDeepLink({ openMuscleMap: '1' })).toBe('home');
-    expect(tabForDeepLink({ openMonthlyReport: '1' })).toBe('home');
+    expect(tabForDeepLink({ openMuscleMap: '1' })).toBe('muscles');
+    expect(tabForDeepLink({ openMonthlyReport: '1' })).toBe('muscles');
     expect(tabForDeepLink({ tab: 'workouts' })).toBe('workouts');
+    expect(tabForDeepLink({ tab: 'library' })).toBe('library');
+    expect(tabForDeepLink({ tab: 'home' })).toBe('muscles');
     expect(tabForDeepLink({ tab: 'nonsense' })).toBeNull();
     expect(tabForDeepLink({ viewClient: 'abc' })).toBeNull();
   });
@@ -61,7 +63,7 @@ describe('testimonial link', () => {
 
   it('lands on Home and parses from the WhatsApp URL', () => {
     expect(parseDeepLink('?openTestimonial=1')).toEqual({ openTestimonial: '1' });
-    expect(tabForDeepLink({ openTestimonial: '1' })).toBe('home');
+    expect(tabForDeepLink({ openTestimonial: '1' })).toBe('muscles');
   });
 
   it('is remembered through sign-in for a week, then forgotten', () => {

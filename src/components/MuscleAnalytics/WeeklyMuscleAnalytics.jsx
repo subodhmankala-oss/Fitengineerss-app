@@ -77,7 +77,7 @@ const PERIOD_KEY = 'muscleAnalyticsPeriod';
  * same weekly targets, so colours and statuses mean the same in both views.
  * Month navigation shares the parent's Monthly tab offset.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null, liveNote = false }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null, liveNote = false, show = 'all' }) => {
   const canMonth = !!(setMonthOffset && monthlyStats);
   const [periodPref, setPeriodPref] = useState(() => {
     try { return localStorage.getItem(PERIOD_KEY) === 'month' ? 'month' : 'week'; } catch { return 'week'; }
@@ -320,7 +320,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           "‹ Balance" goes back. Neglected Muscles reflects real
           "right now" status (last actual training date), not the browsed
           week, so it reads `logs` directly rather than `muscleStats`. ── */}
-      <div className={cardClass('ma-section')} ref={balanceCardRef}>
+      {show !== 'heatmap' && <div className={cardClass('ma-section')} ref={balanceCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{balanceTab === 'balance' ? 'Muscle Balance' : 'Neglected Muscles'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -365,14 +365,14 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
             <NeglectedMuscles logs={logs} weeklyMuscleStats={muscleStats} period={period} />
           </>
         )}
-      </div>
+      </div>}
 
       {/* ── Section 2 + Section 4, merged: Muscle Heat Map and Recovery
           Dashboard share one card via a tab switcher (same pattern as
           above). The heat map keeps its own inner Front/Back toggle — a
           second-level choice (which side of the body), not the same kind
           of switch as this outer Heat Map/Recovery tab. ── */}
-      <div className={cardClass('ma-section')} ref={heatMapCardRef}>
+      {show !== 'overview' && <div className={cardClass('ma-section')} ref={heatMapCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{mapTab === 'heatmap' ? 'Muscle Heat Map' : 'Recovery'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -401,13 +401,13 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         ) : (
           <RecoveryDashboard logs={logs} />
         )}
-      </div>
+      </div>}
 
       {/* ── Section 6 + 7 + 8, merged: Weekly Insights, Progress Comparison,
           and Personal Recommendations share one card via a 3-way tab
           switcher (same toggle pattern used above), instead of three
           separate stacked cards. ── */}
-      <div className={cardClass('ma-section')}>
+      {show !== 'heatmap' && <div className={cardClass('ma-section')}>
         <div className="widget-header justify-between" style={{ marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>Insights</h4>
           {/* Chips, each its own tint, selected = tint + ring. */}
@@ -423,7 +423,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         {insightsTab === 'insights' && <WeeklyInsights insights={insights} period={period} />}
         {insightsTab === 'comparison' && <ProgressComparison comparison={comparison} balanceTrend={balanceTrend} prevLabel={isMonth ? 'last month' : 'last week'} />}
         {insightsTab === 'recommendations' && <Recommendations recommendations={recommendations} />}
-      </div>
+      </div>}
 
       {/* ── Section 9: Muscle Detail Screen — opened by tapping a Section 1
           card or a Section 2 heat map region. Fixed-position overlay, so it

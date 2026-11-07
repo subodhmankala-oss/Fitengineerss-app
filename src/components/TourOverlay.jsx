@@ -35,7 +35,7 @@ const STEPS = {
   },
   4: {
     icon: '✍️',
-    selector: '[data-tour="wt-tab-log"]',
+    selector: '[data-tour="nav-workout"]',
     title: 'Log Sets',
     desc: "Tap here when you're ready to log your sets.",
     autoClick: true,

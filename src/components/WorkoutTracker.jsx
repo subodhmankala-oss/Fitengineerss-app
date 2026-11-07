@@ -182,8 +182,13 @@ const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
 
 // onWorkoutSaved: App.jsx sends the client to Home → Muscle Balance Overview
 // once a workout is saved (after the summary card is closed, if one shows).
-// onOpenMuscleMap: Home → Muscles → Heat Map (the "Behind this week" hint's link).
-const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
+// onOpenMuscleMap: Muscles → Muscle Heat Map (the "Behind this week" hint's link).
+// clientTab: which bottom-nav screen this is ('workouts' | 'library' | 'progress'
+// under Metrics). It picks the view, so the old segmented tabs aren't shown, and
+// onClientTabChange moves the bottom nav when a view changes from inside.
+const VIEW_FOR_TAB = { workouts: 'log', library: 'templates', progress: 'analytics' };
+const TAB_FOR_VIEW = { log: 'workouts', templates: 'library' };
+const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onClientTabChange = null } = {}) => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
 
   // ─── In-progress workout draft persistence ───
@@ -252,7 +257,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // wasn't the last one in its exercise.
   const { isExitingSet, beginExit, handleAnimationEnd: handleExitAnimationEnd, registerRow } = useExitingSetRow();
 
-  const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
+  const [localView, setLocalView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
+  const activeView = clientTab ? VIEW_FOR_TAB[clientTab] : localView;
+  const setActiveView = (view) => {
+    setLocalView(view);
+    if (clientTab && TAB_FOR_VIEW[view]) onClientTabChange?.(TAB_FOR_VIEW[view]);
+  };
   // Segmented-tab taps are remembered so a reload (pull-to-refresh) returns to
   // the same sub-tab. Programmatic switches deliberately aren't — see the note
   // above lastLevelKey's effect.
@@ -1006,7 +1016,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             if (dbDraft.coachId) triggerToast('📲 Your coach sent you the rest of this workout. Finish the remaining exercises.');
           }
           setIsLoggingWorkout(true);
-          setActiveView('log');
+          // Not setActiveView: a resumed draft shouldn't pull the client off
+          // Library or Metrics. The session waits on the Workout tab.
+          setLocalView('log');
         }
       }).catch(() => {});
     }).catch(() => {}).finally(() => { if (!cancelled) setDraftCheckDone(true); });
@@ -2735,6 +2747,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const autoStartConsumedRef = useRef(false);
   const pendingCoachPlanIdRef = useRef(null);
   useEffect(() => {
+    // The Metrics copy is about to unmount if it navigates, losing the start.
+    if (clientTab === 'progress') return;
     if (autoStartConsumedRef.current) return;
     autoStartConsumedRef.current = true;
     const key = `workoutTrackerAutoStart_${localStorage.getItem('userId') || loggedInUser}`;
@@ -2969,13 +2983,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // each commit instead of listed as deps (which would re-run it every render).
   const pendingAddsHelpersRef = useRef(null);
   useEffect(() => {
-    pendingAddsHelpersRef.current = { buildStartingSets, startWorkoutClock, triggerToast };
+    pendingAddsHelpersRef.current = { buildStartingSets, startWorkoutClock, triggerToast, setActiveView };
   });
   useEffect(() => {
-    if (!draftCheckDone) return;
+    if (!draftCheckDone || clientTab === 'progress') return; // same as auto-start above
     const names = takePendingWorkoutAdds();
     if (!names.length) return;
-    const { buildStartingSets, startWorkoutClock, triggerToast } = pendingAddsHelpersRef.current;
+    const { buildStartingSets, startWorkoutClock, triggerToast, setActiveView } = pendingAddsHelpersRef.current;
     const toEntry = name => (isBodyweightExercise(name) ? { name, sets: buildStartingSets(name), bodyweightMode: true } : { name, sets: buildStartingSets(name) });
     if (isLoggingWorkout) {
       setLogExercises(prev => names.filter(n => !prev.some(le => le.name.toLowerCase() === n.toLowerCase())).map(toEntry).reduce(addExerciseInOrder, prev));
@@ -2991,7 +3005,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     }
     setActiveView('log');
     triggerToast(`Added ${names.join(', ')} to your workout!`);
-  }, [draftCheckDone, isLoggingWorkout, loggedInUser]);
+  }, [draftCheckDone, isLoggingWorkout, loggedInUser, clientTab]);
 
   // "Recent workouts" in the Existing Plan dropdown — past sessions rebuilt
   // as loadable plans, so a workout the client never ticked "Save as
@@ -3027,7 +3041,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       )}
 
       {/* Tab Segmented Control */}
-      <div className="workouts-segmented-tabs">
+      {!clientTab && <div className="workouts-segmented-tabs">
         <button 
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
           onClick={() => selectView('analytics')}
@@ -3048,7 +3062,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         >
           🏋️ Library
         </button>
-      </div>
+      </div>}
 
       {activeView === 'analytics' && (
         <div className="analytics-view-wrapper">
@@ -3086,7 +3100,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 because it replaced a coaching-program accounting display
                 (Completed/Remaining session counts, still computed above,
                 just no longer shown here — that accounting still lives on
-                the Home dashboard's own progress card) that WAS legitimately
+                the Metrics tab's own progress card) that WAS legitimately
                 coach-only; this bar inherited that gate by copy-paste even
                 though it has no coach dependency, which hid it completely
                 for self-guided clients. Now shown unconditionally. Best Lift
@@ -3651,7 +3665,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             {/* Coach Plans — every plan the coach has assigned (isAssigned
                 excludes coach-only records, e.g. a plan auto-saved from Live
                 Log that was never assigned to this client). A brand-new one
-                is also surfaced on the Home screen until it's started (see
+                is also surfaced on the Muscles tab until it's started (see
                 CoachPlanHomeCard); once started it lives here only. */}
             {coachPlans.length > 0 && (
               <div className="wt-picker-section">

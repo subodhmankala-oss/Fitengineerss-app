@@ -22,7 +22,7 @@ const weekDays = Array.from({ length: 7 }, (_, i) => getLocalDateString(new Date
 const monthName = (offset) => new Date(today.getFullYear(), today.getMonth() + offset, 1)
   .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-const Harness = () => {
+const Harness = ({ show }) => {
   const [monthOffset, setMonthOffset] = useState(0);
   return (
     <WeeklyMuscleAnalytics
@@ -36,9 +36,32 @@ const Harness = () => {
       monthOffset={monthOffset}
       setMonthOffset={setMonthOffset}
       monthlyStats={{ totalVolume: 10, totalSets: 20, workoutsCount: 30, totalCalories: 40 }}
+      show={show}
     />
   );
 };
+
+describe('WeeklyMuscleAnalytics — show', () => {
+  afterEach(cleanup);
+
+  it('shows both halves by default (the coach view)', () => {
+    render(<Harness />);
+    expect(screen.getByText('Muscle Balance')).toBeTruthy();
+    expect(screen.getByText('Muscle Heat Map')).toBeTruthy();
+  });
+
+  it('shows one half for the client Muscles sub-tabs', () => {
+    render(<Harness show="overview" />);
+    expect(screen.getByText('Muscle Balance')).toBeTruthy();
+    expect(screen.getByText('Insights')).toBeTruthy();
+    expect(screen.queryByText('Muscle Heat Map')).toBeNull();
+    cleanup();
+    render(<Harness show="heatmap" />);
+    expect(screen.getByText('Muscle Heat Map')).toBeTruthy();
+    expect(screen.queryByText('Muscle Balance')).toBeNull();
+    expect(screen.queryByText('Insights')).toBeNull();
+  });
+});
 
 describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
   beforeEach(() => { try { localStorage.clear(); } catch { /* no storage */ } });

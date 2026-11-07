@@ -24,7 +24,7 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
     >
       <div className="muscle-card-top">
         <span className={`status-${status.color}`}>
-          <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={40} />
+          <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={36} />
         </span>
         <div className="muscle-card-title">
           <strong>{muscle}</strong>
@@ -34,10 +34,7 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
         </div>
       </div>
 
-      <div className="muscle-card-stats">
-        <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'Avg Sets/Wk' : 'Target Sets'}</span>
-        <span className="muscle-completion">{completionPercent}%</span>
-      </div>
+      <span className="muscle-completion">{completionPercent}%</span>
 
       <div className="muscle-progress-track">
         <div
@@ -46,7 +43,10 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
         />
       </div>
 
-      <div className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg volume this {period}</div>
+      <div className="muscle-card-stats">
+        <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'avg/wk' : 'sets'}</span>
+        <span className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg this {period}</span>
+      </div>
     </div>
   );
 };

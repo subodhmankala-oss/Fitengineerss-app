@@ -54,8 +54,8 @@
 /* ── Muscle card grid (Section 1) ── */
 .muscle-card-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .muscle-card {
@@ -64,10 +64,13 @@
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(var(--fg-rgb), 0.07);
   border-radius: var(--radius-md);
-  padding: 12px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  min-width: 0;
   opacity: 0;
   animation: muscleCardFadeUp 0.5s var(--transition-smooth, ease) forwards;
 }
@@ -95,8 +98,10 @@
 
 .muscle-card-top {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
 }
 
 .muscle-icon-badge {
@@ -151,12 +156,15 @@
 .muscle-card-title {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .muscle-card-title strong {
-  font-size: 0.82rem;
+  max-width: 100%;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-main);
   white-space: nowrap;
@@ -174,11 +182,12 @@
 .muscle-card-stats {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  max-width: 100%;
 }
 
 .muscle-sets-target {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
@@ -187,7 +196,8 @@
 }
 
 .muscle-completion {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  line-height: 1.1;
   font-weight: 800;
   color: var(--status-color);
   letter-spacing: -0.02em;
@@ -209,9 +219,12 @@
 }
 
 .muscle-volume-line {
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   color: var(--text-subtle);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Status legend ── */

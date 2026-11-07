@@ -5660,3 +5660,60 @@ html.keyboard-open .rest-timer-floating-card {
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* Workout tab: a single "+" to start logging (plans live on Library). */
+.wt-plus-launch {
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.wt-plus-btn {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 2px solid rgba(var(--accent-rgb), 0.45);
+  color: var(--accent-text);
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.wt-plus-btn:hover {
+  background: rgba(var(--accent-rgb), 0.18);
+}
+
+.wt-plus-btn:active {
+  transform: scale(0.95);
+}
+
+.wt-plus-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.wt-plus-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.wt-plus-link {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--accent-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}

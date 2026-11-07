@@ -2844,6 +2844,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onC
     setLoggingLevel(null);
     setIsLoggingWorkout(true);
     startWorkoutClock();
+    // From Library (clientTab), move to the Workout tab where the logger is.
+    if (clientTab) setActiveView('log');
   };
 
   // Second half of the Home coach-plan deep link (see the auto-start effect
@@ -3029,6 +3031,181 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onC
     clientPlans,
     sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase())
   ), [sessions, selectedClient, clientPlans]);
+
+  // Workout tab launcher: the Workout tab shows only "+" (start logging); the
+  // plan lists below live on the Library tab (clientTab) or, without a
+  // clientTab, under this same launcher.
+  const startEmptyWorkout = () => {
+    setLogClient(selectedClient);
+    setLogDate(getLocalDateString());
+    setLogExercises(getDefaultWarmupExercises());
+    setTemplateName('');
+    setLoggingLevel(null);
+    setIsLoggingWorkout(true);
+    startWorkoutClock();
+    setActiveView('log');
+  };
+
+  const renderPlusLauncher = () => (
+    <div className="wt-plus-launch">
+      <button type="button" data-tour="wt-start-empty-card" className="wt-plus-btn" onClick={startEmptyWorkout} aria-label="Start a workout">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+      </button>
+      <strong className="wt-plus-title">Start Workout</strong>
+      <span className="wt-plus-sub">Tap + and log your sets as you go</span>
+      <button type="button" className="wt-plus-link" onClick={() => onClientTabChange?.('library')}>
+        Or pick a plan from Library ›
+      </button>
+    </div>
+  );
+
+  // Coach Assigned, Saved Templates and This Week.
+  const renderPlanPicker = (withStartCard) => {
+    // startPlan is defined at component scope (see above) — shared with
+    // the Home screen's coach-plan deep link.
+    // "Top 10" means best-PERFORMED, not most recent: ranked by each
+    // template's own average calories burned, session duration, and
+    // weight volume across its past completed sessions (see
+    // rankTemplatesByPerformance) — a template never actually performed
+    // sorts last. Anything beyond the top 10 isn't shown at all, even
+    // via "View all".
+    const ownSessions = sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase());
+    const templatePlans = rankTemplatesByPerformance(clientPlans.filter(p => p.createdBy === 'client'), ownSessions, 10);
+    const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
+    const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
+    const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
+
+    const handleDeleteTemplate = async (plan) => {
+      if (confirm('Are you sure you want to delete this template?')) {
+        await databaseService.deleteWorkoutPlan(plan.id, getPlanOwnerId());
+        fetchPlans();
+      }
+    };
+
+    return (
+      <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>
+        <div className="launcher-header" style={{ marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 800 }}>{withStartCard ? '🏋️‍♂️ Start Workout Session' : 'Your Plans'}</h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{withStartCard ? 'Select a coach plan, a saved template, or start empty.' : 'Plans from your coach and templates you saved. Tap Start to log one.'}</p>
+        </div>
+
+        {withStartCard && (
+          <button
+            type="button"
+            data-tour="wt-start-empty-card"
+            className="wt-start-empty-card"
+            onClick={startEmptyWorkout}
+          >
+            <span className="wt-start-empty-icon">+</span>
+            <div className="wt-start-empty-text">
+              <strong>Start Empty Workout</strong>
+              <span>Create a workout from scratch</span>
+            </div>
+            <span className="wt-start-empty-chevron">›</span>
+          </button>
+        )}
+
+        {/* Coach Plans — every plan the coach has assigned (isAssigned
+            excludes coach-only records, e.g. a plan auto-saved from Live
+            Log that was never assigned to this client). A brand-new one
+            is also surfaced on the Muscles tab until it's started (see
+            CoachPlanHomeCard); once started it lives here only. */}
+        {coachPlans.length > 0 && (
+          <div className="wt-picker-section">
+            <div className="wt-picker-section-header">
+              <span className="wt-picker-section-title">📋 Coach Assigned <span className="wt-count-badge">{coachPlans.length} available</span></span>
+              {coachPlans.length > 3 && (
+                <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
+                  {showAllCoachPlans ? 'Show less' : 'View all'}
+                </button>
+              )}
+            </div>
+            <div className="wt-plan-list">
+              {visibleCoachPlans.map(plan => (
+                <PlanCard
+                  key={plan.id || plan.planName}
+                  plan={plan}
+                  source="coach"
+                  onStart={() => startPlan(plan, 'coach')}
+                  expandable
+                  getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* My Saved Templates */}
+        <div className="wt-picker-section">
+          <div className="wt-picker-section-header">
+            <span className="wt-picker-section-title">👤 Saved Templates <span className="wt-count-badge">{CORE_PPL_TEMPLATES.length + templatePlans.length} templates</span></span>
+            {templatePlans.length > 3 && (
+              <button type="button" className="wt-view-all-btn" onClick={() => setShowAllTemplates(v => !v)}>
+                {showAllTemplates ? 'Show less' : 'View all'}
+              </button>
+            )}
+          </div>
+          {/* Push / Pull / Legs — always here, can't be deleted. */}
+          <div className="wt-plan-list">
+            {CORE_PPL_TEMPLATES.map(plan => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                source="self"
+                metaLabel="Starter plan"
+                onStart={() => startPlan(plan, 'self')}
+                expandable
+                getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+              />
+            ))}
+          </div>
+          {loadingPlans ? (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading templates...</p>
+          ) : templatePlans.length === 0 ? (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Tick "Keep as a permanent template" when you finish a workout to add your own here.</p>
+          ) : (
+            <div className="wt-plan-list">
+              {visibleTemplatePlans.map(plan => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  source="self"
+                  onStart={() => startPlan(plan, 'self')}
+                  onDelete={() => handleDeleteTemplate(plan)}
+                  expandable
+                  getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* This week — rebuilt from the last 7 days' sessions, never stored. */}
+        <div className="wt-picker-section">
+          <div className="wt-picker-section-header">
+            <span className="wt-picker-section-title">🗓️ This Week <span className="wt-count-badge">{thisWeekPlans.length} workouts</span></span>
+          </div>
+          {thisWeekPlans.length === 0 ? (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Workouts you log show up here for 7 days, best ones first.</p>
+          ) : (
+            <div className="wt-plan-list">
+              {thisWeekPlans.map(plan => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  source="self"
+                  metaLabel={`Done ${formatShortLogDate(plan.date)}`}
+                  onStart={() => startPlan(plan, 'self')}
+                  expandable
+                  getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -3470,6 +3647,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onC
       {/* ─── TEMPLATES VIEW ─── */}
       {activeView === 'templates' && (
         <div className="wt-templates-outer">
+          {clientTab && renderPlanPicker(false)}
 
           {/* Workout Library — Gym/Home/Hyrox × Beginner/Intermediate/Advanced.
               One row of section chips with the level as a
@@ -3611,158 +3789,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onC
         </div>
       )}
 
-      {activeView === 'log' && !isLoggingWorkout && (() => {
-        // startPlan is defined at component scope (see above) — shared with
-        // the Home screen's coach-plan deep link.
-        // "Top 10" means best-PERFORMED, not most recent: ranked by each
-        // template's own average calories burned, session duration, and
-        // weight volume across its past completed sessions (see
-        // rankTemplatesByPerformance) — a template never actually performed
-        // sorts last. Anything beyond the top 10 isn't shown at all, even
-        // via "View all".
-        const ownSessions = sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase());
-        const templatePlans = rankTemplatesByPerformance(clientPlans.filter(p => p.createdBy === 'client'), ownSessions, 10);
-        const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
-        const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
-        const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
-
-        const handleDeleteTemplate = async (plan) => {
-          if (confirm('Are you sure you want to delete this template?')) {
-            await databaseService.deleteWorkoutPlan(plan.id, getPlanOwnerId());
-            fetchPlans();
-          }
-        };
-
-        return (
-          <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>
-            <div className="launcher-header" style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 800 }}>🏋️‍♂️ Start Workout Session</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select a coach plan, a saved template, or start empty.</p>
-            </div>
-
-            <button
-              type="button"
-              data-tour="wt-start-empty-card"
-              className="wt-start-empty-card"
-              onClick={() => {
-                setLogClient(selectedClient);
-                setLogDate(getLocalDateString());
-                setLogExercises(getDefaultWarmupExercises());
-                setTemplateName('');
-                setLoggingLevel(null);
-                setIsLoggingWorkout(true);
-                startWorkoutClock();
-              }}
-            >
-              <span className="wt-start-empty-icon">+</span>
-              <div className="wt-start-empty-text">
-                <strong>Start Empty Workout</strong>
-                <span>Create a workout from scratch</span>
-              </div>
-              <span className="wt-start-empty-chevron">›</span>
-            </button>
-
-            {/* Coach Plans — every plan the coach has assigned (isAssigned
-                excludes coach-only records, e.g. a plan auto-saved from Live
-                Log that was never assigned to this client). A brand-new one
-                is also surfaced on the Muscles tab until it's started (see
-                CoachPlanHomeCard); once started it lives here only. */}
-            {coachPlans.length > 0 && (
-              <div className="wt-picker-section">
-                <div className="wt-picker-section-header">
-                  <span className="wt-picker-section-title">📋 Coach Assigned <span className="wt-count-badge">{coachPlans.length} available</span></span>
-                  {coachPlans.length > 3 && (
-                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
-                      {showAllCoachPlans ? 'Show less' : 'View all'}
-                    </button>
-                  )}
-                </div>
-                <div className="wt-plan-list">
-                  {visibleCoachPlans.map(plan => (
-                    <PlanCard
-                      key={plan.id || plan.planName}
-                      plan={plan}
-                      source="coach"
-                      onStart={() => startPlan(plan, 'coach')}
-                      expandable
-                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* My Saved Templates */}
-            <div className="wt-picker-section">
-              <div className="wt-picker-section-header">
-                <span className="wt-picker-section-title">👤 Saved Templates <span className="wt-count-badge">{CORE_PPL_TEMPLATES.length + templatePlans.length} templates</span></span>
-                {templatePlans.length > 3 && (
-                  <button type="button" className="wt-view-all-btn" onClick={() => setShowAllTemplates(v => !v)}>
-                    {showAllTemplates ? 'Show less' : 'View all'}
-                  </button>
-                )}
-              </div>
-              {/* Push / Pull / Legs — always here, can't be deleted. */}
-              <div className="wt-plan-list">
-                {CORE_PPL_TEMPLATES.map(plan => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    source="self"
-                    metaLabel="Starter plan"
-                    onStart={() => startPlan(plan, 'self')}
-                    expandable
-                    getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
-                  />
-                ))}
-              </div>
-              {loadingPlans ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading templates...</p>
-              ) : templatePlans.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Tick "Keep as a permanent template" when you finish a workout to add your own here.</p>
-              ) : (
-                <div className="wt-plan-list">
-                  {visibleTemplatePlans.map(plan => (
-                    <PlanCard
-                      key={plan.id}
-                      plan={plan}
-                      source="self"
-                      onStart={() => startPlan(plan, 'self')}
-                      onDelete={() => handleDeleteTemplate(plan)}
-                      expandable
-                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* This week — rebuilt from the last 7 days' sessions, never stored. */}
-            <div className="wt-picker-section">
-              <div className="wt-picker-section-header">
-                <span className="wt-picker-section-title">🗓️ This Week <span className="wt-count-badge">{thisWeekPlans.length} workouts</span></span>
-              </div>
-              {thisWeekPlans.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Workouts you log show up here for 7 days, best ones first.</p>
-              ) : (
-                <div className="wt-plan-list">
-                  {thisWeekPlans.map(plan => (
-                    <PlanCard
-                      key={plan.id}
-                      plan={plan}
-                      source="self"
-                      metaLabel={`Done ${formatShortLogDate(plan.date)}`}
-                      onStart={() => startPlan(plan, 'self')}
-                      expandable
-                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      {activeView === 'log' && !isLoggingWorkout && (clientTab ? renderPlusLauncher() : renderPlanPicker(true))}
 
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">

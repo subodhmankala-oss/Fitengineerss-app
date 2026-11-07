@@ -38,14 +38,29 @@ describe('WorkoutTracker on the client bottom-nav tabs', () => {
   });
   afterEach(cleanup);
 
-  it('Workout shows the launcher with no old sub-tabs', async () => {
+  it('Workout shows only the + start, with no plans or old sub-tabs', async () => {
     renderTab('workouts');
-    expect(await screen.findByText('Start Empty Workout')).toBeTruthy();
-    expect(screen.getByText(/Saved Templates/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Start a workout' }));
+    expect(await screen.findByText(/Today's Workout/)).toBeTruthy();
+    expect(screen.queryByText(/Saved Templates/)).toBeNull();
+    expect(screen.queryByText(/Coach Assigned/)).toBeNull();
     expect(screen.queryByText(/Log Sets/)).toBeNull();
   });
 
-  it('Library shows the programs, and starting a workout there moves to the Workout tab', async () => {
+  it('Workout links to Library for plans', async () => {
+    const onChange = renderTab('workouts');
+    fireEvent.click(await screen.findByText(/pick a plan from Library/));
+    expect(onChange).toHaveBeenCalledWith('library');
+  });
+
+  it('Library shows saved templates, and starting one moves to the Workout tab', async () => {
+    const onChange = renderTab('library');
+    expect(await screen.findByText(/Saved Templates/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: /Start/ }).find(b => b.closest('.wt-plan-list')));
+    expect(onChange).toHaveBeenCalledWith('workouts');
+  });
+
+  it('Library start-empty button moves to the Workout tab', async () => {
     const onChange = renderTab('library');
     fireEvent.click(await screen.findByText('+ Start empty workout'));
     expect(onChange).toHaveBeenCalledWith('workouts');

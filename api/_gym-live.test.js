@@ -6,9 +6,10 @@ let liveSessions;
 let liveInProgress;
 let publicLivePayload;
 let shortName;
+let isCurrentMember;
 beforeEach(async () => {
   vi.resetModules();
-  ({ liveSessions, liveInProgress, publicLivePayload, shortName } = (await import('./data-read.js')).__test);
+  ({ liveSessions, liveInProgress, publicLivePayload, shortName, isCurrentMember } = (await import('./data-read.js')).__test);
 });
 
 // n set rows of one saved session (calories/duration repeated on each row).
@@ -60,9 +61,8 @@ describe('liveInProgress', () => {
     expect(liveInProgress([draft('u1', [{ reps: '10', weight: '60', isCompleted: false }])], {}, NOW)).toEqual([]);
   });
 
-  it('drops a workout left open for over 90 minutes', () => {
-    const stale = draft('u1', [tick(NOW - 600000)], { updated_at: new Date(NOW - 100 * 60000).toISOString() });
-    expect(liveInProgress([stale], {}, NOW)).toEqual([]);
+  it('drops a workout with no tick for over 90 minutes, even if the app just re-saved it', () => {
+    expect(liveInProgress([draft('u1', [tick(NOW - 100 * 60000)])], {}, NOW)).toEqual([]);
   });
 
   it('marks a trainer-logged workout and adds two open workouts of one member together', () => {
@@ -106,5 +106,19 @@ describe('shared board payload', () => {
     expect(shortName('gk.goginenikiran')).toBe('gk.goginenikiran');
     expect(shortName('someone@gmail.com')).toBe('someone');
     expect(shortName('')).toBe('Member');
+  });
+});
+
+describe('isCurrentMember', () => {
+  it('keeps a client with their coach, and a gym member with no trainer', () => {
+    expect(isCurrentMember({ coach_id: 'c1' }, { coach_id: 'c1', paused_at: null })).toBe(true);
+    expect(isCurrentMember({ coach_id: null }, { coach_id: null, paused_at: null })).toBe(true);
+    expect(isCurrentMember({ coach_id: 'c1' }, undefined)).toBe(true);
+  });
+  it('drops a client disconnected from their coach', () => {
+    expect(isCurrentMember({ coach_id: 'c1' }, { coach_id: null, paused_at: null })).toBe(false);
+  });
+  it('drops a paused client', () => {
+    expect(isCurrentMember({ coach_id: 'c1' }, { coach_id: 'c1', paused_at: '2026-10-02T00:00:00Z' })).toBe(false);
   });
 });

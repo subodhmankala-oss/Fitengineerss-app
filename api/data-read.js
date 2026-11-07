@@ -916,7 +916,7 @@ async function handleCoachGym(req, res) {
   }
 }
 
-export const __test = { ownerGymPayload, buildMemberPayload, liveSessions, liveInProgress, publicLivePayload, shortName };
+export const __test = { ownerGymPayload, buildMemberPayload, liveSessions, liveInProgress, publicLivePayload, shortName, isCurrentMember };
 
 // The gym owner's money + settings: plans, memberships, payments, settings.
 // Reads for the gym the VERIFIED caller owns (sql/gym_business.sql).
@@ -984,10 +984,12 @@ async function gymActivity(gid) {
   const logs = [];
   for (let i = 0; i < ids.length; i += 150) {
     const chunk = ids.slice(i, i + 150).join(',');
-    drafts.push(...await svcSelect(`workout_drafts?user_id=in.(${chunk})&updated_at=gte.${fresh}&select=user_id,source,created_at,timer_started_at`, 'gym-activity drafts'));
+    drafts.push(...await svcSelect(`workout_drafts?user_id=in.(${chunk})&updated_at=gte.${fresh}&select=user_id,source,created_at,timer_started_at,exercises`, 'gym-activity drafts'));
     logs.push(...await svcSelectAll(`workout_logs?user_id=in.(${chunk})&log_date=eq.${today}&select=id,user_id,created_at&order=id.asc`, 'gym-activity logs'));
   }
-  const training = drafts.map((d) => ({
+  // A draft holding only old ticks was just re-saved by opening the app.
+  const lastTickOf = (d) => Math.max(0, ...(Array.isArray(d.exercises) ? d.exercises : []).flatMap((ex) => ((ex && ex.sets) || []).map((x) => Number(x && x.isCompleted && x.completedAt) || 0)));
+  const training = drafts.filter((d) => { const t = lastTickOf(d); return !t || now - t < ACTIVE_DRAFT_MS; }).map((d) => ({
     member_id: d.user_id,
     source: d.source === 'coach' ? 'coach' : 'self',
     since: d.timer_started_at ? new Date(Number(d.timer_started_at)).toISOString() : d.created_at
@@ -1034,8 +1036,7 @@ function liveSessions(rows) {
   return out;
 }
 
-// A workout counts as "working out now" while its draft (saved on every ticked
-// set) was touched in the last 90 minutes. Its calories are the client's own
+// A workout counts as "working out now" for 90 minutes after its last ticked set. Its calories are the client's own
 // live calculation (computeLiveCalories) over the draft's ticked sets, using
 // the member's saved body weight when there is one. Nobody shows up before
 // their first ticked set.
@@ -1044,7 +1045,6 @@ const WORKING_OUT_MS = 90 * 60000;
 function liveInProgress(drafts, weightOf = {}, now = Date.now()) {
   const by = new Map();
   for (const d of drafts) {
-    if (now - Date.parse(d.updated_at) > WORKING_OUT_MS) continue;
     const exercises = Array.isArray(d.exercises) ? d.exercises : [];
     let sets = 0;
     let lastTick = 0;
@@ -1053,7 +1053,9 @@ function liveInProgress(drafts, weightOf = {}, now = Date.now()) {
         if (set && set.isCompleted && set.completedAt) { sets += 1; lastTick = Math.max(lastTick, Number(set.completedAt) || 0); }
       }
     }
-    if (!sets) continue;
+    // By the last tick, not updated_at: just opening the app re-saves a workout
+    // left open weeks ago.
+    if (!sets || now - lastTick > WORKING_OUT_MS) continue;
     let kcal = 0;
     try {
       const w = parseFloat(weightOf[d.user_id]);
@@ -1105,13 +1107,39 @@ async function gymInProgress(gid, ids) {
   return liveInProgress(drafts, weightOf);
 }
 
+// Still a member? A paused client has stopped, and a client disconnected from
+// their coach keeps users.coach_id but loses clients.coach_id (package finished:
+// checkAndHandleSessionPackageCompletion). Gym members with no trainer have
+// neither, and stay.
+function isCurrentMember(user, client) {
+  if (!client) return true;
+  if (client.paused_at) return false;
+  return !(user.coach_id && !client.coach_id);
+}
+
+// The people the board may show, with sex (male | female | null). The clients
+// read must succeed: failing open would put former clients on a public page.
+async function boardMembers(gid) {
+  const users = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url,coach_id&limit=5000`, 'gym-live members');
+  const clientOf = {};
+  for (let i = 0; i < users.length; i += 150) {
+    const rows = await svcSelect(`clients?user_id=in.(${users.slice(i, i + 150).map((u) => u.id).join(',')})&select=user_id,sex,coach_id,paused_at`, 'gym-live clients');
+    rows.forEach((c) => { clientOf[c.user_id] = c; });
+  }
+  return users
+    .filter((u) => isCurrentMember(u, clientOf[u.id]))
+    .map((u) => {
+      const sex = clientOf[u.id]?.sex;
+      return { ...u, sex: sex === 'male' || sex === 'female' ? sex : null };
+    });
+}
+
 // Everything the Live board shows for one gym. light = only who is mid-workout.
 async function gymLivePayload(gid, light) {
   const ist = new Date(Date.now() + 5.5 * 3600000);
   const today = ist.toISOString().slice(0, 10);
   const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
-  const readMembers = () => svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url&limit=5000`, 'gym-live members');
-  const members = light ? await cachedFor(60000, `members:${gid}`, readMembers) : await readMembers();
+  const members = light ? await cachedFor(60000, `members:${gid}`, () => boardMembers(gid)) : await boardMembers(gid);
   if (!light) liveCache.set(`members:${gid}`, { at: Date.now(), value: members });
   const ids = members.map((m) => m.id);
   // The board polls every few seconds for who is mid-workout (light: just the
@@ -1126,16 +1154,9 @@ async function gymLivePayload(gid, light) {
     ));
   }
   const sessions = liveSessions(rows);
-  // clients.sex is optional (male | female | not set); a failed read just
-  // leaves everyone under "not set" instead of breaking the board.
-  const sexOf = {};
-  for (let i = 0; i < ids.length; i += 150) {
-    const chunk = await svcSelect(`clients?user_id=in.(${ids.slice(i, i + 150).join(',')})&select=user_id,sex`, 'gym-live sex').catch(() => []);
-    chunk.forEach((c) => { if (c.sex === 'male' || c.sex === 'female') sexOf[c.user_id] = c.sex; });
-  }
   return {
     gym: { id: gid }, today, weekStart, inProgress,
-    members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: sexOf[m.id] || null })),
+    members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: m.sex })),
     sessions
   };
 }

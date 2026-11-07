@@ -221,7 +221,7 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
             {sex !== 'all' && counts.unset > 0 && (
               <p className="gx-live-note">{counts.unset} member{counts.unset === 1 ? ' hasn’t' : 's haven’t'} said male or female yet, so {counts.unset === 1 ? 'they show' : 'they show'} only under All.</p>
             )}
-            <p className="gx-live-note">Calories are counted when a member saves a workout in the app, so a workout shows up here as soon as it is finished.</p>
+            <p className="gx-live-note">Calories climb as members tick their sets in the app.</p>
           </>
         )}
       </section>

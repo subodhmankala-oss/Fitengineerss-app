@@ -1069,8 +1069,22 @@ function liveInProgress(drafts, weightOf = {}, now = Date.now()) {
   return [...by.values()].map((r) => ({ ...r, lastTickAt: r.lastTickAt ? new Date(r.lastTickAt).toISOString() : null }));
 }
 
-// Open workouts for these members: the drafts, then each owner's saved weight.
-async function gymInProgress(ids) {
+// The board refreshes every couple of seconds, and only the open workouts
+// change that fast. What barely changes (who the members are, their weight,
+// which gym a link opens) is kept in this warm function for a short while, so
+// a refresh is one database read instead of four.
+const liveCache = new Map();
+async function cachedFor(ms, key, read) {
+  const hit = liveCache.get(key);
+  if (hit && Date.now() - hit.at < ms) return hit.value;
+  const value = await read();
+  if (liveCache.size > 500) liveCache.clear();
+  liveCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+// Open workouts for these members, priced with each owner's saved weight.
+async function gymInProgress(gid, ids) {
   const since = new Date(Date.now() - WORKING_OUT_MS).toISOString();
   const drafts = [];
   for (let i = 0; i < ids.length; i += 150) {
@@ -1079,12 +1093,15 @@ async function gymInProgress(ids) {
       'gym-live drafts'
     ));
   }
-  const weightOf = {};
-  const owners = [...new Set(drafts.map((d) => d.user_id))];
-  for (let i = 0; i < owners.length; i += 150) {
-    const rows = await svcSelect(`clients?user_id=in.(${owners.slice(i, i + 150).join(',')})&select=user_id,weight_kg`, 'gym-live weights').catch(() => []);
-    rows.forEach((r) => { weightOf[r.user_id] = r.weight_kg; });
-  }
+  if (!drafts.length) return [];
+  const weightOf = await cachedFor(300000, `weights:${gid}`, async () => {
+    const out = {};
+    for (let i = 0; i < ids.length; i += 150) {
+      const rows = await svcSelect(`clients?user_id=in.(${ids.slice(i, i + 150).join(',')})&select=user_id,weight_kg`, 'gym-live weights').catch(() => []);
+      rows.forEach((r) => { out[r.user_id] = r.weight_kg; });
+    }
+    return out;
+  });
   return liveInProgress(drafts, weightOf);
 }
 
@@ -1093,11 +1110,13 @@ async function gymLivePayload(gid, light) {
   const ist = new Date(Date.now() + 5.5 * 3600000);
   const today = ist.toISOString().slice(0, 10);
   const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
-  const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url&limit=5000`, 'gym-live members');
+  const readMembers = () => svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url&limit=5000`, 'gym-live members');
+  const members = light ? await cachedFor(60000, `members:${gid}`, readMembers) : await readMembers();
+  if (!light) liveCache.set(`members:${gid}`, { at: Date.now(), value: members });
   const ids = members.map((m) => m.id);
   // The board polls every few seconds for who is mid-workout (light: just the
   // open drafts) and less often for the saved sessions (full).
-  const inProgress = await gymInProgress(ids).catch((e) => { console.warn('gym-live in-progress skipped:', e.message); return []; });
+  const inProgress = await gymInProgress(gid, ids).catch((e) => { console.warn('gym-live in-progress skipped:', e.message); return []; });
   if (light) return { gym: { id: gid }, today, light: true, inProgress };
   const rows = [];
   for (let i = 0; i < ids.length; i += 150) {
@@ -1156,7 +1175,8 @@ async function handleGymLivePublic(req, res) {
   const light = req.query?.light === '1';
   if (!/^[0-9a-f]{32}$/.test(token)) return res.status(404).json({ error: 'This link isn’t valid any more.' });
   try {
-    const gyms = await svcSelect(`gyms?board_token=eq.${token}&status=eq.active&select=id,name&limit=1`, 'gym-live-public gym');
+    // 15 s: a changed link or a suspended gym stops working within that.
+    const gyms = await cachedFor(15000, `board:${token}`, () => svcSelect(`gyms?board_token=eq.${token}&status=eq.active&select=id,name&limit=1`, 'gym-live-public gym'));
     if (!gyms[0]) return res.status(404).json({ error: 'This link isn’t valid any more.' });
     const payload = await gymLivePayload(gyms[0].id, light);
     // Vercel's edge answers everyone else from this copy, so a room full of

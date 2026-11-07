@@ -116,7 +116,7 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
   const resetLink = async () => {
     setConfirmReset(false);
     const r = await service.gymResetBoardLink();
-    setShareMsg(r.success ? 'New link made. The old one no longer works.' : r.error);
+    setShareMsg(r.success ? 'New link made. The old one stops working within 15 seconds.' : r.error);
     if (r.success) load(false);
   };
 

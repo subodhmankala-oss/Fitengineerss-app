@@ -1152,12 +1152,16 @@ async function handleGymLivePublic(req, res) {
   if (!supabaseUrl || !serviceKey) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
   }
-  const token = String(req.body?.token || '');
+  const token = String(req.query?.token || '');
+  const light = req.query?.light === '1';
   if (!/^[0-9a-f]{32}$/.test(token)) return res.status(404).json({ error: 'This link isn’t valid any more.' });
   try {
     const gyms = await svcSelect(`gyms?board_token=eq.${token}&status=eq.active&select=id,name&limit=1`, 'gym-live-public gym');
     if (!gyms[0]) return res.status(404).json({ error: 'This link isn’t valid any more.' });
-    const payload = await gymLivePayload(gyms[0].id, req.body?.light === true);
+    const payload = await gymLivePayload(gyms[0].id, light);
+    // Vercel's edge answers everyone else from this copy, so a room full of
+    // phones costs one read every couple of seconds, not one each.
+    res.setHeader('Cache-Control', `public, max-age=0, s-maxage=${light ? 1 : 10}`);
     return res.status(200).json(publicLivePayload(payload, gyms[0].name));
   } catch (err) {
     console.error('gym-live-public error:', err, err.detail);
@@ -1212,12 +1216,14 @@ const RESOURCE_HANDLERS = {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   const resource = req.query?.resource;
+  // Only the shared Live board is a GET (see handleGymLivePublic).
+  const allowed = resource === 'gym-live-public' ? 'GET' : 'POST';
+  if (req.method !== allowed) return res.status(405).json({ error: 'Method not allowed' });
+
   const target = RESOURCE_HANDLERS[resource];
   if (!target) {
     return res.status(400).json({ error: `Unknown or missing resource: ${resource}` });

@@ -3,7 +3,10 @@ import Avatar from '../components/Avatar';
 import { liveBoard, liveSexCounts } from './gymView';
 
 const FULL_REFRESH_MS = 30000; // saved workouts for the day / week
-const LIVE_REFRESH_MS = 5000; // who is mid-workout, and their calories so far
+// Who is mid-workout, and their calories so far: every 2 s while anyone is
+// training, every 5 s while nobody is. Nothing runs while the page is hidden.
+const ACTIVE_REFRESH_MS = 2000;
+const IDLE_REFRESH_MS = 5000;
 const ROW_H = 64;
 const PODIUM_ORDER = [1, 0, 2]; // 2nd, 1st, 3rd
 
@@ -13,7 +16,7 @@ const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
 // refreshed every few seconds. Rows slide to their new place when someone moves up.
 // Made to be left open on a gym TV (Full screen).
 // publicView = the shared no-login page (GymPublicBoard): no owner controls.
-export default function GymLive({ service, publicView = false, fullMs = FULL_REFRESH_MS, lightMs = LIVE_REFRESH_MS }) {
+export default function GymLive({ service, publicView = false, fullMs = FULL_REFRESH_MS, activeMs = ACTIVE_REFRESH_MS, idleMs = IDLE_REFRESH_MS }) {
   const [live, setLive] = useState(null);
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('today');
@@ -29,7 +32,7 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
   const liveRef = useRef(null);
   const inFlight = useRef({});
 
-  // light = only the open workouts (every 5 s); otherwise everything (every 30 s).
+  // light = only the open workouts (every few seconds); otherwise everything.
   // A set ticked in the app is saved to the member's open workout within a second,
   // so it shows up here on the next light refresh.
   const load = useCallback(async (light = false) => {
@@ -41,7 +44,12 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
     if (!r.success) { setError(r.error); return; }
     if (light) {
       if (!liveRef.current) return;
+      const stillOpen = new Set((r.inProgress || []).map((w) => w.memberId));
+      const finished = (liveRef.current.inProgress || []).some((w) => !stillOpen.has(w.memberId));
       r = { ...liveRef.current, inProgress: r.inProgress || [] };
+      // Someone just finished: their calories move to saved workouts, so read
+      // those now or their total would dip until the next full refresh.
+      if (finished) { liveRef.current = r; await load(false); return; }
     }
     liveRef.current = r;
     // Who moved up since the last refresh, per period.
@@ -65,12 +73,25 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
   }, [service]);
 
   useEffect(() => {
-    const first = setTimeout(() => load(false), 0);
-    const id = setInterval(() => load(false), fullMs);
-    const fast = setInterval(() => load(true), lightMs);
-    const clock = setInterval(() => setNow(Date.now()), 5000);
-    return () => { clearTimeout(first); clearInterval(id); clearInterval(fast); clearInterval(clock); clearTimeout(moveTimer.current); };
-  }, [load, fullMs, lightMs]);
+    let stopped = false;
+    let fast;
+    const tick = async () => {
+      if (!document.hidden) await load(true);
+      if (stopped) return;
+      fast = setTimeout(tick, liveRef.current?.inProgress?.length ? activeMs : idleMs);
+    };
+    const first = setTimeout(async () => { await load(false); if (!stopped) fast = setTimeout(tick, activeMs); }, 0);
+    const id = setInterval(() => { if (!document.hidden) load(false); }, fullMs);
+    const clock = setInterval(() => setNow(Date.now()), 1000);
+    // Back on the page: catch up at once.
+    const onShow = () => { if (!document.hidden) load(false); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      stopped = true;
+      clearTimeout(first); clearTimeout(fast); clearInterval(id); clearInterval(clock); clearTimeout(moveTimer.current);
+      document.removeEventListener('visibilitychange', onShow);
+    };
+  }, [load, fullMs, activeMs, idleMs]);
 
   const rows = liveBoard(live, period, sex);
   const counts = liveSexCounts(live);
@@ -129,7 +150,7 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
       <section ref={boardRef} className="gx-live">
         <div className="gx-live-top">
           <span className="gx-live-badge"><span className="gx-live-dot" aria-hidden="true" />{error ? 'PAUSED' : 'LIVE'}</span>
-          <span className="gx-live-status">{error ? 'Not updating' : ago === null ? 'Connecting…' : `Updated ${ago < 5 ? 'just now' : `${ago}s ago`}`}</span>
+          <span className="gx-live-status">{error ? 'Not updating' : ago === null ? 'Connecting…' : `Updated ${ago < 3 ? 'just now' : `${ago}s ago`}`}</span>
           <div className="gx-live-toggle" role="group" aria-label="Period">
             {[['today', 'Today'], ['week', 'This week']].map(([k, label]) => (
               <button key={k} type="button" className={period === k ? 'on' : ''} aria-pressed={period === k} onClick={() => setPeriod(k)}>{label}</button>

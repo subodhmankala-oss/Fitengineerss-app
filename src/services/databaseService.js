@@ -3405,11 +3405,7 @@ const databaseService = {
   // The shared Live board: no login, the link's token is the only key.
   async getPublicGymLive(token, { light = false } = {}) {
     try {
-      const res = await fetch('/api/data-read?resource=gym-live-public', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, light })
-      });
+      const res = await fetch(`/api/data-read?resource=gym-live-public&token=${encodeURIComponent(token)}${light ? '&light=1' : ''}`);
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || !data.gym) return { success: false, error: (data && data.error) || 'Could not load the live board.' };
       return { success: true, ...data };

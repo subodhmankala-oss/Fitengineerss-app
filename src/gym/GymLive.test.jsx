@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-library/react';
 import GymLive from './GymLive';
 
 const live = {
@@ -70,5 +70,20 @@ describe('GymLive', () => {
     render(<GymLive service={service} publicView />);
     await screen.findByRole('list');
     expect(screen.queryByLabelText('Link to the live board')).toBeNull();
+  });
+
+  it('refreshes fast while someone is training, and reads saved workouts the moment they finish', async () => {
+    const open = { ...live, inProgress: [{ memberId: 'c', kcal: 90, sets: 4, lastTickAt: null, withTrainer: false }] };
+    const calls = [];
+    const service = {
+      getGymLive: vi.fn(async ({ light }) => {
+        calls.push(light ? 'light' : 'full');
+        if (!light) return calls.filter((c) => c === 'light').length >= 2 ? { ...live, inProgress: [] } : open;
+        return calls.filter((c) => c === 'light').length < 2 ? { success: true, inProgress: open.inProgress } : { success: true, inProgress: [] };
+      })
+    };
+    render(<GymLive service={service} activeMs={5} idleMs={5000} fullMs={100000} />);
+    await waitFor(() => expect(calls.filter((c) => c === 'full').length).toBe(2));
+    expect(calls.slice(0, 4)).toEqual(['full', 'light', 'light', 'full']);
   });
 });

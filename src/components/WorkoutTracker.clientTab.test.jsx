@@ -25,8 +25,8 @@ import { queueWorkoutAdd, getPendingWorkoutAdds } from '../utils/pendingWorkoutA
 
 Element.prototype.scrollTo = vi.fn();
 
-const renderTab = (clientTab, onClientTabChange = vi.fn()) => {
-  render(<TourProvider><WorkoutTracker clientTab={clientTab} onClientTabChange={onClientTabChange} /></TourProvider>);
+const renderTab = (clientTab, onClientTabChange = vi.fn(), extra = {}) => {
+  render(<TourProvider><WorkoutTracker clientTab={clientTab} onClientTabChange={onClientTabChange} {...extra} /></TourProvider>);
   return onClientTabChange;
 };
 
@@ -38,10 +38,17 @@ describe('WorkoutTracker on the client bottom-nav tabs', () => {
   });
   afterEach(cleanup);
 
-  it('Workout shows only the + start, with no plans or old sub-tabs', async () => {
-    renderTab('workouts');
-    fireEvent.click(await screen.findByRole('button', { name: 'Start a workout' }));
+  it('the bottom-nav + starts an empty workout and reports it handled', async () => {
+    const onStartHandled = vi.fn();
+    renderTab('workouts', vi.fn(), { startRequested: true, onStartHandled });
     expect(await screen.findByText(/Today's Workout/)).toBeTruthy();
+    expect(onStartHandled).toHaveBeenCalled();
+  });
+
+  it('Workout with nothing running points to the + and shows no plans or old sub-tabs', async () => {
+    renderTab('workouts');
+    expect(await screen.findByText('No workout running')).toBeTruthy();
+    expect(screen.queryByText(/Today's Workout/)).toBeNull();
     expect(screen.queryByText(/Saved Templates/)).toBeNull();
     expect(screen.queryByText(/Coach Assigned/)).toBeNull();
     expect(screen.queryByText(/Log Sets/)).toBeNull();

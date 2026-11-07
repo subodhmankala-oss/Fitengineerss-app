@@ -40,7 +40,7 @@ import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
-import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
+import { takePendingWorkoutAdds, getPendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
@@ -188,7 +188,9 @@ const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
 // onClientTabChange moves the bottom nav when a view changes from inside.
 const VIEW_FOR_TAB = { workouts: 'log', library: 'templates', progress: 'analytics' };
 const TAB_FOR_VIEW = { log: 'workouts', templates: 'library' };
-const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onClientTabChange = null } = {}) => {
+// startRequested: the bottom-nav + was tapped. Start an empty workout once the
+// draft check is done (or show the running one), then call onStartHandled.
+const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onClientTabChange = null, startRequested = false, onStartHandled = null } = {}) => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
 
   // ─── In-progress workout draft persistence ───
@@ -307,11 +309,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onC
   // for what each step highlights.
   const tour = useTour();
   useEffect(() => {
-    if (activeView === 'templates') tour.advanceIfStep(2, 3);
-    if (activeView === 'log') tour.advanceIfStep(4, 5);
+    if (activeView === 'templates') tour.advanceIfStep(1, 2);
   }, [activeView, tour]);
   useEffect(() => {
-    if (isLoggingWorkout) tour.advanceIfStep(5, 6);
+    if (isLoggingWorkout) tour.advanceIfStep(3, 4);
   }, [isLoggingWorkout, tour]);
   const [clientPlans, setClientPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -3046,13 +3047,22 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onC
     setActiveView('log');
   };
 
+  // The bottom-nav + (startRequested). Queued "Try these" adds start their own
+  // session in the pending-adds effect above, so leave those alone.
+  const startEmptyRef = useRef(startEmptyWorkout);
+  useEffect(() => { startEmptyRef.current = startEmptyWorkout; });
+  useEffect(() => {
+    if (!startRequested || !draftCheckDone) return;
+    if (!isLoggingWorkout && getPendingWorkoutAdds().length === 0) startEmptyRef.current();
+    onStartHandled?.();
+  }, [startRequested, draftCheckDone, isLoggingWorkout, onStartHandled]);
+
+  // Shown only when the Workout tab is open with nothing running (e.g. after
+  // a reload): the + in the bottom nav is the way to start.
   const renderPlusLauncher = () => (
     <div className="wt-plus-launch">
-      <button type="button" data-tour="wt-start-empty-card" className="wt-plus-btn" onClick={startEmptyWorkout} aria-label="Start a workout">
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
-      </button>
-      <strong className="wt-plus-title">Start Workout</strong>
-      <span className="wt-plus-sub">Tap + and log your sets as you go</span>
+      <strong className="wt-plus-title">No workout running</strong>
+      <span className="wt-plus-sub">Tap + below to start logging</span>
       <button type="button" className="wt-plus-link" onClick={() => onClientTabChange?.('library')}>
         Or pick a plan from Library ›
       </button>
@@ -3698,7 +3708,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap, clientTab = null, onC
                         role="option"
                         aria-selected={genericLevel === level}
                         className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
-                        onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); setLevelMenuOpen(false); tour.advanceIfStep(3, 4); }}
+                        onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); setLevelMenuOpen(false); tour.advanceIfStep(2, 3); }}
                       >
                         <span className={`wt-program-dot wt-program-dot--${level}`} />
                         {level.charAt(0).toUpperCase() + level.slice(1)}

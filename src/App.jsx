@@ -630,12 +630,9 @@ function App() {
     demoTourCheckedRef.current = true;
   }, [userEmail, userRole, onboardingComplete, showClientWizard, pendingConfirmationEmail, showResetPasswordModal, clientTour, coachTour]);
 
-  // Spotlight step 1→2: the bottom-nav Workout button is highlighted from
-  // the Muscles tab; once the user actually navigates to the Workout tab
-  // (however they got there — bottom nav or a dashboard CTA), move on.
-  useEffect(() => {
-    if (activeTab === 'workouts') clientTour.advanceIfStep(1, 2);
-  }, [activeTab, clientTour]);
+  // The bottom-nav + asks WorkoutTracker to start an empty workout (it
+  // waits for its draft check, and resumes a running session instead).
+  const [workoutStartRequested, setWorkoutStartRequested] = useState(false);
 
   // Resume-refresh: if the app was backgrounded (tab hidden, phone locked, or
   // the PWA suspended) for more than 15 minutes, force a full reload the moment
@@ -1755,6 +1752,8 @@ function App() {
         <WorkoutTracker
           clientTab={activeTab}
           onClientTabChange={setActiveTab}
+          startRequested={workoutStartRequested}
+          onStartHandled={() => setWorkoutStartRequested(false)}
           onWorkoutSaved={() => {
             setDeepLinkOpenMuscleMap(true);
             setDeepLinkMuscleSection('balance');
@@ -2006,18 +2005,19 @@ function App() {
             </span>
             <span>Metrics</span>
           </button>
-          <button data-tour="nav-workout" className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
-            <span className="icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />
-                <path d="m2.5 21.5 1.4-1.4" />
-                <path d="m20.1 3.9 1.4-1.4" />
-                <path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" />
-                <path d="m9.6 14.4 4.8-4.8" />
+          <button
+            data-tour="nav-workout"
+            className={`nav-item nav-plus ${activeTab === 'workouts' ? 'active' : ''}`}
+            aria-label="Start workout"
+            onClick={() => { setWorkoutStartRequested(true); setActiveTab('workouts'); }}
+          >
+            <span className="nav-plus-circle">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
               </svg>
               {hasNavDot('workouts') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
             </span>
-            <span>Workout</span>
           </button>
           <button data-tour="wt-tab-templates" className={`nav-item ${activeTab === 'library' ? 'active' : ''}`} onClick={() => setActiveTab('library')}>
             <span className="icon">

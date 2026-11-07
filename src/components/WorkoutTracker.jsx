@@ -2938,12 +2938,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       if (s.clientName && s.clientName.toLowerCase() !== me) return;
       const date = String(s.date || '').slice(0, 10);
       (s.exercises || []).forEach(ex => (ex.sets || []).forEach(set => {
-        rows.push({ exercise_name: ex.name, log_date: date, set_type: set.isWarmup ? 'warmup' : (set.setType || null) });
+        rows.push({ exercise_name: ex.name, log_date: date, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup ? 'warmup' : (set.setType || null) });
       }));
     });
     if (isLoggingWorkout) {
       logExercises.forEach(ex => (ex.sets || []).forEach(set => {
-        if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: logDate, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : null });
+        if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: logDate, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : null });
       }));
     }
     return rows;

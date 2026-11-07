@@ -64,6 +64,6 @@ describe('pickNeglectedFinisher', () => {
 
   it('warm-up sets never count as training a muscle', () => {
     const rows = sessionsToLogRows([{ clientName: 'tc', date: day(1), exercises: [{ name: 'Glute Bridge', sets: [{ reps: '15', isWarmup: true }] }] }], 'tc');
-    expect(rows).toEqual([{ exercise_name: 'Glute Bridge', log_date: day(1), set_type: 'warmup' }]);
+    expect(rows).toEqual([{ exercise_name: 'Glute Bridge', log_date: day(1), reps: '15', weight_kg: undefined, set_type: 'warmup' }]);
   });
 });

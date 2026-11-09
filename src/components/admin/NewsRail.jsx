@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAdminNews } from '../../services/databaseService';
 import './NewsRail.css';
 
@@ -71,13 +71,37 @@ function Thumb({ item, big = false }) {
   );
 }
 
+// Matches the .news-closing transition in NewsRail.css. Unmount is driven by
+// this timer, not transitionend, so the panel can never get stuck open if
+// the browser skips the transition (hidden tab, reduced motion).
+const READER_EXIT_MS = 240;
+
 function Reader({ item, onClose }) {
   const [copied, setCopied] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const close = useCallback(() => {
+    setClosing((was) => {
+      if (!was) setTimeout(onClose, READER_EXIT_MS);
+      return true;
+    });
+  }, [onClose]);
+
+  // Safety net for the slide-in: a browser whose animation clock is stalled
+  // (backgrounded window, some embedded webviews) would otherwise hold the
+  // panel at its off-screen start. Normal slide is 300ms, so this is a no-op.
+  const panelRef = useRef(null);
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const t = setTimeout(() => {
+      panelRef.current?.getAnimations?.().forEach((a) => { if (a.playState === 'running') a.finish(); });
+    }, 450);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [close]);
 
   const copy = async () => {
     try {
@@ -88,13 +112,13 @@ function Reader({ item, onClose }) {
   };
 
   return (
-    <div className="news-reader-backdrop" onClick={onClose}>
-      <aside className="news-reader" role="dialog" aria-modal="true" aria-label={item.title} onClick={(e) => e.stopPropagation()}>
+    <div className={`news-reader-backdrop${closing ? ' news-closing' : ''}`} onClick={close}>
+      <aside ref={panelRef} className="news-reader" role="dialog" aria-modal="true" aria-label={item.title} onClick={(e) => e.stopPropagation()}>
         <Thumb item={item} big />
         <div className="news-reader-body">
           <div className="news-reader-top">
             <span className={`news-tag news-topic-${item.topic}`}>{TOPIC_LABEL[item.topic]}</span>
-            <button type="button" className="news-icon-btn" onClick={onClose} aria-label="Close">{Icon.close(18)}</button>
+            <button type="button" className="news-icon-btn" onClick={close} aria-label="Close">{Icon.close(18)}</button>
           </div>
           <h3 className="news-reader-title">{item.title}</h3>
           <div className="news-meta">

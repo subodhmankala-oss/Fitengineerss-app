@@ -5,6 +5,8 @@ const getAdminNews = vi.fn();
 vi.mock('../../services/databaseService', () => ({ getAdminNews: (...a) => getAdminNews(...a) }));
 
 import NewsRail from './NewsRail';
+import { NewsRoleTab } from './RoleTab';
+import { resetAdminNewsCache } from './useAdminNews';
 
 const item = (id, topic, extra = {}) => ({
   id, topic, title: `Story ${id}`, link: `https://x.test/${id}`, summary: `Summary ${id}`,
@@ -15,6 +17,8 @@ const item = (id, topic, extra = {}) => ({
 describe('NewsRail', () => {
   afterEach(cleanup);
   beforeEach(() => {
+    resetAdminNewsCache();
+    localStorage.clear();
     getAdminNews.mockReset();
     getAdminNews.mockResolvedValue({
       fetchedAt: new Date().toISOString(),
@@ -91,5 +95,38 @@ describe('NewsRail', () => {
     await screen.findByText('Story n0');
     fireEvent.click(screen.getByLabelText('Refresh news'));
     await waitFor(() => expect(getAdminNews).toHaveBeenLastCalledWith({ force: true }));
+  });
+
+  it('page variant (phone News tab) lists every story, with a back-to-News reader', async () => {
+    render(<NewsRail variant="page" />);
+    expect(await screen.findByText('Story n4')).toBeTruthy();
+    expect(screen.queryByText(/Show \d+ more/)).toBeNull();
+    expect(document.body.classList.contains('has-news-rail')).toBe(false);
+    fireEvent.click(screen.getByText('Story n1').closest('button'));
+    expect(screen.getByText('News', { selector: '.news-back-btn' })).toBeTruthy();
+  });
+
+  it('page variant shares through the phone share sheet when available', async () => {
+    const share = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+    render(<NewsRail variant="page" />);
+    fireEvent.click((await screen.findByText('Story n0')).closest('button'));
+    fireEvent.click(screen.getByText('Share'));
+    expect(share).toHaveBeenCalledWith({ title: 'Story n0', text: 'Story n0\nTakeaway n0', url: 'https://x.test/n0' });
+    delete navigator.share;
+  });
+
+  it('News tab bubble counts unread stories and clears once the news is shown', async () => {
+    render(<NewsRoleTab active={false} onClick={() => {}} />);
+    expect(await screen.findByText('5')).toBeTruthy();
+    render(<NewsRail variant="page" />);
+    await screen.findByText('Story n0');
+    await waitFor(() => expect(screen.queryByText('5')).toBeNull());
+  });
+
+  it('one request is shared between the tab bubble and the news page', async () => {
+    render(<><NewsRoleTab active={false} onClick={() => {}} /><NewsRail variant="page" /></>);
+    await screen.findByText('Story n0');
+    expect(getAdminNews).toHaveBeenCalledTimes(1);
   });
 });

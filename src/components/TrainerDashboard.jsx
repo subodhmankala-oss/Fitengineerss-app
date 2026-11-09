@@ -12,6 +12,7 @@ import AdminClientsList from './admin/AdminClientsList';
 import AdminSignupAlerts from './admin/AdminSignupAlerts';
 import CoachNotificationBell from './CoachNotificationBell';
 import NewsRail from './admin/NewsRail';
+import RoleTab, { NewsRoleTab } from './admin/RoleTab';
 import FounderMessageComposer from './admin/FounderMessageComposer';
 import './WorkoutTracker.css';
 // Weekly/Daily/Monthly chart + card styling — shared with the client's own
@@ -231,7 +232,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     if (saved === 'payments') return 'payments';
     if (saved === 'admin' && superAdmin) return 'admin';
     return 'coach';
-  }); // 'coach', 'admin' or 'payments'
+  }); // 'coach', 'admin', 'payments' or 'news' (founder's phone News tab)
   // The app is a fixed-width "phone frame" everywhere else (index.css
   // --app-max-width: 480px) — deliberately, for the coach/client mobile UI.
   // subodhmankala@gmail.com is the one account that only ever uses this
@@ -5743,55 +5744,36 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         {superAdmin && viewMode !== 'payments' && (
           <div className="role-toggle-bar" style={{
             display: 'flex',
-            gap: '8px',
+            gap: '4px',
             padding: '4px',
             background: 'rgba(var(--fg-rgb), 0.04)',
             border: '1px solid rgba(var(--fg-rgb), 0.08)',
             borderRadius: '14px',
           }}>
-            <button
+            {/* Icon-over-label tabs with corner bubbles (2026-11-09 mockup):
+                My Clients shows the client count (blue), News — founder email
+                only, like its server — shows today's unread stories (red). */}
+            <RoleTab
+              kind="clients"
+              label="My Clients"
+              active={viewMode === 'coach'}
               onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
-              style={{
-                flex: 1,
-                padding: '11px 16px',
-                borderRadius: '10px',
-                border: 'none',
-                background: viewMode === 'coach' ? 'rgba(var(--accent-rgb), 0.14)' : 'transparent',
-                color: viewMode === 'coach' ? 'var(--accent-text)' : 'rgba(148,163,184,0.55)',
-                fontSize: '0.88rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit',
-                boxShadow: viewMode === 'coach' ? '0 1px 8px rgba(var(--accent-rgb), 0.15)' : 'none',
-                letterSpacing: '0.01em',
-              }}
-            >
-              👥 My Clients ({myClientsCount})
-            </button>
-            <button
+              count={myClientsCount}
+            />
+            {isSuperAdmin(loggedInEmail) && (
+              <NewsRoleTab
+                active={viewMode === 'news'}
+                onClick={() => { setViewMode('news'); setSelectedClient(null); }}
+              />
+            )}
+            <RoleTab
+              kind="admin"
+              label="Super-Admin"
+              active={viewMode === 'admin'}
               onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
-              style={{
-                flex: 1,
-                padding: '11px 16px',
-                borderRadius: '10px',
-                border: 'none',
-                background: viewMode === 'admin' ? 'rgba(139,92,246,0.14)' : 'transparent',
-                color: viewMode === 'admin' ? 'var(--tint-violet)' : 'rgba(148,163,184,0.55)',
-                fontSize: '0.88rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit',
-                boxShadow: viewMode === 'admin' ? '0 1px 8px rgba(139,92,246,0.15)' : 'none',
-                letterSpacing: '0.01em',
-              }}
-            >
-              🛡️ Super-Admin
-              {(signupAlerts.length > 0 || unreadReplyIds.size > 0) && (
-                <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups or replies" />
-              )}
-            </button>
+              dot={signupAlerts.length > 0 || unreadReplyIds.size > 0}
+              dotLabel="New sign-ups or replies"
+            />
           </div>
         )}
 
@@ -5962,7 +5944,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         />
       )}
 
-      {viewMode === 'admin' ? (
+      {viewMode === 'news' ? (
+        // Founder's phone News tab (the desktop shows the same news as a
+        // side panel beside the client list instead — NewsRail variant rail).
+        <div className="news-tab-view animate-scale-in">
+          <NewsRail key="news-page" variant="page" />
+        </div>
+      ) : viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h4 className="admin-overview-title" style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', fontWeight: 800 }}>Super-Admin Overview</h4>

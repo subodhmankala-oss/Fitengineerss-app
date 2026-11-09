@@ -169,3 +169,20 @@
   color: var(--text-main); background: transparent; border: 1px solid var(--border-strong);
 }
 .news-btn:hover { background: var(--bg-card-hover); }
+
+/* Phone News tab (variant="page"): in-flow, full width, under the
+   My Clients / News / Super-Admin bar. Shares every inner style above. */
+.news-page {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 2px 24px;
+}
+.news-page .news-thumb { width: 72px; height: 72px; }
+.news-page .news-item-title { font-size: 14px; }
+
+.news-back-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px 4px 2px; border: none; background: transparent;
+  color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.news-back-btn:hover { color: var(--text-main); }

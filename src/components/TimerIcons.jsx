@@ -45,7 +45,7 @@ export function PencilIcon({ size = 20, className }) {
   );
 }
 
-// The app's one delete icon: lid, handle, tapered body with two lines.
+// The app's one delete icon: lid, handle and a plain body (no inner lines).
 // BinIcon / TrashIcon are kept as names so every existing caller gets it.
 export function BinIcon({ size = 20, className }) {
   return (
@@ -62,9 +62,8 @@ export function BinIcon({ size = 20, className }) {
       aria-hidden="true"
     >
       <path d="M4 7h16" />
-      <path d="M10 11v6M14 11v6" />
-      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-      <path d="M9 7V4h6v3" />
+      <path d="M9 7V4.5h6V7" />
+      <path d="M6 7v11.5A1.5 1.5 0 0 0 7.5 20h9a1.5 1.5 0 0 0 1.5-1.5V7" />
     </svg>
   );
 }

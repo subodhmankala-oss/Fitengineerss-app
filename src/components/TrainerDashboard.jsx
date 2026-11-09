@@ -10276,10 +10276,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             }}
                           >
                             <option value="" disabled>Select template</option>
-                            {/* Top 10 by actual performance (avg calories/duration/
-                                volume from this client's past logged sessions under
-                                each plan's name) — see rankTemplatesByPerformance —
-                                not just the 10 most recent. */}
+                            {/* "Saved plans" (bottom group) is only the latest week's
+                                plans, newest first — see splitNewTemplates. */}
                             {/* Plans never logged yet (e.g. an AI draft's days
                                 assigned yesterday) — their own group, since the
                                 performance ranking below sorts them last and can

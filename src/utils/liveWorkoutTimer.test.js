@@ -404,10 +404,33 @@ describe('splitNewTemplates', () => {
   ];
 
   it('always lists never-logged plans, newest first, even with 10+ performed plans', () => {
-    const { newPlans, savedPlans } = splitNewTemplates([...performed, ...fresh], sessions);
+    const { newPlans } = splitNewTemplates([...performed, ...fresh], sessions);
     expect(newPlans.map(p => p.id)).toEqual(['n2', 'n1']);
-    expect(savedPlans).toHaveLength(10);
-    expect(savedPlans.some(p => p.id.startsWith('n'))).toBe(false);
+  });
+
+  it('saved plans are only the latest week, newest first, one per name', () => {
+    const plans = [
+      { id: 'old1', planName: 'UB Oct(week2)', createdAt: '2026-10-16T08:00:00Z' },
+      { id: 'old2', planName: 'Legs(Oct w3)', createdAt: '2026-10-22T08:00:00Z' },
+      { id: 'w1', planName: 'Conditioning(Nov. Day1)', createdAt: '2026-11-02T08:00:00Z' },
+      { id: 'w2', planName: 'WB Nov(w1)', createdAt: '2026-11-04T08:00:00Z' },
+      { id: 'dupOld', planName: 'UB Oct(week3)', createdAt: '2026-10-19T08:00:00Z' },
+      { id: 'w3', planName: 'UB Oct(week3)', createdAt: '2026-11-09T08:00:00Z' }
+    ];
+    const logged = plans.map(p => ({ planName: p.planName, exercises: [] }));
+    const { newPlans, savedPlans } = splitNewTemplates(plans, logged);
+    expect(newPlans).toEqual([]);
+    expect(savedPlans.map(p => p.id)).toEqual(['w3', 'w2', 'w1']);
+  });
+
+  it('keeps an unsynced plan with no createdAt in saved plans', () => {
+    const plans = [
+      { id: 'a', planName: 'Old', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'b', planName: 'New', createdAt: '2026-11-01T00:00:00Z' },
+      { id: 'local', planName: 'Just saved' }
+    ];
+    const logged = plans.map(p => ({ planName: p.planName, exercises: [] }));
+    expect(splitNewTemplates(plans, logged).savedPlans.map(p => p.id)).toEqual(['local', 'b']);
   });
 
   it('matches logged plan names case- and space-insensitively', () => {

@@ -745,15 +745,34 @@ export function rankTemplatesByPerformance(templates, sessions, limit = 10) {
 
 // Splits a logger's saved plans into { newPlans, savedPlans } for the
 // Existing Plan dropdown: newPlans are the ones never logged under their name
-// (newest first, up to `newLimit`), always listed in their own group;
-// savedPlans is the usual top-`limit` ranking of everything else.
+// (newest first, up to `newLimit`), always listed in their own group.
+//
+// savedPlans is only the LATEST WEEK's plans: those saved in the 7 days up
+// to the client's newest saved plan, newest first, one per name. Coaches
+// write a fresh set each week ("UB Oct(week3)", "WB Nov(w1)"…), and ranking
+// every plan ever saved by performance kept old weeks at the top. Anchored on
+// the newest plan, not today, so a client whose coach hasn't saved anything
+// this week still sees last batch. A plan with no createdAt (saved on this
+// device, not synced yet) is always kept.
 export function splitNewTemplates(templates, sessions, { limit = 10, newLimit = 10 } = {}) {
   const loggedNames = new Set((sessions || []).map(s => (s.planName || '').trim().toLowerCase()).filter(Boolean));
   const isNew = (p) => !loggedNames.has((p.planName || '').trim().toLowerCase());
   const time = (p) => Date.parse(p.createdAt || '') || 0;
   const newPlans = (templates || []).filter(isNew).sort((a, b) => time(b) - time(a)).slice(0, newLimit);
   const newIds = new Set(newPlans.map(p => p.id));
-  const savedPlans = rankTemplatesByPerformance((templates || []).filter(p => !newIds.has(p.id)), sessions || [], limit);
+  const latest = Math.max(0, ...(templates || []).map(time));
+  const weekStart = latest - 7 * 24 * 60 * 60 * 1000;
+  const seen = new Set();
+  const savedPlans = (templates || [])
+    .filter(p => !newIds.has(p.id) && (time(p) === 0 || time(p) >= weekStart))
+    .sort((a, b) => (time(a) === 0 ? Infinity : time(a)) < (time(b) === 0 ? Infinity : time(b)) ? 1 : -1)
+    .filter(p => {
+      const key = (p.planName || '').trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
   return { newPlans, savedPlans };
 }
 

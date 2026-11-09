@@ -4595,6 +4595,41 @@ const databaseService = {
     }
   },
 
+  // Exercises carried over to this client's next session (see
+  // utils/workoutLeftovers.js). One row per client, shared by the client's
+  // logger and their coach's Live Log on any phone
+  // (sql/supabase_workout_leftovers.sql). Returns the items array, or null
+  // when the read failed — callers must not treat a failure as "none".
+  async getWorkoutLeftoversRemote(userId) {
+    if (!isSupabaseConfigured || !userId) return null;
+    try {
+      const rows = await restSelect(
+        `workout_leftovers?select=items&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+      );
+      if (!Array.isArray(rows)) return null;
+      return Array.isArray(rows[0]?.items) ? rows[0].items : [];
+    } catch (e) {
+      console.warn('getWorkoutLeftoversRemote failed (non-fatal):', e?.message || e);
+      return null;
+    }
+  },
+
+  // Replaces the client's whole carried-over list. true once it landed.
+  async saveWorkoutLeftoversRemote(userId, items) {
+    if (!isSupabaseConfigured || !userId) return false;
+    try {
+      await restUpsert('workout_leftovers', {
+        user_id: userId,
+        items: Array.isArray(items) ? items : [],
+        updated_at: new Date().toISOString()
+      }, 'user_id');
+      return true;
+    } catch (e) {
+      console.warn('saveWorkoutLeftoversRemote failed (non-fatal):', e?.message || e);
+      return false;
+    }
+  },
+
   // Coach has to leave mid Live Log: writes the session as the client's own
   // 'self' draft (coach_id kept, which marks it as handed over) so their
   // logger resumes it with the ticked sets intact. Server-only, insert-only:

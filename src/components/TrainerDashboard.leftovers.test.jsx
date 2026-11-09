@@ -18,6 +18,8 @@ vi.mock('../services/databaseService', () => {
     getLatestCoachNoteSentAt: vi.fn().mockResolvedValue(null),
     getCoachReminderAssets: vi.fn().mockResolvedValue(null),
     getPlatformStats: vi.fn().mockResolvedValue({ totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 }),
+    getWorkoutLeftoversRemote: vi.fn().mockResolvedValue(null),
+    saveWorkoutLeftoversRemote: vi.fn().mockResolvedValue(true),
     supabase: null
   };
   const svc = new Proxy(known, {
@@ -67,6 +69,8 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     databaseService.getWorkoutDraft.mockResolvedValue(null);
     databaseService.getWorkoutLogsForUser.mockResolvedValue([]);
     databaseService.getWorkoutPlansForUser.mockResolvedValue([PLAN]);
+    databaseService.getWorkoutLeftoversRemote.mockResolvedValue(null);
+    databaseService.saveWorkoutLeftoversRemote.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -87,6 +91,8 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     await waitFor(() => expect(databaseService.saveWorkoutSession).toHaveBeenCalled());
     await waitFor(() => expect(getWorkoutLeftovers(CLIENT.id).map(it => it.name)).toEqual(['Leg Curl', 'Calf Raise']));
     expect(getWorkoutLeftovers(CLIENT.id)[0].planName).toBe('Leg Day');
+    // ...and sent to the server, so the client's own phone sees them too.
+    expect(databaseService.saveWorkoutLeftoversRemote).toHaveBeenLastCalledWith(CLIENT.id, expect.arrayContaining([expect.objectContaining({ name: 'Leg Curl' })]));
   });
 
   it('unticking the box saves without queueing anything', async () => {
@@ -113,5 +119,15 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     await waitFor(() => expect(screen.queryByTestId('leftover-card')).toBeNull());
     expect(screen.getAllByText('Face Pull').length).toBeGreaterThan(0);
     expect(getWorkoutLeftovers(CLIENT.id).map(it => it.name)).toEqual(['Leg Curl']);
+  });
+
+  it('shows leftovers saved on another phone (server copy)', async () => {
+    databaseService.getWorkoutLeftoversRemote.mockResolvedValue([
+      { name: 'Reverse Fly', date: '2026-11-09', planName: 'UB Oct(week3)', savedAt: Date.now() }
+    ]);
+    renderLiveLog();
+    await loadPlan();
+    const card = await screen.findByTestId('leftover-card', {}, SLOW);
+    expect(card.textContent).toContain('Reverse Fly');
   });
 });

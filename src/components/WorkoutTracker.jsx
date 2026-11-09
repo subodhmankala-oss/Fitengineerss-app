@@ -45,6 +45,9 @@ import MuscleGapHint from './MuscleGapHint';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
+import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
+import LeftoverExercisesCard from './LeftoverExercisesCard';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
@@ -533,6 +536,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   }, []);
 
   const [showUntickedFinishModal, setShowUntickedFinishModal] = useState(false);
+  // "Keep N exercises for next session" tick box in that modal (same as the
+  // coach's Live Log). The list is server-backed and shared with the coach.
+  const [carryOverSkipped, setCarryOverSkipped] = useState(true);
   const [showDiscardConfirmModal, setShowDiscardConfirmModal] = useState(false);
   // Rest/warmup timer popup (ClockTimerModal) — same utility as the coach's
   // Live Log, purely a stopwatch/timer overlay, no data saved.
@@ -2256,8 +2262,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     });
   };
 
-  const handleFinishWorkoutPress = (e) => {
-    if (e) e.preventDefault();
+  const handleFinishWorkoutPress = (e, { allowPartial = false } = {}) => {
+    if (e && e.preventDefault) e.preventDefault();
 
     const totalSetsCount = logExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
     const completedSetsCount = logExercises.reduce(
@@ -2270,7 +2276,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
 
-    if (completedSetsCount < totalSetsCount) {
+    if (completedSetsCount < totalSetsCount && !(allowPartial && completedSetsCount > 0)) {
       setShowUntickedFinishModal(true);
       return;
     }
@@ -2489,6 +2495,19 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const updated = [...sessions, newSession];
     saveSessionsToLocal(updated);
     
+    // Exercises done now are cleared from the carry-over list; fully skipped
+    // ones are queued when the tick box was on (nothing was skipped if the
+    // safeguard above ticked everything).
+    const leftoverOwner = ownUserId || localStorage.getItem('userId');
+    if (leftoverOwner) {
+      updateWorkoutLeftovers(leftoverOwner, {
+        skipped: carryOverSkipped && totalCompleted > 0 ? findSkippedExercises(logExercises) : [],
+        completed: formattedExercises.map(ex => ex.name),
+        date: logDate,
+        planName: newSession.planName
+      });
+    }
+
     // Save as client routine template if checked
     if (saveAsTemplate && formattedExercises.length > 0) {
       // Use Supabase UUID if available, fall back to display name
@@ -2963,6 +2982,20 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const entry = { name, ...exerciseIdField(exerciseId), sets };
     setLogExercises(prev => addExerciseInOrder(prev, isBodyweightExercise(name) ? { ...entry, bodyweightMode: true } : entry));
     triggerToast(`Added ${name} to active workout!`);
+  };
+
+  // Exercises not done in the last session, by the client or their coach
+  // (see utils/workoutLeftovers.js), minus any already in this workout.
+  const leftoverOwnerId = ownUserId || localStorage.getItem('userId');
+  const leftoverItems = useWorkoutLeftovers(leftoverOwnerId, isLoggingWorkout)
+    .filter(it => isLoggingWorkout && !logExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
+  const handleAddLeftovers = () => {
+    const names = leftoverItems.map(it => it.name);
+    names.forEach(name => addExerciseToWorkout(name));
+    clearWorkoutLeftovers(leftoverOwnerId, names);
+  };
+  const handleDismissLeftovers = () => {
+    clearWorkoutLeftovers(leftoverOwnerId);
   };
 
   // Drain the queue (see draftCheckDone above). The helpers it needs are
@@ -3753,6 +3786,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
+          <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} />
           <div className="form-header">
             <div className="form-header-title-row">
               <h3>🏋️ Today's Workout</h3>
@@ -4986,6 +5020,35 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
                 Alternatively, do you want to discard the workout session?
               </p>
+              {(() => {
+                const skipped = findSkippedExercises(logExercises);
+                const hasDone = logExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => s.isCompleted));
+                if (!hasDone) return null;
+                return (
+                  <div style={{ marginTop: '14px', textAlign: 'left' }}>
+                    {skipped.length > 0 && (
+                      <label className="live-handover-carry">
+                        <input type="checkbox" checked={carryOverSkipped} onChange={e => setCarryOverSkipped(e.target.checked)} />
+                        <span>
+                          <strong>Keep {skipped.length === 1 ? '1 exercise' : `${skipped.length} exercises`} for next session</strong>
+                          <small>Not done today: {skipped.join(', ')}</small>
+                        </span>
+                      </label>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-confirm-save-hevy"
+                      style={{ width: '100%', marginTop: '10px', padding: '12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}
+                      onClick={() => {
+                        setShowUntickedFinishModal(false);
+                        handleFinishWorkoutPress(null, { allowPartial: true });
+                      }}
+                    >
+                      Save what I've done
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '16px' }}>

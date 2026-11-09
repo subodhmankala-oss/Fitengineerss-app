@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
 const getAdminNews = vi.fn();
-vi.mock('../../services/databaseService', () => ({ getAdminNews: (...a) => getAdminNews(...a) }));
+const getAdminNewsArticle = vi.fn();
+vi.mock('../../services/databaseService', () => ({
+  getAdminNews: (...a) => getAdminNews(...a),
+  getAdminNewsArticle: (...a) => getAdminNewsArticle(...a)
+}));
 
 import NewsRail from './NewsRail';
 import { NewsRoleTab } from './RoleTab';
@@ -20,6 +24,7 @@ describe('NewsRail', () => {
     resetAdminNewsCache();
     localStorage.clear();
     getAdminNews.mockReset();
+    getAdminNewsArticle.mockReset();
     getAdminNews.mockResolvedValue({
       fetchedAt: new Date().toISOString(),
       items: [
@@ -57,7 +62,7 @@ describe('NewsRail', () => {
     expect(dialog.textContent).toContain('Summary n2');
     expect(dialog.textContent).toContain('J Sports Sci');
     expect(dialog.textContent).toContain('Coach takeaway:');
-    expect(screen.getByText('Read full article').closest('a').getAttribute('href')).toBe('https://x.test/n2');
+    expect(screen.getByText('Read full article').closest('button')).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
     // Slides out first (still mounted, marked closing), then unmounts.
     expect(document.querySelector('.news-reader-backdrop.news-closing')).toBeTruthy();
@@ -128,5 +133,31 @@ describe('NewsRail', () => {
     render(<><NewsRoleTab active={false} onClick={() => {}} /><NewsRail variant="page" /></>);
     await screen.findByText('Story n0');
     expect(getAdminNews).toHaveBeenCalledTimes(1);
+  });
+  it('"Read full article" loads the text inside the reader, with the original linked at the end', async () => {
+    getAdminNewsArticle.mockResolvedValue({
+      link: 'https://x.test/n1', title: 'Story n1', byline: 'Jane Doe', source: 'ScienceDaily',
+      blocks: [{ type: 'h', text: 'Methods' }, { type: 'p', text: 'Full paragraph one.' }, { type: 'q', text: 'A quote.' }]
+    });
+    render(<NewsRail />);
+    fireEvent.click((await screen.findByText('Story n1')).closest('button'));
+    fireEvent.click(screen.getByText('Read full article'));
+    expect(getAdminNewsArticle).toHaveBeenCalledWith('https://x.test/n1');
+    expect(await screen.findByText('Full paragraph one.')).toBeTruthy();
+    expect(screen.getByText('Methods').tagName).toBe('H4');
+    expect(screen.getByText('Jane Doe')).toBeTruthy();
+    expect(screen.queryByText('Summary n1')).toBeNull();
+    expect(screen.queryByText('Read full article')).toBeNull();
+    expect(screen.getByText(/Open original/).closest('a').getAttribute('href')).toBe('https://x.test/n1');
+  });
+
+  it('falls back to the original link when the article cannot be shown', async () => {
+    getAdminNewsArticle.mockRejectedValue(new Error('422'));
+    render(<NewsRail />);
+    fireEvent.click((await screen.findByText('Story n1')).closest('button'));
+    fireEvent.click(screen.getByText('Read full article'));
+    expect(await screen.findByText(/can't be shown in the app/)).toBeTruthy();
+    expect(screen.getByText(/Open the original/).closest('a').getAttribute('href')).toBe('https://x.test/n1');
+    expect(screen.getByText('Summary n1')).toBeTruthy();
   });
 });

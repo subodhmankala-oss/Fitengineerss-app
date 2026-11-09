@@ -625,6 +625,23 @@ export async function getAdminNews({ force = false } = {}) {
   return data;
 }
 
+// Full text of one of today's stories for the news reader (founder only;
+// server fetches + extracts it on demand — api/_newsArticle.js). Throws on
+// failure so the reader can offer "Open original" instead.
+export async function getAdminNewsArticle(link) {
+  const { headers, email } = await serverFallbackAuth();
+  const resp = await fetch('/api/data-read?resource=admin-news-article', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ email, link })
+  });
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok || !Array.isArray(data?.blocks)) {
+    throw new Error(data?.error || `Article request failed (${resp.status})`);
+  }
+  return data;
+}
+
 // Whole-platform client roster for the super-admin "All Clients" view — the
 // unfiltered browser-side read is still RLS-scoped to the caller's own rows.
 // Returns null on any failure so the caller keeps its existing behaviour.

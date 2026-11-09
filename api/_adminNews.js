@@ -13,28 +13,37 @@
 
 // Patient-population trials (cancer, dialysis, stroke rehab…) aren't useful
 // to a coach of healthy fat-loss / muscle-building clients.
-const CLINICAL_EXCLUDE = ' NOT (cancer[tiab] OR tumor[tiab] OR dialysis[tiab] OR haemodialysis[tiab] OR hemodialysis[tiab] OR "kidney disease"[tiab] OR "heart failure"[tiab] OR COPD[tiab] OR stroke[tiab] OR surgery[tiab] OR "intensive care"[tiab] OR rats[tiab] OR mice[tiab])';
+const CLINICAL_EXCLUDE = ' NOT (cancer[tiab] OR tumor[tiab] OR dialysis[tiab] OR haemodialysis[tiab] OR hemodialysis[tiab] OR "kidney disease"[tiab] OR "heart failure"[tiab] OR COPD[tiab] OR stroke[tiab] OR surgery[tiab] OR "intensive care"[tiab] OR rats[tiab] OR rat[ti] OR mice[tiab] OR mouse[tiab] OR rodent*[tiab] OR "in vitro"[tiab])';
+
+// The journals that matter most for muscle building and sports nutrition
+// (PubMed journal abbreviations).
+const TOP_JOURNALS = '("Sports Med"[ta] OR "Med Sci Sports Exerc"[ta] OR "Br J Sports Med"[ta] OR "J Int Soc Sports Nutr"[ta] OR "Am J Clin Nutr"[ta] OR "J Appl Physiol (1985)"[ta] OR "J Strength Cond Res"[ta] OR "Eur J Sport Sci"[ta] OR "Int J Sport Nutr Exerc Metab"[ta])';
+const TRAINING_TERMS = '(hypertrophy[tiab] OR "resistance training"[tiab] OR "resistance exercise"[tiab] OR "strength training"[tiab] OR "muscle mass"[tiab] OR "muscle strength"[tiab] OR "lean mass"[tiab])';
+const NUTRITION_TERMS = '("protein intake"[tiab] OR "dietary protein"[tiab] OR "protein supplementation"[tiab] OR creatine[tiab] OR "fat loss"[tiab] OR "weight loss"[tiab] OR "energy restriction"[tiab] OR "caloric restriction"[tiab] OR diet[ti] OR supplement*[ti])';
 
 export const NEWS_FEEDS = [
   { source: 'ScienceDaily', kind: 'rss', url: 'https://www.sciencedaily.com/rss/health_medicine/fitness.xml', filter: true },
   { source: 'ScienceDaily', kind: 'rss', url: 'https://www.sciencedaily.com/rss/health_medicine/nutrition.xml', filter: true },
   { source: 'BJSM blog', kind: 'rss', url: 'https://blogs.bmj.com/bjsm/feed/', filter: true },
   { source: 'Stronger by Science', kind: 'rss', url: 'https://www.strongerbyscience.com/feed/', filter: false },
-  {
-    source: 'PubMed',
-    kind: 'pubmed',
-    term: '(hypertrophy[tiab] OR "resistance training"[tiab] OR "strength training"[tiab]) AND (randomized controlled trial[pt] OR meta-analysis[pt] OR systematic review[pt])' + CLINICAL_EXCLUDE
-  },
-  {
-    source: 'PubMed',
-    kind: 'pubmed',
-    term: '(protein[tiab] OR creatine[tiab] OR diet[tiab] OR supplement*[tiab]) AND ("resistance training"[tiab] OR "muscle mass"[tiab] OR "lean mass"[tiab] OR "fat loss"[tiab]) AND (randomized controlled trial[pt] OR meta-analysis[pt] OR systematic review[pt])' + CLINICAL_EXCLUDE
-  }
+  // Main source since 2026-11-09: new papers from the top sports-science and
+  // sports-nutrition journals (~1–2 on-topic a day). No publication-type
+  // filter — PubMed tags RCT/meta-analysis weeks after listing, so that
+  // filter only ever surfaced old papers.
+  { source: 'PubMed', kind: 'pubmed', term: `${TOP_JOURNALS} AND ${TRAINING_TERMS}${CLINICAL_EXCLUDE}` },
+  { source: 'PubMed', kind: 'pubmed', term: `${TOP_JOURNALS} AND ${NUTRITION_TERMS}${CLINICAL_EXCLUDE}` }
 ];
 
 export const MAX_ITEMS = 8;
+// Per-source slots out of MAX_ITEMS: the top-journal papers lead; the
+// plain-English sources fill in around them.
 const MAX_PER_SOURCE = 3;
-const MAX_AGE_DAYS = 21;
+const SOURCE_CAPS = { PubMed: 5 };
+const capFor = (source) => SOURCE_CAPS[source] ?? MAX_PER_SOURCE;
+// 10 days: older stories pushed this week's out (2026-11-09 list ran 3–21
+// days old with fresher ScienceDaily/PubMed items skipped). A slow week now
+// shows fewer than 8 rather than padding with old posts.
+const MAX_AGE_DAYS = 10;
 const SUMMARY_CHARS = 320;
 const FETCH_TIMEOUT_MS = 8000;
 const IMAGE_TIMEOUT_MS = 6000;
@@ -94,6 +103,15 @@ export function isOnTopic(text) {
   return MUSCLE_RE.test(text) || NUTRITION_RE.test(text);
 }
 
+// Animal / cell studies aren't actionable for coaching people (e.g. the
+// mouse "Super HGF" story on 2026-11-09). Checked on headline + summary
+// because press releases often only say "in mice" further down.
+const ANIMAL_RE = /\b(mice|mouse|murine|rats?|rodents?|zebrafish|fruit fl(?:y|ies)|nematodes?|worms|primates|monkeys|piglets?|in vitro|cell cultures?|animal (?:study|studies|model|models|experiments?))\b/i;
+
+export function isAnimalStudy(text) {
+  return ANIMAL_RE.test(text);
+}
+
 // PubMed → research; otherwise nutrition when the headline is about food and
 // not about training, else muscle.
 export function topicFor(item) {
@@ -117,6 +135,7 @@ export function parseRssItems(xml, feed) {
     if (!title || !/^https?:\/\//i.test(link) || Number.isNaN(published)) continue;
     const summary = shorten(cleanText(tag(block, 'description')), SUMMARY_CHARS);
     if (feed.filter && !isOnTopic(title)) continue;
+    if (isAnimalStudy(`${title} ${summary}`)) continue;
     items.push({ title, link, summary, publishedAt: new Date(published).toISOString(), source: feed.source });
   }
   return items;
@@ -163,7 +182,7 @@ export function extractOgImage(html, pageUrl) {
 
 // ─── Selection ───
 
-// Newest first, within MAX_AGE_DAYS, at most MAX_PER_SOURCE per source so one
+// Newest first, within MAX_AGE_DAYS, at most capFor(source) per source so one
 // busy feed can't fill the rail, and the same story (same link or title —
 // e.g. one ScienceDaily release in both its feeds) only once.
 export function mergeNewsItems(lists, now = Date.now(), max = MAX_ITEMS) {
@@ -177,7 +196,7 @@ export function mergeNewsItems(lists, now = Date.now(), max = MAX_ITEMS) {
   for (const item of all) {
     const keys = [item.link, item.title.toLowerCase()];
     if (keys.some((k) => seen.has(k))) continue;
-    if ((perSource[item.source] || 0) >= MAX_PER_SOURCE) continue;
+    if ((perSource[item.source] || 0) >= capFor(item.source)) continue;
     keys.forEach((k) => seen.add(k));
     perSource[item.source] = (perSource[item.source] || 0) + 1;
     out.push({ ...item, id: `n${out.length}`, topic: topicFor(item), image: null, takeaway: null });
@@ -223,7 +242,10 @@ function ncbiFetch(url) {
 async function fetchPubmed(feed) {
   const base = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   const search = await ncbiFetch(
-    `${base}/esearch.fcgi?db=pubmed&retmode=json&sort=pub_date&retmax=5&datetype=edat&reldate=${MAX_AGE_DAYS}&term=${encodeURIComponent(feed.term)}`
+    // No sort param = PubMed's default "most recent", i.e. by the date the
+    // paper was added. (sort=pub_date ordered by the journal's issue date,
+    // which skipped papers added this week to older or future issues.)
+    `${base}/esearch.fcgi?db=pubmed&retmode=json&retmax=8&datetype=edat&reldate=${MAX_AGE_DAYS}&term=${encodeURIComponent(feed.term)}`
   );
   const ids = JSON.parse(search)?.esearchresult?.idlist || [];
   if (!ids.length) return [];

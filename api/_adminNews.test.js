@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   parseRssItems, parsePubmedArticles, extractOgImage, mergeNewsItems, topicFor,
-  isOnTopic, isStale, istDay, applyTakeaways, buildTakeawayPrompt, getAdminNews
+  isOnTopic, isAnimalStudy, isStale, istDay, applyTakeaways, buildTakeawayPrompt, getAdminNews
 } from './_adminNews.js';
 
 const rss = (items) => `<rss><channel><title>Feed</title>${items.map(([t, l, d, desc = '']) =>
@@ -166,5 +166,38 @@ describe('getAdminNews cache', () => {
     const recent = { ...row, items: [{ id: 'n0', title: 'x', takeaway: null }], ai_attempted_at: new Date(now - 10 * 60000).toISOString() };
     await getAdminNews({ readRow: async () => recent, saveRow, groqKey: 'k', now });
     expect(groq).not.toHaveBeenCalled();
+  });
+});
+
+describe('source quality rules (2026-11-09)', () => {
+  const now = Date.parse('2026-11-09T06:00:00Z');
+  const mk = (source, n, daysOld) => ({
+    source, title: `${source} story ${n}`, link: `https://x.test/${source}/${n}`, summary: '',
+    publishedAt: new Date(now - daysOld * 86400000).toISOString()
+  });
+
+  it('drops animal and cell studies from news feeds', () => {
+    expect(isAnimalStudy('Aging muscles repair themselves — early mouse experiments')).toBe(true);
+    expect(isAnimalStudy('Creatine helps rats recover')).toBe(true);
+    expect(isAnimalStudy('In vitro work on muscle cells')).toBe(true);
+    expect(isAnimalStudy('Full-fat dairy and heart health in adults')).toBe(false);
+    const xml = `<rss><channel>
+      <item><title>Muscle repair discovery</title><link>https://x.test/a</link><pubDate>Mon, 02 Nov 2026 10:00:00 GMT</pubDate><description>Supported by early mouse experiments.</description></item>
+      <item><title>Muscle strength in older adults</title><link>https://x.test/b</link><pubDate>Mon, 02 Nov 2026 10:00:00 GMT</pubDate><description>A trial in 120 people.</description></item>
+    </channel></rss>`;
+    expect(parseRssItems(xml, { source: 'ScienceDaily', filter: true }).map((i) => i.link)).toEqual(['https://x.test/b']);
+  });
+
+  it('gives top-journal papers 5 slots and other sources 3', () => {
+    const pubmed = [1, 2, 3, 4, 5, 6].map((n) => mk('PubMed', n, 1));
+    const sd = [1, 2, 3, 4].map((n) => mk('ScienceDaily', n, 2));
+    const out = mergeNewsItems([pubmed, sd], now);
+    expect(out.filter((i) => i.source === 'PubMed')).toHaveLength(5);
+    expect(out.filter((i) => i.source === 'ScienceDaily')).toHaveLength(3);
+  });
+
+  it('keeps only the last 10 days, so a slow week shows fewer stories rather than old ones', () => {
+    const out = mergeNewsItems([[mk('BJSM blog', 1, 9), mk('BJSM blog', 2, 11), mk('BJSM blog', 3, 21)]], now);
+    expect(out.map((i) => i.title)).toEqual(['BJSM blog story 1']);
   });
 });

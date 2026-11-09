@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getAdminNews } from '../../services/databaseService';
+import { useAdminNews, markNewsSeen } from './useAdminNews';
 import './NewsRail.css';
 
-// Super-admin only: daily muscle-building + nutrition news in the empty
-// right-hand gutter beside the client list (requested 2026-11-09). Desktop
-// only — NewsRail.css hides it below the width where the gutter fits it.
+// Founder only: daily muscle-building + nutrition news (requested 2026-11-09).
+// Two variants share everything below:
+// - "rail" (default): the desktop side panel fixed in the right-hand lane
+//   beside the client list; NewsRail.css hides it below 1360px.
+// - "page": the phone's News tab, opened from the My Clients / News /
+//   Super-Admin bar in TrainerDashboard.jsx; in-flow, full width.
 // Data + AI coach takeaways come from api/_adminNews.js, refreshed once a
-// day server-side; this component only reads.
+// day server-side; this component only reads (via useAdminNews).
 
 const TOPICS = [
   { key: 'all', label: 'All' },
@@ -26,7 +29,9 @@ const Icon = {
   bulb: (s) => svg(<><path d="M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7-.7.7" /><path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3" /><path d="M9.7 17h4.6" /></>, s),
   external: (s) => svg(<><path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /><path d="M11 13l9-9M15 4h5v5" /></>, s),
   copy: (s) => svg(<><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></>, s),
+  share: (s) => svg(<><circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" /><path d="M8.7 10.7l6.6-3.4M8.7 13.3l6.6 3.4" /></>, s),
   close: (s) => svg(<path d="M18 6 6 18M6 6l12 12" />, s),
+  back: (s) => svg(<path d="M15 6l-6 6 6 6" />, s),
   muscle: (s) => svg(<><path d="M2 12h1M6 8H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" /><path d="M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /><path d="M9 12h6" /><path d="M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1z" /><path d="M18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M22 12h-1" /></>, s),
   nutrition: (s) => svg(<><circle cx="12" cy="14" r="7" /><path d="M12 11V5a2 2 0 0 1 2-2h2v1a2 2 0 0 1-2 2h-2" /><path d="M10 10.5c1.3.7 2.7.7 4 0" /></>, s),
   research: (s) => svg(<><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" /><path d="M7.5 15h9" /></>, s)
@@ -76,7 +81,7 @@ function Thumb({ item, big = false }) {
 // the browser skips the transition (hidden tab, reduced motion).
 const READER_EXIT_MS = 240;
 
-function Reader({ item, onClose }) {
+function Reader({ item, onClose, asPage }) {
   const [copied, setCopied] = useState(false);
   const [closing, setClosing] = useState(false);
   const close = useCallback(() => {
@@ -103,12 +108,22 @@ function Reader({ item, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
 
+  const shareText = [item.title, item.takeaway].filter(Boolean).join('\n');
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText([item.title, item.takeaway, item.link].filter(Boolean).join('\n'));
+      await navigator.clipboard.writeText(`${shareText}\n${item.link}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch { /* clipboard blocked — nothing useful to show */ }
+  };
+  // Phone: the system share sheet (WhatsApp etc.); falls back to copying.
+  const canShare = asPage && typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const share = async () => {
+    try {
+      await navigator.share({ title: item.title, text: shareText, url: item.link });
+    } catch (e) {
+      if (e?.name !== 'AbortError') copy();
+    }
   };
 
   return (
@@ -117,8 +132,17 @@ function Reader({ item, onClose }) {
         <Thumb item={item} big />
         <div className="news-reader-body">
           <div className="news-reader-top">
-            <span className={`news-tag news-topic-${item.topic}`}>{TOPIC_LABEL[item.topic]}</span>
-            <button type="button" className="news-icon-btn" onClick={close} aria-label="Close">{Icon.close(18)}</button>
+            {asPage ? (
+              <>
+                <button type="button" className="news-back-btn" onClick={close} aria-label="Close">{Icon.back(16)} News</button>
+                <span className={`news-tag news-topic-${item.topic}`}>{TOPIC_LABEL[item.topic]}</span>
+              </>
+            ) : (
+              <>
+                <span className={`news-tag news-topic-${item.topic}`}>{TOPIC_LABEL[item.topic]}</span>
+                <button type="button" className="news-icon-btn" onClick={close} aria-label="Close">{Icon.close(18)}</button>
+              </>
+            )}
           </div>
           <h3 className="news-reader-title">{item.title}</h3>
           <div className="news-meta">
@@ -135,7 +159,11 @@ function Reader({ item, onClose }) {
             <a className="news-btn" href={item.link} target="_blank" rel="noopener noreferrer">
               Read full article {Icon.external(14)}
             </a>
-            {item.takeaway && (
+            {canShare ? (
+              <button type="button" className="news-btn" onClick={share}>
+                {Icon.share(14)} {copied ? 'Copied' : 'Share'}
+              </button>
+            ) : item.takeaway && (
               <button type="button" className="news-btn" onClick={copy}>
                 {Icon.copy(14)} {copied ? 'Copied' : 'Copy takeaway'}
               </button>
@@ -147,35 +175,29 @@ function Reader({ item, onClose }) {
   );
 }
 
-export default function NewsRail() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+export default function NewsRail({ variant = 'rail' }) {
+  const asPage = variant === 'page';
+  const { data, error, loading, load } = useAdminNews();
   const [topic, setTopic] = useState('all');
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(asPage);
   const [openItem, setOpenItem] = useState(null);
-
-  const load = useCallback(async (force = false) => {
-    setLoading(true);
-    setError('');
-    try {
-      setData(await getAdminNews({ force }));
-    } catch (e) {
-      console.warn('NewsRail load failed:', e?.message || e);
-      setError("Couldn't load today's news.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(false); }, [load]);
+  const sectionRef = useRef(null);
 
   // Tells NewsRail.css to shift the client column left so the rail has its
   // own lane (no-op below 1360px, where the rail itself is hidden).
   useEffect(() => {
+    if (asPage) return undefined;
     document.body.classList.add('has-news-rail');
     return () => document.body.classList.remove('has-news-rail');
-  }, []);
+  }, [asPage]);
+
+  // Clears the News tab's unread bubble, but only once the news is actually
+  // on screen: the rail is also mounted (CSS-hidden) on phones.
+  useEffect(() => {
+    if (!data?.items?.length || !sectionRef.current) return;
+    if (getComputedStyle(sectionRef.current).display === 'none') return;
+    markNewsSeen(data.items);
+  }, [data]);
 
   const items = useMemo(
     () => (data?.items || []).filter((i) => topic === 'all' || i.topic === topic),
@@ -186,7 +208,7 @@ export default function NewsRail() {
 
   return (
     <>
-      <section className="news-rail" aria-label="Today in training">
+      <section ref={sectionRef} className={asPage ? 'news-page' : 'news-rail'} aria-label="Today in training">
         <div className="news-rail-head">
           <span className="news-rail-icon">{Icon.news(18)}</span>
           <span className="news-rail-title">Today in training</span>
@@ -211,7 +233,7 @@ export default function NewsRail() {
               role="tab"
               aria-selected={topic === t.key}
               className={`news-chip news-topic-${t.key}${topic === t.key ? ' active' : ''}`}
-              onClick={() => { setTopic(t.key); setShowAll(false); }}
+              onClick={() => { setTopic(t.key); setShowAll(asPage); }}
             >
               {t.label}
             </button>
@@ -241,13 +263,13 @@ export default function NewsRail() {
           ))}
         </div>
 
-        {items.length > FIRST_COUNT && (
+        {!asPage && items.length > FIRST_COUNT && (
           <button type="button" className="news-more" onClick={() => setShowAll((v) => !v)}>
             {showAll ? 'Show less' : `Show ${items.length - FIRST_COUNT} more`}
           </button>
         )}
       </section>
-      {openItem && <Reader item={openItem} onClose={closeReader} />}
+      {openItem && <Reader item={openItem} onClose={closeReader} asPage={asPage} />}
     </>
   );
 }

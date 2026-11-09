@@ -1731,3 +1731,76 @@
     background: rgba(var(--bg-card-rgb), 0.95);
   }
 }
+
+/* Founder's phone tab bar (My Clients / News / Super-Admin), 2026-11-09:
+   line icon over label, tint + ring when active (each tab its own hue),
+   corner bubble for counts — blue = client count, red = unread news.
+   Component: src/components/admin/RoleTab.jsx. */
+.role-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px 7px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(148, 163, 184, 0.75);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.role-tab-clients { --tab-rgb: var(--accent-rgb); --tab-ink: var(--accent-text); }
+.role-tab-news { --tab-rgb: 16, 185, 129; --tab-ink: #34d399; }
+.role-tab-admin { --tab-rgb: 139, 92, 246; --tab-ink: var(--tint-violet); }
+[data-theme="light"] .role-tab-clients { --tab-ink: #2f4da3; }
+[data-theme="light"] .role-tab-news { --tab-ink: #047857; }
+[data-theme="light"] .role-tab-admin { --tab-ink: #5b21b6; }
+.role-tab.active {
+  background: rgba(var(--tab-rgb), 0.14);
+  border-color: rgba(var(--tab-rgb), 0.5);
+  color: var(--tab-ink);
+}
+.role-tab-icon { position: relative; display: inline-flex; }
+.role-tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.role-tab-bubble {
+  position: absolute;
+  top: -7px;
+  left: 13px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--bg-app);
+}
+.role-tab-bubble-info { background: #378add; }
+.role-tab-bubble-alert { background: #e24b4a; }
+.role-tab-dot {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #0095f6;
+  box-shadow: 0 0 0 2px var(--bg-app);
+}
+
+.news-tab-view {
+  width: 100%;
+  max-width: 935px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}

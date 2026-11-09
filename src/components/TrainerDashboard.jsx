@@ -8348,10 +8348,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           color: 'var(--accent-text)', cursor: 'pointer', padding: 0
                         }}
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
+                        <PencilIcon size={15} />
                       </button>
                     </div>
                     {programDatesSaveMsg && (
@@ -9337,7 +9334,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     /* PLAN EDITOR VIEW */
                     <div className="plan-editor-card glass-panel" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                       <h4 style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 800, marginBottom: '16px' }}>
-                        {isAiDraftMode ? '✨ Review AI Draft' : editingPlan ? '✏️ Edit Workout Plan' : '📋 Create Workout Plan'}
+                        {isAiDraftMode ? '✨ Review AI Draft' : editingPlan ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><PencilIcon size={16} /> Edit Workout Plan</span> : '📋 Create Workout Plan'}
                       </h4>
 
                       {/* AI draft review — day tabs + the AI's own rationale.

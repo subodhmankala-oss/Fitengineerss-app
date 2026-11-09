@@ -608,6 +608,23 @@ async function getAdminCoachesViaServer() {
   }
 }
 
+// Super-admin dashboard news rail (NewsRail.jsx) — daily muscle/nutrition
+// stories with AI coach takeaways, cached server-side; see api/_adminNews.js.
+// Throws on failure so the rail can show its own error/retry state.
+export async function getAdminNews({ force = false } = {}) {
+  const { headers, email } = await serverFallbackAuth();
+  const resp = await fetch('/api/data-read?resource=admin-news', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ email, force })
+  });
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok || !Array.isArray(data?.items)) {
+    throw new Error(data?.error || `News request failed (${resp.status})`);
+  }
+  return data;
+}
+
 // Whole-platform client roster for the super-admin "All Clients" view — the
 // unfiltered browser-side read is still RLS-scoped to the caller's own rows.
 // Returns null on any failure so the caller keeps its existing behaviour.

@@ -12,6 +12,8 @@
 // rewrites each old path to /api/data-read?resource=<name>, so no frontend
 // code had to change.
 
+import { getAdminNews } from './_adminNews.js';
+
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -714,6 +716,42 @@ async function handlePlatformStats(req, res) {
   }
 }
 
+// Daily muscle/nutrition news for the super-admin's dashboard rail — see
+// api/_adminNews.js. Cached in admin_news_cache (service-role only); the
+// first open of the day refreshes it. body.force=true re-fetches early (the
+// rail's refresh button), throttled to once per 30 min inside getAdminNews.
+async function handleAdminNews(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  if (!isSuperAdminEmail(verifiedEmail)) {
+    return res.status(403).json({ error: 'Super-admin only.' });
+  }
+
+  try {
+    const result = await getAdminNews({
+      force: (req.body || {}).force === true,
+      groqKey: process.env.GROQ_API_KEY,
+      readRow: async () => (await svcSelect('admin_news_cache?select=*&id=eq.latest', 'admin-news read'))[0] || null,
+      saveRow: async (row) => {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/admin_news_cache?on_conflict=id`, {
+          method: 'POST',
+          headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(row)
+        });
+        if (!resp.ok) throw new Error(`admin-news save failed (${resp.status})`);
+      }
+    });
+    if (!result) return res.status(502).json({ error: 'Could not load news right now.' });
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('admin-news error:', err);
+    return res.status(502).json({ error: 'Could not load news right now.' });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
@@ -724,7 +762,8 @@ const RESOURCE_HANDLERS = {
   'custom-exercises-create': handleCreateCustomExercise,
   'admin-coaches': handleAdminCoaches,
   'admin-clients': handleAdminClients,
-  'platform-stats': handlePlatformStats
+  'platform-stats': handlePlatformStats,
+  'admin-news': handleAdminNews
 };
 
 export default async function handler(req, res) {

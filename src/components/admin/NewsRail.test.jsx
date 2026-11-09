@@ -55,7 +55,22 @@ describe('NewsRail', () => {
     expect(dialog.textContent).toContain('Coach takeaway:');
     expect(screen.getByText('Read full article').closest('a').getAttribute('href')).toBe('https://x.test/n2');
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // Slides out first (still mounted, marked closing), then unmounts.
+    expect(document.querySelector('.news-reader-backdrop.news-closing')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('the X button also slides out, and a double click does not break it', async () => {
+    render(<NewsRail />);
+    fireEvent.click((await screen.findByText('Story n0')).closest('button'));
+    const x = screen.getByLabelText('Close');
+    fireEvent.click(x);
+    fireEvent.click(x);
+    expect(document.querySelector('.news-closing')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByText('Story n1').closest('button'));
+    expect(screen.getByRole('dialog').textContent).toContain('Summary n1');
+    expect(document.querySelector('.news-closing')).toBeNull();
   });
 
   it('uses the image when present and a topic tile otherwise, swapping to the tile if the image fails', async () => {

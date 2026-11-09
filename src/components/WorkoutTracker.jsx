@@ -949,7 +949,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // this state directly and writes the same key itself.
     setActiveView('templates');
     try { localStorage.setItem(lastTabKey, 'templates'); } catch { /* ignore quota/serialization errors */ }
-    triggerToast('🗑️ Workout session discarded.');
+    triggerToast('Workout session discarded.');
   };
 
   // Resolve this client's canonical DB id once on mount, then reconcile with

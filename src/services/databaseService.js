@@ -2073,6 +2073,21 @@ const databaseService = {
     return body;
   },
 
+  // Bin on the Daily card: deletes every set saved on logDate (a workout
+  // logged by mistake). Server-checked like the other edits.
+  async deleteSavedWorkoutDay({ userId, logDate }) {
+    if (!UUID_RE.test(userId || '')) throw new Error('Missing account id — reload and try again.');
+    const { headers, email } = await serverFallbackAuth();
+    const resp = await fetch('/api/save-workout-session', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email, userId, edit: { logDate, deleteDay: true } })
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(body.error || 'Couldn\'t delete that workout. Try again.');
+    return body;
+  },
+
   // Edit workout's Save: changed/removed sets first, then any sets added to
   // existing exercises (appended to the same session).
   async saveWorkoutEdits({ userId, logDate, changes = [], deletes = [], kcalDeltas = {}, adds = [], addedKcal = 0 }) {

@@ -121,6 +121,17 @@ const EDITABLE_COLUMNS = ['reps', 'weight_kg', 'distance_km', 'cardio_duration_s
 export async function editSavedSession({ svcHeaders, userId, edit, fetchImpl = fetch }) {
   const logDate = String(edit.logDate || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) return { status: 400, body: { error: 'edit.logDate must be YYYY-MM-DD' } };
+  // Bin on the Daily card ("logged by mistake"): every row that user saved on
+  // that date goes, nothing else.
+  if (edit.deleteDay === true) {
+    const r = await fetchImpl(
+      `${supabaseUrl}/rest/v1/workout_logs?user_id=eq.${encodeURIComponent(userId)}&log_date=eq.${logDate}`,
+      { method: 'DELETE', headers: { ...svcHeaders, Prefer: 'return=representation' } }
+    );
+    if (!r.ok) return { status: 502, body: { error: "Couldn't delete that workout. Try again." } };
+    const gone = await r.json().catch(() => null);
+    return { status: 200, body: { success: true, deleted: Array.isArray(gone) ? gone.length : null } };
+  }
   const updates = Array.isArray(edit.updates) ? edit.updates : [];
   const deletes = Array.isArray(edit.deletes) ? edit.deletes.map(String) : [];
   if (updates.length === 0 && deletes.length === 0) return { status: 400, body: { error: 'Nothing to change.' } };

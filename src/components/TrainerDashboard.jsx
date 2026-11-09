@@ -29,7 +29,7 @@ import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
 import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
-import { PlusIcon, PencilLineIcon } from './SavedWorkoutSheetParts';
+import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
@@ -2374,7 +2374,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       await deleteLiveDraftAfterPendingSave(selectedClient.id);
       refreshCoachActiveDrafts();
     }
-    triggerLiveToast('🗑️ Live session discarded.');
+    triggerLiveToast('Live session discarded.');
   };
 
   // Coach has to leave mid-session: the session (ticked sets, plan, session
@@ -2627,6 +2627,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // editable only when they all came from the database (have an id).
   const historyDayRows = useMemo(() => rawWorkoutLogs.filter(l => l.log_date === historyDateStr), [rawWorkoutLogs, historyDateStr]);
   const historyDayRowsEditable = historyDayRows.length > 0 && historyDayRows.every(l => l.id != null);
+  // Bin on the client's Daily history: that day's whole saved workout goes.
+  const [deletingDay, setDeletingDay] = useState(false);
+  const handleDeleteWorkoutDay = async (planName) => {
+    const clientId = selectedClient?.id;
+    if (deletingDay || !clientId) return;
+    if (!window.confirm(`Delete ${planName || 'this workout'} for ${historyDateStr}? All its sets and calories for this day will be removed. This can't be undone.`)) return;
+    setDeletingDay(true);
+    try {
+      await databaseService.deleteSavedWorkoutDay({ userId: clientId, logDate: historyDateStr });
+      setMissedExToast(`${planName || 'Workout'} deleted`);
+      const logs = await databaseService.getWorkoutLogsForUser(clientId).catch(() => null);
+      if (logs && selectedClient?.id === clientId) {
+        const refreshed = groupLogs(logs);
+        setWorkoutLogs(refreshed);
+        setRawWorkoutLogs(logs);
+        if (liveHistoryRef.current.clientId === clientId) liveHistoryRef.current = { clientId, sessions: refreshed };
+      }
+    } catch (e) {
+      setMissedExToast(e?.message || 'Couldn\'t delete that workout. Try again.');
+    } finally {
+      setDeletingDay(false);
+      setTimeout(() => setMissedExToast(''), 3500);
+    }
+  };
+
   const handleSaveWorkoutEdit = async (edit, planName) => {
     const clientId = selectedClient?.id;
     await databaseService.saveWorkoutEdits({ userId: clientId, logDate: historyDateStr, ...edit });
@@ -8323,10 +8348,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           color: 'var(--accent-text)', cursor: 'pointer', padding: 0
                         }}
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
+                        <PencilIcon size={15} />
                       </button>
                     </div>
                     {programDatesSaveMsg && (
@@ -8918,9 +8940,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   actions={daySession && daySession.exercises.length > 0 && canAddMissedExercise(historyDateStr) && (
                                     <>
                                       {historyDayRowsEditable && (
-                                        <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                                          <PencilLineIcon size={11} /> Edit
-                                        </button>
+                                        <>
+                                          <button type="button" className="missed-ex-entry-btn edit icon-only" onClick={() => setEditWorkoutOpen(true)} aria-label="Edit workout" title="Edit workout">
+                                            <EditSquareIcon size={14} />
+                                          </button>
+                                          <button type="button" className="missed-ex-entry-btn delete icon-only" onClick={() => handleDeleteWorkoutDay(daySession?.planName)} disabled={deletingDay} aria-label="Delete workout" title="Delete workout">
+                                            <TrashLineIcon size={14} />
+                                          </button>
+                                        </>
                                       )}
                                       <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
                                         <PlusIcon size={11} /> Add missed workout
@@ -9285,9 +9312,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   <button
                                     onClick={() => handleDeleteMeasurementEntry(entry.id, fmtDate(entry.measuredAt))}
                                     title="Delete this entry"
-                                    style={{ flexShrink: 0, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', cursor: 'pointer' }}
+                                    aria-label="Delete this entry"
+                                    style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: 'var(--tint-red)', padding: '4px 7px', cursor: 'pointer' }}
                                   >
-                                    🗑
+                                    <BinIcon size={14} />
                                   </button>
                                 </div>
                               );
@@ -9306,7 +9334,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     /* PLAN EDITOR VIEW */
                     <div className="plan-editor-card glass-panel" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                       <h4 style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 800, marginBottom: '16px' }}>
-                        {isAiDraftMode ? '✨ Review AI Draft' : editingPlan ? '✏️ Edit Workout Plan' : '📋 Create Workout Plan'}
+                        {isAiDraftMode ? '✨ Review AI Draft' : editingPlan ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><PencilIcon size={16} /> Edit Workout Plan</span> : '📋 Create Workout Plan'}
                       </h4>
 
                       {/* AI draft review — day tabs + the AI's own rationale.

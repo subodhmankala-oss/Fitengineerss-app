@@ -24,6 +24,7 @@ export function StopwatchIcon({ size = 22, className }) {
   );
 }
 
+// The app's one edit icon: a pen with a line under it.
 export function PencilIcon({ size = 20, className }) {
   return (
     <svg
@@ -31,16 +32,21 @@ export function PencilIcon({ size = 20, className }) {
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Z" />
-      <path d="M20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z" />
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }
 
-// Outline bin with a lid handle and a plain body (no inner lines) — the
-// delete icon used on the Payments list.
+// The app's one delete icon: lid, handle, tapered body with two lines.
+// BinIcon / TrashIcon are kept as names so every existing caller gets it.
 export function BinIcon({ size = 20, className }) {
   return (
     <svg
@@ -53,32 +59,17 @@ export function BinIcon({ size = 20, className }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <path d="M4 7h16" />
-      <path d="M9 7V4.5h6V7" />
-      <path d="M6 7v11.5A1.5 1.5 0 0 0 7.5 20h9a1.5 1.5 0 0 0 1.5-1.5V7" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+      <path d="M9 7V4h6v3" />
     </svg>
   );
 }
 
-export function TrashIcon({ size = 20, className }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
+export const TrashIcon = BinIcon;
 
 export function PlayIcon({ size = 20, className }) {
   return (

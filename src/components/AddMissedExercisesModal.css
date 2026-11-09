@@ -177,6 +177,10 @@
 .missed-ex-entry-btn:hover { opacity: 0.85; }
 .missed-ex-entry-btn.edit { --entry-color: var(--tint-amber); }
 .missed-ex-entry-btn.add { --entry-color: var(--tint-blue); }
+.missed-ex-entry-btn.delete { --entry-color: var(--tint-red); }
+/* Icon-only (Edit / Delete): same height as the labelled pill. */
+.missed-ex-entry-btn.icon-only { padding: 3px 7px; }
+.missed-ex-entry-btn:disabled { opacity: 0.5; cursor: default; }
 .missed-ex-later-tag {
   margin-left: 6px;
   font-size: 0.66rem;

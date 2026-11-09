@@ -4,6 +4,7 @@ import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { MUSCLE_TO_PPLC } from '../utils/muscleGroups';
 import { getOpenedPlanIds, markPlanOpened } from '../utils/openedCoachPlans';
 import './WorkoutTracker.css';
+import { BinIcon } from './TimerIcons';
 
 // Routine-picker card icons — plain stroke SVGs (matches ClientProfile.jsx's
 // icon style) instead of emoji, so Coach Plan and Saved Template cards use
@@ -30,12 +31,7 @@ const DumbbellIcon = () => (
     <path d="M6.5 6.5 17.5 17.5M4 4l3 3M20 20l-3-3M2 8l3-3M8 2l3 3M16 22l3-3M22 16l-3 3" />
   </svg>
 );
-export const TrashIcon = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </svg>
-);
+export const TrashIcon = ({ size = 14 }) => <BinIcon size={size} />;
 
 // "3d ago" / "Today" / "Yesterday" from an ISO timestamp — used for saved
 // templates, which only track createdAt (no separate updated-at column).

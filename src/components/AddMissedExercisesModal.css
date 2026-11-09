@@ -162,10 +162,11 @@
   align-items: center;
   gap: 4px;
   margin: 0;
-  padding: 3px 9px;
+  padding: 3px 4px;
   border-radius: var(--radius-full);
-  border: 1px solid color-mix(in srgb, var(--entry-color) 35%, transparent);
-  background: color-mix(in srgb, var(--entry-color) 12%, transparent);
+  /* Plain coloured icon/text — no pill fill or border. */
+  border: none;
+  background: none;
   color: var(--entry-color);
   font-family: inherit;
   font-size: 0.68rem;
@@ -178,8 +179,8 @@
 .missed-ex-entry-btn.edit { --entry-color: var(--tint-amber); }
 .missed-ex-entry-btn.add { --entry-color: var(--tint-blue); }
 .missed-ex-entry-btn.delete { --entry-color: var(--tint-red); }
-/* Icon-only (Edit / Delete): same height as the labelled pill. */
-.missed-ex-entry-btn.icon-only { padding: 3px 7px; }
+/* Icon-only (Edit / Delete): same height as the labelled button. */
+.missed-ex-entry-btn.icon-only { padding: 3px 4px; }
 .missed-ex-entry-btn:disabled { opacity: 0.5; cursor: default; }
 .missed-ex-later-tag {
   margin-left: 6px;

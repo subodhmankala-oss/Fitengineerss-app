@@ -1803,4 +1803,8 @@
   max-width: 935px;
   margin: 0 auto;
   box-sizing: border-box;
+  /* Same side gutter as .client-directory-view — without it the News tab ran
+     edge to edge on phones. */
+  padding-left: var(--screen-gutter);
+  padding-right: var(--screen-gutter);
 }

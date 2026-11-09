@@ -3197,12 +3197,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         }));
       }
 
-      const formattedExercises = liveExercises.map(ex => {
+      const formatLiveExercise = (ex, sets) => {
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
           ...exerciseIdField(ex.exerciseId),
-          sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
+          sets: sets.map(s => ({
             // Cardio sets carry distance/time instead of reps/weight, and
             // timed holds (plank etc.) carry time only, so the save step
             // (and workout_logs.distance_km/cardio_duration_seconds) doesn't
@@ -3220,7 +3220,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
           }))
         };
-      }).filter(ex => ex.sets.length > 0);
+      };
+      const formattedExercises = liveExercises
+        .map(ex => formatLiveExercise(ex, completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets))
+        .filter(ex => ex.sets.length > 0);
+      // Exercises not started this time that the coach chose to keep for the
+      // next session (the tick box above Save).
+      const carriedOver = liveCarryOver && completedCount > 0 ? findSkippedExercises(liveExercises) : [];
 
       const session = {
         id: `coach-live-${Date.now()}`,
@@ -3242,7 +3248,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       // queued if the coach left the tick box on. With nothing ticked, every
       // set was saved above, so nothing was skipped.
       updateWorkoutLeftovers(selectedClient.id, {
-        skipped: liveCarryOver && completedCount > 0 ? findSkippedExercises(liveExercises) : [],
+        skipped: carriedOver,
         completed: formattedExercises.map(ex => ex.name),
         date: liveDate,
         planName: session.planName
@@ -3279,11 +3285,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       // push — becoming a real assignment stays a deliberate action (the
       // plan editor's Save/Duplicate, same as it already works today), not
       // an automatic side effect of logging a session.
+      //
+      // Exercises kept for the next session stay in that plan copy, with their
+      // planned sets, in their original order. Without this the copy held
+      // only what was done, so loading the plan next time silently lost them
+      // (seen 2026-11-09: "UB Oct(week3)" saved without Reverse Fly and Cable
+      // Shrug). The "Left over" card alone can't carry them: it lives in this
+      // phone's localStorage only.
+      const planExercises = liveExercises
+        .map(ex => carriedOver.includes(ex.name)
+          ? formatLiveExercise(ex, ex.sets)
+          : formatLiveExercise(ex, completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets))
+        .filter(ex => ex.sets.length > 0);
       try {
         await databaseService.saveWorkoutPlan({
           userId: selectedClient.id,
           planName: livePlanName || 'Live Routine',
-          exercises: formattedExercises,
+          exercises: planExercises,
           createdBy: 'coach',
           isAssigned: false
         });

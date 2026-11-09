@@ -87,6 +87,15 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     await waitFor(() => expect(databaseService.saveWorkoutSession).toHaveBeenCalled());
     await waitFor(() => expect(getWorkoutLeftovers(CLIENT.id).map(it => it.name)).toEqual(['Leg Curl', 'Calf Raise']));
     expect(getWorkoutLeftovers(CLIENT.id)[0].planName).toBe('Leg Day');
+
+    // The plan copy saved with the session keeps them too, with their planned
+    // sets, so loading "Leg Day" next time (on any phone) still has them.
+    await waitFor(() => expect(databaseService.saveWorkoutPlan).toHaveBeenCalled());
+    const plan = databaseService.saveWorkoutPlan.mock.calls[0][0];
+    expect(plan.planName).toBe('Leg Day');
+    expect(plan.exercises.map(ex => [ex.name, ex.sets.length])).toEqual([['Squat', 1], ['Leg Curl', 1], ['Calf Raise', 1]]);
+    // ...while the logged session itself is only what was done.
+    expect(databaseService.saveWorkoutSession.mock.calls[0][0].exercises.map(ex => ex.name)).toEqual(['Squat']);
   });
 
   it('unticking the box saves without queueing anything', async () => {
@@ -98,6 +107,8 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     fireEvent.click(screen.getByText('💾 Save Workout Session'));
     await waitFor(() => expect(databaseService.saveWorkoutSession).toHaveBeenCalled());
     expect(getWorkoutLeftovers(CLIENT.id)).toEqual([]);
+    await waitFor(() => expect(databaseService.saveWorkoutPlan).toHaveBeenCalled());
+    expect(databaseService.saveWorkoutPlan.mock.calls[0][0].exercises.map(ex => ex.name)).toEqual(['Squat']);
   });
 
   it("the client's next session offers them on a card", async () => {

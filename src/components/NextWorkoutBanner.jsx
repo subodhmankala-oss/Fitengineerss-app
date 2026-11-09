@@ -4,7 +4,7 @@ import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
 import { buildWarmupExercises } from '../utils/warmupBlocks';
-import { applyWeeklySwaps, hasTrainedBeforeThisWeek } from '../utils/weeklySwaps';
+import { applyWeeklySwaps, countPriorRuns } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
@@ -20,11 +20,11 @@ const CATEGORIES = ['gym', 'home'];
 // Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 // Also saves the level/category as the one the client is on — that level
 // then stays the suggestion for 12 weeks (see determineWorkoutGuidance).
-// `trainedBefore` comes from this client's server logs (see todaysFocus), so
-// the logger applies the same weekly-swap rule the banner previewed.
-function startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore) {
+// The swap count comes from this client's server logs (countPriorRuns), so
+// the logger applies the same swaps the banner previewed.
+function startProgram(userId, onNavigateToWorkouts, category, level, program, pref, logs) {
   databaseService.saveLibraryLevelPref(userId, { level, category }, pref);
-  startLibraryProgram(userId, category, level, program, trainedBefore);
+  startLibraryProgram(userId, category, level, program, countPriorRuns(logs, program?.name));
   onNavigateToWorkouts && onNavigateToWorkouts();
 }
 
@@ -129,7 +129,6 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   const sessions = Array.from(sessionsByDate.values());
 
   const guidance = determineWorkoutGuidance(library, sessions, undefined, pref);
-  const trainedBefore = hasTrainedBeforeThisWeek((logs || []).map(l => l.log_date));
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
@@ -162,7 +161,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
         <CloseButton title="Close — I don’t want to start yet" onClick={dismissPicker} />
         <FirstWorkoutPicker
           library={library}
-          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore)}
+          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, logs)}
         />
       </div>
     );
@@ -190,7 +189,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       ? `Nice work on ${lastProgram.name}! Next up: ${program.name}.`
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
 
-  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore);
+  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, logs);
   if (bannerDismissedFor === program.name) {
     if (!chooserOpen) {
       return <ReopenRow title="Choose your level" subtitle="Gym or Home · Beginner, Intermediate or Advanced" onClick={() => setChooserOpen(true)} />;
@@ -206,7 +205,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
         <CloseButton title="Close" onClick={() => setChooserOpen(false)} />
         <FirstWorkoutPicker
           library={library}
-          onStart={(c, l, p) => startProgram(userId, onNavigateToWorkouts, c, l, p, pref, trainedBefore)}
+          onStart={(c, l, p) => startProgram(userId, onNavigateToWorkouts, c, l, p, pref, logs)}
         />
         <button
           type="button"
@@ -221,7 +220,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       </div>
     );
   }
-  const focus = todaysFocus(program, level, category, logs, trainedBefore);
+  const focus = todaysFocus(program, level, category, logs);
 
   return (
     <div
@@ -332,18 +331,20 @@ function ReopenRow({ title, subtitle, onClick }) {
 }
 
 // "Today's focus" line: what this program will look like when it opens —
-// the same warm-up / weekly swaps / neglected-muscle finisher the logger
+// the same warm-up / exercise swaps / neglected-muscle finisher the logger
 // builds (handleStartFromTemplate), so the banner never promises something
-// the session doesn't have. Pills, e.g. ["🔥 Warm-up", "🔄 2 new this week",
-// "🎯 Core finisher (15 days)"].
-function todaysFocus(program, level, category, logs, trainedBefore) {
-  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category, trainedBefore });
+// the session doesn't have. Pills, e.g. ["🔥 Warm-up", "🔄 2 new exercises",
+// "🎯 Core finisher (15 days)"]. No swap pill the first time a program is
+// done (see countPriorRuns).
+function todaysFocus(program, level, category, logs) {
+  const priorRuns = countPriorRuns(logs, program.name);
+  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category, priorRuns });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
   const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
   const swaps = exercises.filter(ex => ex.swappedFrom).length;
   const parts = [];
   if (warmups.length) parts.push('🔥 Warm-up');
-  if (swaps) parts.push(`🔄 ${swaps} new this week`);
+  if (swaps) parts.push(`🔄 ${swaps} new exercise${swaps === 1 ? '' : 's'}`);
   if (finisher) {
     const { muscle, daysSince } = finisher.finisherFor;
     parts.push(`🎯 ${muscle} finisher${daysSince == null ? '' : ` (${daysSince} days)`}`);

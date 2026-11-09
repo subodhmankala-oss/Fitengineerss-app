@@ -1,7 +1,7 @@
 import { getWorkoutDayType } from './warmupBlocks';
 
-// ─── Weekly exercise swaps for Workout Library programs ───
-// Each week a library program keeps most of its exercises (so strength
+// ─── Exercise swaps for Workout Library programs ───
+// Each time a program is repeated it keeps most of its exercises (so strength
 // progress stays comparable) and swaps a few for a close alternative that
 // trains the same muscle, so it doesn't feel like the same session forever:
 //
@@ -13,9 +13,9 @@ import { getWorkoutDayType } from './warmupBlocks';
 //
 // The first exercise (the main lift) never swaps, except on core /
 // conditioning days, which have no main lift. Which exercises swap, and to
-// what, rotates every Monday (same calendar week as the warm-up block), so
-// every original exercise keeps coming back and the client and their coach
-// always see the same plan.
+// what, moves on by one each time the client completes that program (see
+// countPriorRuns) — the first run is always the plain program — so every
+// original exercise keeps coming back.
 //
 // Alternatives are hand-picked, not inferred: "same main muscle" alone
 // would allow Bench Press → Cable Fly. Home programs only ever get
@@ -134,7 +134,7 @@ const BEGINNER = {
 
 export const SWAP_ALTERNATIVES = { gym: GYM, home: HOME, beginner: BEGINNER };
 
-// How many exercises swap each week, and from which position on.
+// How many exercises swap per run, and from which position on.
 function swapRule(programName, level, dayType) {
   const firstSwappable = dayType === 'core' ? 0 : 1;
   if (level === 'beginner') return { count: 1, firstSwappable };
@@ -143,36 +143,36 @@ function swapRule(programName, level, dayType) {
   return { count: 0, firstSwappable };
 }
 
-// Weeks since a fixed Monday — keeps counting (unlike the 3-week warm-up
-// index), so the swaps cycle through every exercise and alternative.
-const MONDAY_EPOCH_UTC = Date.UTC(1970, 0, 5);
-function weekNumber(date) {
-  const dayUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.floor((dayUtc - MONDAY_EPOCH_UTC) / (7 * 24 * 60 * 60 * 1000));
-}
-
-// True once the client logged a workout in an earlier calendar week than
-// `date`'s. Until then there is no "last week" for a swap to differ from, so
-// a brand-new client gets the plain program — a "New this week · instead of
-// Push-up" on their very first session reads as a bug. `logDates` are
-// 'YYYY-MM-DD' (or ISO) strings.
-export function hasTrainedBeforeThisWeek(logDates, date = new Date()) {
-  const thisWeek = weekNumber(date);
-  return (logDates || []).some(d => {
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ''));
-    return m && weekNumber(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) < thisWeek;
+// How many times the client has done `programName` before today: distinct
+// earlier dates whose logs carry that plan name. Swaps follow this count,
+// not the calendar (2026-11-09: "it should be workout based, and pick up
+// where they left"): the first time a program is done it's the plain
+// program, and each later run moves the rotation on by one — a client who
+// skips three weeks picks up at the next swap instead of jumping ahead.
+// `logs` are workout_logs rows ({ log_date, plan_name }); today's own rows
+// don't count, so reopening today's program shows the same swap.
+export function countPriorRuns(logs, programName, date = new Date()) {
+  const want = String(programName || '').trim().toLowerCase();
+  if (!want) return 0;
+  const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const days = new Set();
+  (logs || []).forEach(l => {
+    const plan = String(l?.plan_name ?? l?.planName ?? '').trim().toLowerCase();
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(l?.log_date ?? l?.date ?? ''));
+    if (plan === want && m && m[1] < today) days.add(m[1]);
   });
+  return days.size;
 }
 
-// The program's exercises with this week's swaps applied. A swapped entry
+// The program's exercises with this run's swaps applied. A swapped entry
 // keeps the original's sets/reps and gains `swappedFrom` (the original
-// name), which the logger shows as "New this week · instead of …".
+// name), which the logger shows as "New · instead of …".
 // `level` is the library level; anything else (a non-library template)
-// returns the exercises unchanged, as does `trainedBefore: false` (see
-// hasTrainedBeforeThisWeek).
-export function applyWeeklySwaps({ programName, exercises, level, category, date = new Date(), trainedBefore = true }) {
+// returns the exercises unchanged, as does `priorRuns` 0 (the program has
+// never been done — see countPriorRuns).
+export function applyWeeklySwaps({ programName, exercises, level, category, priorRuns = 0 }) {
   const list = Array.isArray(exercises) ? exercises : [];
-  if (!trainedBefore) return list;
+  if (!(priorRuns > 0)) return list;
   // Hyrox programs train the race's own stations — swapping Wall Ball for
   // Ball Slam would miss the point — so they never swap.
   if (category === 'hyrox') return list;
@@ -187,10 +187,12 @@ export function applyWeeklySwaps({ programName, exercises, level, category, date
     .filter(i => i >= firstSwappable && alternatives[(list[i]?.name || '').toLowerCase()]);
   if (eligible.length === 0) return list;
 
-  const week = weekNumber(date);
+  // 2nd run → round 0, 3rd → round 1, … — cycles through every exercise
+  // and then every alternative.
+  const round = priorRuns - 1;
   const positions = new Set();
   for (let j = 0; j < Math.min(count, eligible.length); j++) {
-    positions.add(eligible[(week * count + j) % eligible.length]);
+    positions.add(eligible[(round * count + j) % eligible.length]);
   }
 
   const used = new Set(inProgram);
@@ -199,7 +201,7 @@ export function applyWeeklySwaps({ programName, exercises, level, category, date
     const options = alternatives[ex.name.toLowerCase()];
     // Rotate through the alternatives too, skipping any the session
     // already has.
-    const start = Math.floor(week / eligible.length);
+    const start = Math.floor(round / eligible.length);
     for (let k = 0; k < options.length; k++) {
       const pick = options[(start + k) % options.length];
       if (used.has(pick.toLowerCase())) continue;

@@ -48,7 +48,7 @@ import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCa
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
-import { applyWeeklySwaps, hasTrainedBeforeThisWeek } from '../utils/weeklySwaps';
+import { applyWeeklySwaps, countPriorRuns } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { idleDecayPoints } from '../utils/trainingLevelDecay';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
@@ -584,11 +584,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // neglected yet — its finisher is picked once the history arrives (see
   // fillPendingPrev), from what handleStartFromTemplate leaves here.
   const pendingFinisherRef = useRef(null);
-  // Dates of this client's workouts on the server — null until loaded. The
-  // weekly-swap rule reads only these: the phone's 'workoutSessions' cache is
-  // shared by every account used on the device and outlives a reset, so a
-  // fresh client was getting "New this week" from someone else's history.
-  const serverLogDatesRef = useRef(null);
+  // This client's workout rows on the server ({ log_date, plan_name }) —
+  // null until loaded. The exercise-swap rule reads only these: the phone's
+  // 'workoutSessions' cache is shared by every account used on the device
+  // and outlives a reset, so a fresh client was getting swaps from someone
+  // else's history.
+  const serverLogRowsRef = useRef(null);
 
   useEffect(() => {
     const loggedInUser = localStorage.getItem('userName') || 'Warrior';
@@ -766,7 +767,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     loadOwnDbLogs().then(({ ownKey, logs }) => {
       const rows = logs || [];
       const dbDates = new Set(rows.map(l => l.log_date));
-      if (ownKey) serverLogDatesRef.current = [...dbDates];
+      if (ownKey) serverLogRowsRef.current = rows.map(l => ({ log_date: l.log_date, plan_name: l.plan_name }));
 
       if (rows.length > 0) {
         // Group flat log rows into one session per date → { exercises:[{name,sets}] }
@@ -2652,17 +2653,17 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // passed when starting from the difficulty-leveled Workout Library — see
   // loggingLevel above. Every template opens with this week's warm-up block
   // for its day type and Gym/Home `category` (see utils/warmupBlocks), and a
-  // library program gets this week's exercise swaps (see utils/weeklySwaps).
-  const handleStartFromTemplate = (template, level = null, category = genericCategory, trainedBeforeHint = null) => {
-    // No swaps until the client has trained in an earlier week. The Home
-    // banner already knows (from the server) and passes it along; otherwise
-    // the server history loaded here decides, and before it has loaded the
-    // answer is no — never the device's shared session cache (see
-    // serverLogDatesRef).
-    const trainedBefore = typeof trainedBeforeHint === 'boolean'
-      ? trainedBeforeHint
-      : hasTrainedBeforeThisWeek(serverLogDatesRef.current || []);
-    const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category, trainedBefore });
+  // library program gets its exercise swaps (see utils/weeklySwaps).
+  const handleStartFromTemplate = (template, level = null, category = genericCategory, priorRunsHint = null) => {
+    // Swaps follow how many times the client has done this program before
+    // (none the first time). The Home banner already knows (from the
+    // server) and passes it along; otherwise the server history loaded here
+    // decides, and before it has loaded the answer is 0 — never the
+    // device's shared session cache (see serverLogRowsRef).
+    const priorRuns = typeof priorRunsHint === 'number'
+      ? priorRunsHint
+      : countPriorRuns(serverLogRowsRef.current || [], template.name);
+    const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category, priorRuns });
     const warmups = buildWarmupExercises({ programName: template.name, exercises: programExercises, category });
     // A library program also gets one finisher for a neglected muscle that
     // fits the day (see utils/neglectedFinisher) — now if the history is
@@ -2754,7 +2755,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
     if (!payload.name || !Array.isArray(payload.exercises)) return;
-    handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null, payload.category || genericCategory, payload.trainedBefore);
+    handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null, payload.category || genericCategory, payload.priorRuns);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

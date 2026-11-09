@@ -37,9 +37,9 @@ const program = (name, ...exercises) => ({ name, exercises: exercises.map(n => (
 // warm-up card's compact rows.
 const cardTitles = () => Array.from(document.querySelectorAll('h5, .warmup-move-name')).map(el => el.textContent.trim());
 
-// Weekly swaps only start once the client has trained in an earlier week —
-// the Home banner works that out from the server and passes it along.
-const TRAINED_BEFORE = true;
+// Swaps only start once the client has done that program before — the Home
+// banner counts that from the server and passes it along.
+const PRIOR_RUNS = 1;
 
 describe('Workout Library program opens with the weekly warm-up block', () => {
   beforeEach(() => {
@@ -51,11 +51,11 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
 
   it('gym upper day: this week’s 3 warm-ups first, then the program with this week’s swaps', async () => {
     const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
-    startLibraryProgram('u1', 'gym', 'intermediate', push, TRAINED_BEFORE);
+    startLibraryProgram('u1', 'gym', 'intermediate', push, PRIOR_RUNS);
     render(<TourProvider><WorkoutTracker /></TourProvider>);
 
     const expected = WARMUP_BLOCKS.upper.gym[getWarmupWeekIndex(new Date())].map(i => i.name);
-    const thisWeek = applyWeeklySwaps({ programName: push.name, exercises: push.exercises, level: 'intermediate', category: 'gym' });
+    const thisWeek = applyWeeklySwaps({ programName: push.name, exercises: push.exercises, level: 'intermediate', category: 'gym', priorRuns: PRIOR_RUNS });
     const all = [...expected, ...thisWeek.map(e => e.name)];
     for (const name of all) {
       expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
@@ -66,14 +66,14 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
     expect(benchCard.querySelector('.col-weight .set-value-placeholder')?.textContent).toBe('kg');
     // The 2 swapped exercises say what they replace.
     expect(Array.from(document.querySelectorAll('.swap-caption')).map(el => el.textContent))
-      .toEqual(thisWeek.filter(e => e.swappedFrom).map(e => `🔄 New this week · instead of ${e.swappedFrom}`));
+      .toEqual(thisWeek.filter(e => e.swappedFrom).map(e => `🔄 New · instead of ${e.swappedFrom}`));
     // The 3 warm-up moves sit together in one "🔥 Warm-up" card.
     expect(Array.from(document.querySelectorAll('.warmup-move-name')).map(el => el.textContent)).toEqual(expected);
     expect(Array.from(document.querySelectorAll('.warmup-move-head')).map(el => el.textContent))
       .toEqual(['🔥 Warm-up · go light, about 5 min']);
   });
 
-  it('a brand-new client gets the plain program: no swaps, no "New this week"', async () => {
+  it('a brand-new client gets the plain program: no swaps, no "New · instead of"', async () => {
     // Old sessions cached on this phone (another account, or from before a
     // reset) — the server has none, so they must not count.
     localStorage.setItem('workoutSessions', JSON.stringify([
@@ -99,10 +99,10 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
     vi.setSystemTime(new Date(2026, 9, 5, 9, 0));
     try {
       const lower = program('Home Intermediate Lower Body', 'Jump Squat', 'Bulgarian Split Squat', 'Reverse Lunge', 'Glute Bridge', 'Wall Sit');
-      startLibraryProgram('u1', 'home', 'intermediate', lower, TRAINED_BEFORE);
+      startLibraryProgram('u1', 'home', 'intermediate', lower, PRIOR_RUNS);
       render(<TourProvider><WorkoutTracker /></TourProvider>);
 
-      const thisWeek = applyWeeklySwaps({ programName: lower.name, exercises: lower.exercises, level: 'intermediate', category: 'home' });
+      const thisWeek = applyWeeklySwaps({ programName: lower.name, exercises: lower.exercises, level: 'intermediate', category: 'home', priorRuns: PRIOR_RUNS });
       const warmups = buildWarmupExercises({ programName: lower.name, exercises: thisWeek, category: 'home' }).map(e => e.name);
       expect(warmups).toHaveLength(3);
       const all = [...warmups, ...thisWeek.map(e => e.name)];

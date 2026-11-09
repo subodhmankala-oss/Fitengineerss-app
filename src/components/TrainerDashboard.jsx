@@ -7058,7 +7058,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               {/* Super-admin news rail — fixed in the right gutter, desktop
                   only (NewsRail.css); mounted here so it shows exactly when
                   the client list does. */}
-              {superAdmin && <NewsRail />}
+              {/* Founder email only (the superAdmin flag also admits role=admin). */}
+              {isSuperAdmin(loggedInEmail) && <NewsRail />}
               {/* Resume Live Log — sessions still open in workout_drafts across
                   this coach's clients. Never silently lost by navigating away
                   or backgrounding the app mid-session. */}

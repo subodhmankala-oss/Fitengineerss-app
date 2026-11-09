@@ -13,6 +13,7 @@
 // code had to change.
 
 import { getAdminNews } from './_adminNews.js';
+import { getNewsArticle } from './_newsArticle.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -752,6 +753,30 @@ async function handleAdminNews(req, res) {
   }
 }
 
+// Full text of one of today's stories for the in-app reader — see
+// api/_newsArticle.js. Founder only; only links in today's cache.
+async function handleAdminNewsArticle(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  if (!isSuperAdminEmail(verifiedEmail)) {
+    return res.status(403).json({ error: 'Super-admin only.' });
+  }
+  try {
+    const result = await getNewsArticle({
+      link: (req.body || {}).link,
+      readRow: async () => (await svcSelect('admin_news_cache?select=items&id=eq.latest', 'admin-news-article read'))[0] || null
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(200).json(result.article);
+  } catch (err) {
+    console.error('admin-news-article error:', err);
+    return res.status(502).json({ error: "Couldn't load the article right now." });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
@@ -763,7 +788,8 @@ const RESOURCE_HANDLERS = {
   'admin-coaches': handleAdminCoaches,
   'admin-clients': handleAdminClients,
   'platform-stats': handlePlatformStats,
-  'admin-news': handleAdminNews
+  'admin-news': handleAdminNews,
+  'admin-news-article': handleAdminNewsArticle
 };
 
 export default async function handler(req, res) {

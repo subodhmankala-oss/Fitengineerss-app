@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminNews, markNewsSeen } from './useAdminNews';
+import { getAdminNewsArticle } from '../../services/databaseService';
 import './NewsRail.css';
 
 // Founder only: daily muscle-building + nutrition news (requested 2026-11-09).
@@ -108,6 +109,24 @@ function Reader({ item, onClose, asPage }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
 
+  // "Read full article": fetched + extracted by the server on demand
+  // (api/_newsArticle.js) and shown here as plain text — the sites
+  // themselves break or show cookie walls when embedded.
+  const [full, setFull] = useState({ status: 'idle', data: null, error: '' });
+  const articleRef = useRef(null);
+  const readFull = async () => {
+    setFull({ status: 'loading', data: null, error: '' });
+    try {
+      setFull({ status: 'ready', data: await getAdminNewsArticle(item.link), error: '' });
+    } catch (e) {
+      console.warn('news article load failed:', e?.message || e);
+      setFull({ status: 'error', data: null, error: "This article can't be shown in the app." });
+    }
+  };
+  useEffect(() => {
+    if (full.status === 'ready') articleRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [full.status]);
+
   const shareText = [item.title, item.takeaway].filter(Boolean).join('\n');
   const copy = async () => {
     try {
@@ -148,7 +167,7 @@ function Reader({ item, onClose, asPage }) {
           <div className="news-meta">
             {item.source}{item.journal ? ` · ${item.journal}` : ''} · {timeAgo(item.publishedAt)}
           </div>
-          {item.summary && <p className="news-reader-summary">{item.summary}</p>}
+          {item.summary && full.status !== 'ready' && <p className="news-reader-summary">{item.summary}</p>}
           {item.takeaway && (
             <div className="news-takeaway-box">
               {Icon.bulb(16)}
@@ -156,9 +175,11 @@ function Reader({ item, onClose, asPage }) {
             </div>
           )}
           <div className="news-reader-actions">
-            <a className="news-btn" href={item.link} target="_blank" rel="noopener noreferrer">
-              Read full article {Icon.external(14)}
-            </a>
+            {full.status !== 'ready' && (
+              <button type="button" className="news-btn" onClick={readFull} disabled={full.status === 'loading'}>
+                {full.status === 'loading' ? 'Loading article…' : 'Read full article'}
+              </button>
+            )}
             {canShare ? (
               <button type="button" className="news-btn" onClick={share}>
                 {Icon.share(14)} {copied ? 'Copied' : 'Share'}
@@ -169,6 +190,27 @@ function Reader({ item, onClose, asPage }) {
               </button>
             )}
           </div>
+
+          {full.status === 'error' && (
+            <div className="news-article-error">
+              {full.error}{' '}
+              <a href={item.link} target="_blank" rel="noopener noreferrer">Open the original {Icon.external(12)}</a>
+            </div>
+          )}
+          {full.status === 'ready' && (
+            <article ref={articleRef} className="news-article">
+              {full.data.byline && <div className="news-meta news-article-byline">{full.data.byline}</div>}
+              {full.data.blocks.map((b, i) => {
+                if (b.type === 'h') return <h4 key={i}>{b.text}</h4>;
+                if (b.type === 'li') return <p key={i} className="news-article-li">{b.text}</p>;
+                if (b.type === 'q') return <blockquote key={i}>{b.text}</blockquote>;
+                return <p key={i}>{b.text}</p>;
+              })}
+              <a className="news-article-original" href={item.link} target="_blank" rel="noopener noreferrer">
+                Source: {item.source} · Open original {Icon.external(12)}
+              </a>
+            </article>
+          )}
         </div>
       </aside>
     </div>

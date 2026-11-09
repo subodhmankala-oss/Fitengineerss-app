@@ -186,3 +186,44 @@
   color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .news-back-btn:hover { color: var(--text-main); }
+
+/* In-app full article (Reader "Read full article"): plain text blocks from
+   api/_newsArticle.js, set in the app's own type — readable line length,
+   no third-party HTML. */
+.news-article {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-main);
+  scroll-margin-top: 12px;
+}
+.news-article p {
+  font-size: 15px;
+  line-height: 1.7;
+  margin: 0 0 14px;
+}
+.news-article h4 {
+  font-size: 15.5px;
+  font-weight: 700;
+  margin: 20px 0 8px;
+}
+.news-article .news-article-li { padding-left: 16px; position: relative; }
+.news-article .news-article-li::before { content: '•'; position: absolute; left: 2px; color: var(--text-muted); }
+.news-article blockquote {
+  margin: 0 0 14px;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid rgba(var(--accent-rgb), 0.5);
+  border-radius: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.news-article-byline { margin: 0 0 12px; }
+.news-article-original,
+.news-article-error a {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12.5px; color: var(--primary-accent); text-decoration: none;
+}
+.news-article-original { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border-color); width: 100%; }
+.news-article-error { margin-top: 14px; font-size: 13px; color: var(--text-muted); }
+.news-btn:disabled { opacity: 0.7; cursor: default; }

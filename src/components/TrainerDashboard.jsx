@@ -3532,14 +3532,39 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     catch { return []; }
   };
 
+  // The home card's ✕ closes the WHOLE finished-workout slider, not just the
+  // client on screen (2026-11-09: with 13 clients pending, ✕ only removed one
+  // and the next client's card took its place — "it keeps coming back").
+  // Closing remembers every session showing at that moment; the slider
+  // reappears only when a client finishes a NEW workout. Keyed on sessionAt
+  // (not just the date) so a second workout the same day counts as new. The
+  // sessions stay in the notification bell, where each has its own dismiss.
+  const hiddenHomeSessionsKey = `hiddenHomeSessionCards_${resolvedCoachId || 'anon'}`;
+  const homeSessionCardKey = (s) => `${s.clientId}|${s.sessionAt || s.date}`;
+  const readHiddenHomeSessions = () => {
+    try { return JSON.parse(localStorage.getItem(hiddenHomeSessionsKey) || '[]'); }
+    catch { return []; }
+  };
+  const [hiddenHomeSessions, setHiddenHomeSessions] = useState(readHiddenHomeSessions);
+  useEffect(() => {
+    setHiddenHomeSessions(readHiddenHomeSessions());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hiddenHomeSessionsKey]);
+  const homeSessionsAwaitingNote = sessionsAwaitingNote.filter(s => !hiddenHomeSessions.includes(homeSessionCardKey(s)));
+  const handleCloseHomeSessionCards = () => {
+    const keys = [...new Set([...hiddenHomeSessions, ...sessionsAwaitingNote.map(homeSessionCardKey)])];
+    try { localStorage.setItem(hiddenHomeSessionsKey, JSON.stringify(keys)); } catch { /* storage full/blocked */ }
+    setHiddenHomeSessions(keys);
+  };
+
   // Keep the slider's active index in range as cards are sent/dismissed —
   // otherwise clearing the last card could leave the index pointing past the
   // end of the (now shorter) array.
   useEffect(() => {
-    if (awaitingSlide > 0 && awaitingSlide >= sessionsAwaitingNote.length) {
-      setAwaitingSlide(Math.max(0, sessionsAwaitingNote.length - 1));
+    if (awaitingSlide > 0 && awaitingSlide >= homeSessionsAwaitingNote.length) {
+      setAwaitingSlide(Math.max(0, homeSessionsAwaitingNote.length - 1));
     }
-  }, [sessionsAwaitingNote.length, awaitingSlide]);
+  }, [homeSessionsAwaitingNote.length, awaitingSlide]);
 
   const refreshSessionsAwaitingNote = async () => {
     if (!resolvedCoachId) return;
@@ -3551,7 +3576,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     // it) by replacing real data with an empty list.
     if (!sessions) return;
     const dismissed = getDismissedSessions();
-    setSessionsAwaitingNote(sessions.filter(s => !dismissed.includes(`${s.clientId}|${s.date}`)));
+    const pending = sessions.filter(s => !dismissed.includes(`${s.clientId}|${s.date}`));
+    setSessionsAwaitingNote(pending);
+    // Prune closed-card keys for sessions no longer pending (answered or
+    // superseded) so the stored list doesn't grow forever.
+    const pendingKeys = new Set(pending.map(homeSessionCardKey));
+    const hidden = readHiddenHomeSessions();
+    const kept = hidden.filter(k => pendingKeys.has(k));
+    if (kept.length !== hidden.length) {
+      try { localStorage.setItem(hiddenHomeSessionsKey, JSON.stringify(kept)); } catch { /* ignore */ }
+      setHiddenHomeSessions(kept);
+    }
   };
 
   // Coach dismisses a finished-workout card without responding — remembered so
@@ -7235,9 +7270,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   note composer, so the coach can respond right here. With
                   more than one pending client, this becomes a one-at-a-time
                   slider (arrows + clickable dots) instead of a tall stack. */}
-              {sessionsAwaitingNote.length > 0 && (() => {
-                const activeIndex = Math.min(awaitingSlide, sessionsAwaitingNote.length - 1);
-                const session = sessionsAwaitingNote[activeIndex];
+              {homeSessionsAwaitingNote.length > 0 && (() => {
+                const activeIndex = Math.min(awaitingSlide, homeSessionsAwaitingNote.length - 1);
+                const session = homeSessionsAwaitingNote[activeIndex];
                 // Shared with the peek card below (see buildAwaitingStatBits)
                 // so the sliver of the next/previous client visible mid-drag
                 // shows real stats, not blank space.
@@ -7253,16 +7288,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 };
                 const statBits = buildAwaitingStatBits(session);
                 const isSending = sendingNoteFor === session.clientId;
-                const hasMultiple = sessionsAwaitingNote.length > 1;
+                const hasMultiple = homeSessionsAwaitingNote.length > 1;
                 // Which neighbor is peeking in from the side, based on which
                 // way the finger is currently dragging — per request
                 // 2026-08-18 ("leaving the sides empty... should show other
                 // card next to it"). Only one is ever rendered at a time.
                 const peekSession = hasMultiple && isAwaitingDragging && awaitingDragX !== 0
-                  ? sessionsAwaitingNote[
+                  ? homeSessionsAwaitingNote[
                       awaitingDragX < 0
-                        ? (activeIndex + 1) % sessionsAwaitingNote.length
-                        : (activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length
+                        ? (activeIndex + 1) % homeSessionsAwaitingNote.length
+                        : (activeIndex - 1 + homeSessionsAwaitingNote.length) % homeSessionsAwaitingNote.length
                     ]
                   : null;
                 const peekSide = awaitingDragX < 0 ? 'next' : 'prev'; // which edge it slides in from
@@ -7335,7 +7370,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         }}
                         onTouchStart={hasMultiple ? handleAwaitingSlideTouchStart : undefined}
                         onTouchMove={hasMultiple ? handleAwaitingSlideTouchMove : undefined}
-                        onTouchEnd={hasMultiple ? (e) => handleAwaitingSlideTouchEnd(e, sessionsAwaitingNote.length) : undefined}
+                        onTouchEnd={hasMultiple ? (e) => handleAwaitingSlideTouchEnd(e, homeSessionsAwaitingNote.length) : undefined}
                       >
                         <div className="coach-note-head">
                           <span className="coach-note-title">
@@ -7343,8 +7378,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           </span>
                           <button
                             type="button"
-                            title="Dismiss"
-                            onClick={() => handleDismissSessionNote(session)}
+                            title={hasMultiple ? 'Close all' : 'Dismiss'}
+                            onClick={handleCloseHomeSessionCards}
                             style={{
                               background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
                               color: 'var(--text-muted)', borderRadius: '50%', width: '24px', height: '24px',
@@ -7412,12 +7447,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             </button>
                             {hasMultiple && (
                               <div style={{ display: 'flex', gap: '4px' }}>
-                                {sessionsAwaitingNote.map((s, i) => (
+                                {homeSessionsAwaitingNote.map((s, i) => (
                                   <button
                                     key={`${s.clientId}|${s.date}`}
                                     type="button"
                                     title={s.clientName}
-                                    onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
+                                    onClick={() => goToAwaitingSlide(i, homeSessionsAwaitingNote.length)}
                                     style={{
                                       width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
                                       border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
@@ -7433,7 +7468,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               <button
                                 type="button"
                                 title="Previous"
-                                onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                                onClick={() => goToAwaitingSlide((activeIndex - 1 + homeSessionsAwaitingNote.length) % homeSessionsAwaitingNote.length, homeSessionsAwaitingNote.length)}
                                 style={{
                                   background: 'rgba(var(--bg-card-active-rgb), 0.75)', border: '1px solid var(--border-color)',
                                   color: 'var(--text-main)', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
@@ -7443,12 +7478,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                 ‹
                               </button>
                               <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                                {activeIndex + 1}/{sessionsAwaitingNote.length}
+                                {activeIndex + 1}/{homeSessionsAwaitingNote.length}
                               </span>
                               <button
                                 type="button"
                                 title="Next"
-                                onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                                onClick={() => goToAwaitingSlide((activeIndex + 1) % homeSessionsAwaitingNote.length, homeSessionsAwaitingNote.length)}
                                 style={{
                                   background: 'rgba(var(--bg-card-active-rgb), 0.75)', border: '1px solid var(--border-color)',
                                   color: 'var(--text-main)', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,

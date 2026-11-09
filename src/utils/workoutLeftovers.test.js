@@ -1,5 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// The server copy (workout_leftovers), one row per client.
+const remote = new Map();
+let remoteUp = true;
+vi.mock('../services/databaseService', () => ({
+  __esModule: true,
+  default: {
+    getWorkoutLeftoversRemote: vi.fn(async (id) => (remoteUp ? (remote.get(id) || []) : null)),
+    saveWorkoutLeftoversRemote: vi.fn(async (id, items) => {
+      if (!remoteUp) return false;
+      remote.set(id, items);
+      return true;
+    })
+  }
+}));
+
+import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, syncWorkoutLeftovers, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
 
 const DAY = 24 * 60 * 60 * 1000;
 const set = (done) => ({ reps: '10', weight: '20', isCompleted: done });
@@ -27,7 +44,7 @@ describe('findSkippedExercises', () => {
 });
 
 describe('workout leftovers storage', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => { localStorage.clear(); remote.clear(); remoteUp = true; });
 
   it('stores skipped exercises per client', () => {
     updateWorkoutLeftovers('u1', { skipped: ['Leg Curl', 'Calf Raise'], date: '2026-10-12', planName: 'Leg Day' }, 1000);
@@ -71,5 +88,37 @@ describe('workout leftovers storage', () => {
   it('survives corrupt storage', () => {
     localStorage.setItem('workoutLeftovers_u1', '{not json');
     expect(getWorkoutLeftovers('u1')).toEqual([]);
+  });
+
+  it('reach the server, so another phone (or after a sign-out wipe) sees them', async () => {
+    const now = Date.now();
+    await updateWorkoutLeftovers('u1', { skipped: ['Reverse Fly', 'Cable Shrug'], date: '2026-11-09' }, now);
+    expect(remote.get('u1').map(it => it.name)).toEqual(['Reverse Fly', 'Cable Shrug']);
+
+    localStorage.clear(); // a different phone, or storage wiped on sign-out
+    expect(getWorkoutLeftovers('u1')).toEqual([]);
+    await syncWorkoutLeftovers('u1');
+    expect(getWorkoutLeftovers('u1').map(it => it.name)).toEqual(['Reverse Fly', 'Cable Shrug']);
+  });
+
+  it('adding or dismissing on one phone clears it everywhere', async () => {
+    await updateWorkoutLeftovers('u1', { skipped: ['Reverse Fly', 'Cable Shrug'] });
+    await clearWorkoutLeftovers('u1', ['reverse fly']);
+    expect(remote.get('u1').map(it => it.name)).toEqual(['Cable Shrug']);
+    await clearWorkoutLeftovers('u1');
+    expect(remote.get('u1')).toEqual([]);
+  });
+
+  it('keeps the phone copy when the server is unreachable, and sends it later', async () => {
+    remoteUp = false;
+    await updateWorkoutLeftovers('u1', { skipped: ['Face Pull'] });
+    await syncWorkoutLeftovers('u1');
+    expect(getWorkoutLeftovers('u1').map(it => it.name)).toEqual(['Face Pull']);
+
+    remoteUp = true;
+    remote.set('u1', []); // older server copy must not win over the unsent change
+    await syncWorkoutLeftovers('u1');
+    expect(remote.get('u1').map(it => it.name)).toEqual(['Face Pull']);
+    expect(getWorkoutLeftovers('u1').map(it => it.name)).toEqual(['Face Pull']);
   });
 });

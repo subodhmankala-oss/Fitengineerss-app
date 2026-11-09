@@ -59,7 +59,8 @@ import { addExerciseInOrder, getWarmupPosition, isWarmupCardExercise } from '../
 import { CORE_PPL_TEMPLATES } from '../utils/weekTemplates';
 import { warmupsFirst } from '../utils/warmupsFirst';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
-import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
+import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
+import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
@@ -2730,23 +2731,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setLiveExercises(prev => addExerciseInOrder(prev, bodyweight ? { ...entry, bodyweightMode: true } : entry));
   };
 
-  // Exercises not started in this client's last Live Log session (time ran
-  // out) — see utils/workoutLeftovers.js. Read straight
-  // from localStorage each render (tiny); the tick re-renders after add/dismiss.
-  const [, setLiveLeftoverTick] = useState(0);
-  const liveLeftovers = selectedClient?.id
-    ? getWorkoutLeftovers(selectedClient.id).filter(it => !liveExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()))
-    : [];
+  // Exercises not started in this client's last session, by the coach or by
+  // the client themselves — see utils/workoutLeftovers.js. Server-backed, so
+  // they're here on any phone and after reopening the app.
+  const liveLeftovers = useWorkoutLeftovers(selectedClient?.id || null)
+    .filter(it => !liveExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
   const handleAddLiveLeftovers = () => {
     const names = liveLeftovers.map(it => it.name);
     names.forEach(name => handleLiveAddExercise(name));
     clearWorkoutLeftovers(selectedClient.id, names);
-    setLiveLeftoverTick(t => t + 1);
     triggerLiveToast(`Added ${names.join(', ')}`);
   };
   const handleDismissLiveLeftovers = () => {
     clearWorkoutLeftovers(selectedClient.id);
-    setLiveLeftoverTick(t => t + 1);
   };
   // "Carry over to next session" tick box above Save.
   const [liveCarryOver, setLiveCarryOver] = useState(true);
@@ -3197,12 +3194,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         }));
       }
 
-      const formatLiveExercise = (ex, sets) => {
+      const formattedExercises = liveExercises.map(ex => {
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
           ...exerciseIdField(ex.exerciseId),
-          sets: sets.map(s => ({
+          sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
             // Cardio sets carry distance/time instead of reps/weight, and
             // timed holds (plank etc.) carry time only, so the save step
             // (and workout_logs.distance_km/cardio_duration_seconds) doesn't
@@ -3220,13 +3217,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
           }))
         };
-      };
-      const formattedExercises = liveExercises
-        .map(ex => formatLiveExercise(ex, completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets))
-        .filter(ex => ex.sets.length > 0);
-      // Exercises not started this time that the coach chose to keep for the
-      // next session (the tick box above Save).
-      const carriedOver = liveCarryOver && completedCount > 0 ? findSkippedExercises(liveExercises) : [];
+      }).filter(ex => ex.sets.length > 0);
 
       const session = {
         id: `coach-live-${Date.now()}`,
@@ -3248,12 +3239,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       // queued if the coach left the tick box on. With nothing ticked, every
       // set was saved above, so nothing was skipped.
       updateWorkoutLeftovers(selectedClient.id, {
-        skipped: carriedOver,
+        skipped: liveCarryOver && completedCount > 0 ? findSkippedExercises(liveExercises) : [],
         completed: formattedExercises.map(ex => ex.name),
         date: liveDate,
         planName: session.planName
       });
-      setLiveLeftoverTick(t => t + 1);
       // Session is finished and saved to workout_logs — the open draft is done.
       await deleteLiveDraftAfterPendingSave(selectedClient.id);
       // ── Everything above this line is the actual save. Everything below is
@@ -3285,23 +3275,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       // push — becoming a real assignment stays a deliberate action (the
       // plan editor's Save/Duplicate, same as it already works today), not
       // an automatic side effect of logging a session.
-      //
-      // Exercises kept for the next session stay in that plan copy, with their
-      // planned sets, in their original order. Without this the copy held
-      // only what was done, so loading the plan next time silently lost them
-      // (seen 2026-11-09: "UB Oct(week3)" saved without Reverse Fly and Cable
-      // Shrug). The "Left over" card alone can't carry them: it lives in this
-      // phone's localStorage only.
-      const planExercises = liveExercises
-        .map(ex => carriedOver.includes(ex.name)
-          ? formatLiveExercise(ex, ex.sets)
-          : formatLiveExercise(ex, completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets))
-        .filter(ex => ex.sets.length > 0);
       try {
         await databaseService.saveWorkoutPlan({
           userId: selectedClient.id,
           planName: livePlanName || 'Live Routine',
-          exercises: planExercises,
+          exercises: formattedExercises,
           createdBy: 'coach',
           isAssigned: false
         });

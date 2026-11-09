@@ -2374,7 +2374,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       await deleteLiveDraftAfterPendingSave(selectedClient.id);
       refreshCoachActiveDrafts();
     }
-    triggerLiveToast('🗑️ Live session discarded.');
+    triggerLiveToast('Live session discarded.');
   };
 
   // Coach has to leave mid-session: the session (ticked sets, plan, session
@@ -9315,9 +9315,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   <button
                                     onClick={() => handleDeleteMeasurementEntry(entry.id, fmtDate(entry.measuredAt))}
                                     title="Delete this entry"
-                                    style={{ flexShrink: 0, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', cursor: 'pointer' }}
+                                    aria-label="Delete this entry"
+                                    style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: 'var(--tint-red)', padding: '4px 7px', cursor: 'pointer' }}
                                   >
-                                    🗑
+                                    <BinIcon size={14} />
                                   </button>
                                 </div>
                               );

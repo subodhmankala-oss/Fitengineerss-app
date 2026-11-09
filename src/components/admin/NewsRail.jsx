@@ -146,6 +146,13 @@ export default function NewsRail() {
 
   useEffect(() => { load(false); }, [load]);
 
+  // Tells NewsRail.css to shift the client column left so the rail has its
+  // own lane (no-op below 1360px, where the rail itself is hidden).
+  useEffect(() => {
+    document.body.classList.add('has-news-rail');
+    return () => document.body.classList.remove('has-news-rail');
+  }, []);
+
   const items = useMemo(
     () => (data?.items || []).filter((i) => topic === 'all' || i.topic === topic),
     [data, topic]

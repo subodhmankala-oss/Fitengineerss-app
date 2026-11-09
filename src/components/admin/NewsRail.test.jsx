@@ -1,0 +1,80 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+
+const getAdminNews = vi.fn();
+vi.mock('../../services/databaseService', () => ({ getAdminNews: (...a) => getAdminNews(...a) }));
+
+import NewsRail from './NewsRail';
+
+const item = (id, topic, extra = {}) => ({
+  id, topic, title: `Story ${id}`, link: `https://x.test/${id}`, summary: `Summary ${id}`,
+  publishedAt: new Date(Date.now() - 3 * 3600000).toISOString(), source: topic === 'research' ? 'PubMed' : 'ScienceDaily',
+  image: null, takeaway: `Takeaway ${id}`, ...extra
+});
+
+describe('NewsRail', () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    getAdminNews.mockReset();
+    getAdminNews.mockResolvedValue({
+      fetchedAt: new Date().toISOString(),
+      items: [
+        item('n0', 'muscle', { image: 'https://x.test/img.jpg' }),
+        item('n1', 'nutrition'),
+        item('n2', 'research', { journal: 'J Sports Sci' }),
+        item('n3', 'muscle'),
+        item('n4', 'nutrition', { takeaway: null })
+      ]
+    });
+  });
+
+  it('shows 3 stories first, then the rest on "Show more"', async () => {
+    render(<NewsRail />);
+    expect(await screen.findByText('Story n0')).toBeTruthy();
+    expect(screen.queryByText('Story n3')).toBeNull();
+    fireEvent.click(screen.getByText('Show 2 more'));
+    expect(screen.getByText('Story n4')).toBeTruthy();
+    expect(screen.getByText('Takeaway n0')).toBeTruthy();
+  });
+
+  it('filters by topic chip', async () => {
+    render(<NewsRail />);
+    await screen.findByText('Story n0');
+    fireEvent.click(screen.getByRole('tab', { name: 'Nutrition' }));
+    expect(screen.getByText('Story n1')).toBeTruthy();
+    expect(screen.getByText('Story n4')).toBeTruthy();
+    expect(screen.queryByText('Story n0')).toBeNull();
+  });
+
+  it('opens the reader with summary, takeaway and article link; Escape closes it', async () => {
+    render(<NewsRail />);
+    fireEvent.click((await screen.findByText('Story n2')).closest('button'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('Summary n2');
+    expect(dialog.textContent).toContain('J Sports Sci');
+    expect(dialog.textContent).toContain('Coach takeaway:');
+    expect(screen.getByText('Read full article').closest('a').getAttribute('href')).toBe('https://x.test/n2');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('uses the image when present and a topic tile otherwise, swapping to the tile if the image fails', async () => {
+    const { container } = render(<NewsRail />);
+    await screen.findByText('Story n0');
+    const img = container.querySelector('img.news-thumb');
+    expect(img.getAttribute('src')).toBe('https://x.test/img.jpg');
+    expect(container.querySelectorAll('.news-tile').length).toBe(2);
+    fireEvent.error(img);
+    expect(container.querySelector('img.news-thumb')).toBeNull();
+    expect(container.querySelectorAll('.news-tile').length).toBe(3);
+  });
+
+  it('refresh asks the server to re-fetch; a failed first load offers Try again', async () => {
+    getAdminNews.mockRejectedValueOnce(new Error('boom'));
+    render(<NewsRail />);
+    fireEvent.click(await screen.findByText('Try again'));
+    await screen.findByText('Story n0');
+    fireEvent.click(screen.getByLabelText('Refresh news'));
+    await waitFor(() => expect(getAdminNews).toHaveBeenLastCalledWith({ force: true }));
+  });
+});

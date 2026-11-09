@@ -11,6 +11,7 @@ import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
 import AdminSignupAlerts from './admin/AdminSignupAlerts';
 import CoachNotificationBell from './CoachNotificationBell';
+import NewsRail from './admin/NewsRail';
 import FounderMessageComposer from './admin/FounderMessageComposer';
 import './WorkoutTracker.css';
 // Weekly/Daily/Monthly chart + card styling — shared with the client's own
@@ -7054,6 +7055,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
           {!selectedClient ? (
             // Client Directory Screen
             <div className="client-directory-view">
+              {/* Super-admin news rail — fixed in the right gutter, desktop
+                  only (NewsRail.css); mounted here so it shows exactly when
+                  the client list does. */}
+              {superAdmin && <NewsRail />}
               {/* Resume Live Log — sessions still open in workout_drafts across
                   this coach's clients. Never silently lost by navigating away
                   or backgrounding the app mid-session. */}

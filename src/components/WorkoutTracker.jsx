@@ -3834,10 +3834,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                     }}
                   >
                     <option value="" disabled>Select template</option>
-                    {/* Top 10 by actual performance (avg calories/duration/
-                        volume from past sessions logged under each plan's
-                        name) — see rankTemplatesByPerformance — not just the
-                        10 most recent. */}
+                    {/* "Saved plans" (bottom group) is only the latest week's
+                        plans, newest first — see splitNewTemplates. */}
                     {dropdownNewPlans.length > 0 && (
                       <optgroup label="Coach assigned">
                         {dropdownNewPlans.map(p => (

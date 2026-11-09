@@ -29,7 +29,7 @@ import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
 import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
-import { PlusIcon, PencilLineIcon } from './SavedWorkoutSheetParts';
+import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
@@ -2627,6 +2627,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // editable only when they all came from the database (have an id).
   const historyDayRows = useMemo(() => rawWorkoutLogs.filter(l => l.log_date === historyDateStr), [rawWorkoutLogs, historyDateStr]);
   const historyDayRowsEditable = historyDayRows.length > 0 && historyDayRows.every(l => l.id != null);
+  // Bin on the client's Daily history: that day's whole saved workout goes.
+  const [deletingDay, setDeletingDay] = useState(false);
+  const handleDeleteWorkoutDay = async (planName) => {
+    const clientId = selectedClient?.id;
+    if (deletingDay || !clientId) return;
+    if (!window.confirm(`Delete ${planName || 'this workout'} for ${historyDateStr}? All its sets and calories for this day will be removed. This can't be undone.`)) return;
+    setDeletingDay(true);
+    try {
+      await databaseService.deleteSavedWorkoutDay({ userId: clientId, logDate: historyDateStr });
+      setMissedExToast(`${planName || 'Workout'} deleted`);
+      const logs = await databaseService.getWorkoutLogsForUser(clientId).catch(() => null);
+      if (logs && selectedClient?.id === clientId) {
+        const refreshed = groupLogs(logs);
+        setWorkoutLogs(refreshed);
+        setRawWorkoutLogs(logs);
+        if (liveHistoryRef.current.clientId === clientId) liveHistoryRef.current = { clientId, sessions: refreshed };
+      }
+    } catch (e) {
+      setMissedExToast(e?.message || 'Couldn\'t delete that workout. Try again.');
+    } finally {
+      setDeletingDay(false);
+      setTimeout(() => setMissedExToast(''), 3500);
+    }
+  };
+
   const handleSaveWorkoutEdit = async (edit, planName) => {
     const clientId = selectedClient?.id;
     await databaseService.saveWorkoutEdits({ userId: clientId, logDate: historyDateStr, ...edit });
@@ -8918,9 +8943,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   actions={daySession && daySession.exercises.length > 0 && canAddMissedExercise(historyDateStr) && (
                                     <>
                                       {historyDayRowsEditable && (
-                                        <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                                          <PencilLineIcon size={11} /> Edit
-                                        </button>
+                                        <>
+                                          <button type="button" className="missed-ex-entry-btn edit icon-only" onClick={() => setEditWorkoutOpen(true)} aria-label="Edit workout" title="Edit workout">
+                                            <EditSquareIcon size={14} />
+                                          </button>
+                                          <button type="button" className="missed-ex-entry-btn delete icon-only" onClick={() => handleDeleteWorkoutDay(daySession?.planName)} disabled={deletingDay} aria-label="Delete workout" title="Delete workout">
+                                            <TrashLineIcon size={14} />
+                                          </button>
+                                        </>
                                       )}
                                       <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
                                         <PlusIcon size={11} /> Add missed workout

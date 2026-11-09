@@ -26,7 +26,7 @@ import { PlayIcon, TrashIcon } from './TimerIcons';
 import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
-import { PlusIcon, PencilLineIcon } from './SavedWorkoutSheetParts';
+import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { readLiveRows, LIVE_ROWS_EVENT } from '../utils/liveSessionStore';
 import './WorkoutProgressDashboard.css';
@@ -610,6 +610,25 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // edited in place.
   const dayRows = logs.filter(l => l.log_date === selectedDateStr);
   const dayRowsEditable = dayRows.length > 0 && dayRows.every(l => l.id != null);
+  // Bin: the whole day's saved workout goes (clicked by mistake).
+  const [deletingDay, setDeletingDay] = useState(false);
+  const handleDeleteWorkoutDay = async () => {
+    if (deletingDay) return;
+    if (!window.confirm(`Delete ${dailyPlanLabel}? All its sets and calories for this day will be removed. This can't be undone.`)) return;
+    setDeletingDay(true);
+    try {
+      await databaseService.deleteSavedWorkoutDay({ userId, logDate: selectedDateStr });
+      setMissedExToast(`${dailyPlanLabel} deleted`);
+      const fresh = await databaseService.getWorkoutLogsForUser(userId).catch(() => null);
+      if (fresh) setLogs(fresh);
+    } catch (e) {
+      setMissedExToast(e?.message || 'Couldn\'t delete that workout. Try again.');
+    } finally {
+      setDeletingDay(false);
+      setTimeout(() => setMissedExToast(''), 3500);
+    }
+  };
+
   const handleSaveWorkoutEdit = async (edit) => {
     const result = await databaseService.saveWorkoutEdits({ userId, logDate: selectedDateStr, ...edit });
     setEditWorkoutOpen(false);
@@ -1426,9 +1445,14 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                     actions={dailyStats.exercises.length > 0 && canAddMissedExercise(selectedDateStr) && (
                       <>
                         {dayRowsEditable && (
-                          <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                            <PencilLineIcon size={11} /> Edit
-                          </button>
+                          <>
+                            <button type="button" className="missed-ex-entry-btn edit icon-only" onClick={() => setEditWorkoutOpen(true)} aria-label="Edit workout" title="Edit workout">
+                              <EditSquareIcon size={14} />
+                            </button>
+                            <button type="button" className="missed-ex-entry-btn delete icon-only" onClick={handleDeleteWorkoutDay} disabled={deletingDay} aria-label="Delete workout" title="Delete workout">
+                              <TrashLineIcon size={14} />
+                            </button>
+                          </>
                         )}
                         <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
                           <PlusIcon size={11} /> Add missed workout

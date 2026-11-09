@@ -4,7 +4,7 @@ import React from 'react';
 // Live Log) for a Workout Library session:
 //   - warm-up block: "🔥 Warm-up 1 of 3 · go light, about 5 min" — same
 //     amber as the "W" set label, so it's clear it isn't the workout itself
-//   - this week's swap: "🔄 New this week · instead of Dumbbell Row"
+//   - a swap: "🔄 New · instead of Dumbbell Row"
 //   - neglected-muscle finisher: "🎯 Finisher · Calves not trained in 12 days"
 export default function ExerciseCaption({ warmupPosition, swappedFrom, finisherFor }) {
   if (warmupPosition) {
@@ -16,7 +16,7 @@ export default function ExerciseCaption({ warmupPosition, swappedFrom, finisherF
     );
   }
   if (swappedFrom) {
-    return <div className="swap-caption">🔄 New this week · instead of {swappedFrom}</div>;
+    return <div className="swap-caption">🔄 New · instead of {swappedFrom}</div>;
   }
   if (finisherFor) {
     const when = finisherFor.daysSince == null ? 'not trained yet' : `not trained in ${finisherFor.daysSince} days`;

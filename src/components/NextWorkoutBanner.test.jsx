@@ -208,7 +208,7 @@ describe('NextWorkoutBanner', () => {
     expect(screen.getByText(/Nice work on Beginner Full Body B! Next up: Beginner Lower & Core\./)).not.toBeNull();
   });
 
-  it("previews today's session: warm-up, this week's swap, and a neglected-muscle finisher", async () => {
+  it("previews today's session: warm-up, a swap in a program done before, and a neglected-muscle finisher", async () => {
     const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
     mockLibrary({ gym: { beginner: [
       { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
@@ -218,6 +218,7 @@ describe('NextWorkoutBanner', () => {
     // 3 sessions, upper body + quads only: hamstrings never trained.
     const row = (log_date, plan_name, exercise_name) => ({ log_date, plan_name, exercise_name, set_type: null });
     const logs = [
+      row('2026-09-24', 'Beginner Lower & Core', 'Crunch'),
       row('2026-09-28', 'Beginner Full Body A', 'Goblet Squat'), row('2026-09-28', 'Beginner Full Body A', 'Push-up'),
       row('2026-10-01', 'Beginner Full Body B', 'Leg Press'), row('2026-10-01', 'Beginner Full Body B', 'Seated Row (Machine)'),
       row('2026-10-05', 'Beginner Full Body A', 'Dumbbell Row'), row('2026-10-07', 'Beginner Full Body B', 'Chest Press (Machine)')
@@ -225,10 +226,24 @@ describe('NextWorkoutBanner', () => {
     const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Next up: Beginner Lower & Core/)).not.toBeNull();
     const focus = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent).join(' · ');
-    expect(focus).toMatch(/^🔥 Warm-up · 🔄 1 new this week · 🎯 \w+ finisher/);
+    expect(focus).toMatch(/^🔥 Warm-up · 🔄 1 new exercise · 🎯 \w+ finisher/);
   });
 
-  it('promises no "new this week" swap to a client whose only workouts are this week', async () => {
+  it('no swap for a program the client has never done, even weeks after their first workout', async () => {
+    const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
+    mockLibrary({ gym: { beginner: [
+      { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
+      { name: 'Beginner Full Body B', exercises: ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug') }
+    ] } });
+    // Did Full Body A once, weeks ago, and never came back.
+    const logs = [{ log_date: '2026-10-30', plan_name: 'Beginner Full Body A', exercise_name: 'Goblet Squat' }];
+    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Next up: Beginner Full Body B/)).not.toBeNull();
+    const pills = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent);
+    expect(pills.some(p => /new exercise/.test(p))).toBe(false);
+  });
+
+  it('promises no swap to a client whose only workouts are today', async () => {
     const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
     mockLibrary({ gym: { beginner: [
       { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
@@ -240,7 +255,7 @@ describe('NextWorkoutBanner', () => {
     const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Next up: Beginner Full Body B/)).not.toBeNull();
     const pills = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent);
-    expect(pills.some(p => /new this week/.test(p))).toBe(false);
+    expect(pills.some(p => /new exercise/.test(p))).toBe(false);
   });
 
   it('the suggestion card closes to a slim row that brings it back, without starting the workout', async () => {
@@ -259,7 +274,7 @@ describe('NextWorkoutBanner', () => {
     expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
   });
 
-  it('a client who chose a level but has never trained: "New here?" with no "new this week"', async () => {
+  it('a client who chose a level but has never trained: "New here?" with no swap', async () => {
     const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
     mockLibrary({ gym: { beginner: [
       { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },

@@ -9,10 +9,11 @@
 // Shared by the home screen's NextWorkoutBanner and the "first workout"
 // screen at the end of the sign-up wizard (FirstWorkoutPicker).
 //
-// `trainedBefore` (optional): whether the client has trained in an earlier
-// week, from the server's history — the logger uses it for the weekly-swap
-// rule (see utils/weeklySwaps) instead of guessing before its own loads.
-export function startLibraryProgram(userId, category, level, program, trainedBefore) {
+// `priorRuns` (optional): how many times the client has done this program
+// before today, from the server's history — the logger uses it for the
+// exercise swaps (see utils/weeklySwaps) instead of guessing before its own
+// history loads.
+export function startLibraryProgram(userId, category, level, program, priorRuns) {
   if (!userId || !program) return;
   try {
     localStorage.setItem(`workoutTrackerLastTab_${userId}`, 'templates');
@@ -23,7 +24,7 @@ export function startLibraryProgram(userId, category, level, program, trainedBef
       exercises: program.exercises,
       level,
       category,
-      ...(typeof trainedBefore === 'boolean' ? { trainedBefore } : {})
+      ...(typeof priorRuns === 'number' ? { priorRuns } : {})
     }));
   } catch { /* ignore quota/serialization errors */ }
 }

@@ -2276,7 +2276,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
 
-    if (completedSetsCount < totalSetsCount && !(allowPartial && completedSetsCount > 0)) {
+    // Unticked sets only in exercises not started at all (nothing ticked):
+    // that's "ran out of time", handled by the Keep-for-next-session box
+    // above Save — save straight away, same as the coach's Live Log. An
+    // unticked set inside a started exercise is more likely a forgotten
+    // tick, so that still asks first.
+    const onlyWholeExercisesLeft = completedSetsCount > 0 && logExercises.every(ex =>
+      ex.sets.every(s => s.isCompleted) || !ex.sets.some(s => s.isCompleted));
+    if (completedSetsCount < totalSetsCount && !(completedSetsCount > 0 && (allowPartial || onlyWholeExercisesLeft))) {
       setShowUntickedFinishModal(true);
       return;
     }
@@ -4661,6 +4668,23 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 submit flow the old top "Finish" button used), with a direct
                 discard escape hatch beside it for a session the client
                 doesn't want to keep. */}
+            {/* Ran out of time: exercises not started today can be kept for
+                the next session (same tick box as the coach's Live Log). */}
+            {(() => {
+              const skipped = findSkippedExercises(logExercises);
+              const hasDone = logExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => s.isCompleted));
+              if (!hasDone || skipped.length === 0) return null;
+              return (
+                <label className="live-handover-carry client-carry-over" data-testid="client-carry-over" style={{ marginBottom: '10px' }}>
+                  <input type="checkbox" checked={carryOverSkipped} onChange={e => setCarryOverSkipped(e.target.checked)} />
+                  <span>
+                    <strong>Keep {skipped.length === 1 ? '1 exercise' : `${skipped.length} exercises`} for next session</strong>
+                    <small>Not done today: {skipped.join(', ')}</small>
+                  </span>
+                </label>
+              );
+            })()}
+
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
@@ -4994,8 +5018,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', paddingBottom: '12px' }}>
               <div className="modal-title-box">
-                <span className="secure-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>⚠️ EMPTY LIFT LOGS</span>
-                <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Empty Workout Session</h3>
+                {logExercises.some(ex => ex.sets.some(s => s.isCompleted)) ? (
+                  <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Some sets aren't ticked</h3>
+                ) : (
+                  <>
+                    <span className="secure-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>⚠️ EMPTY LIFT LOGS</span>
+                    <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Empty Workout Session</h3>
+                  </>
+                )}
               </div>
               <button 
                 type="button" 

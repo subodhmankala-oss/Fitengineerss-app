@@ -1093,7 +1093,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           exercises: logExercises,
           timerStatus: workoutTimerStatus,
           timerStartedAt: workoutTimerStartedAt,
-          pauseIntervals: workoutPauseIntervals
+          pauseIntervals: workoutPauseIntervals,
+          // The kcal this phone shows for the ticked sets, so the gym Live
+          // board shows this exact number instead of re-working it out on the
+          // server with a different body weight or an older formula.
+          liveKcal: computeLiveCalories(logExercises, workoutTimerStartedAt, workoutPauseIntervals, parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG).totalKcal
         };
         if (saveDraftNowRef.current) {
           saveDraftNowRef.current = false;

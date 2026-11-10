@@ -4504,6 +4504,9 @@ const databaseService = {
       timer_status: draft.timerStatus || 'idle',
       timer_started_at: draft.timerStartedAt ?? null,
       pause_intervals: draft.pauseIntervals || [],
+      // The logger's own kcal for the ticked sets — the gym Live board shows
+      // this rather than its own estimate (sql/workout_drafts_live_kcal.sql).
+      live_kcal: Number.isFinite(draft.liveKcal) ? draft.liveKcal : null,
       updated_at: new Date().toISOString()
     };
     const ok = await saveWorkoutDraftWithRetry(record);

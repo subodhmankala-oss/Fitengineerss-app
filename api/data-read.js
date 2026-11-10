@@ -1056,11 +1056,18 @@ function liveInProgress(drafts, weightOf = {}, now = Date.now()) {
     // By the last tick, not updated_at: just opening the app re-saves a workout
     // left open weeks ago.
     if (!sets || now - lastTick > WORKING_OUT_MS) continue;
-    let kcal = 0;
-    try {
-      const w = parseFloat(weightOf[d.user_id]);
-      kcal = computeLiveCalories(exercises, d.timer_started_at, Array.isArray(d.pause_intervals) ? d.pause_intervals : [], w > 0 ? w : undefined).totalKcal;
-    } catch { continue; }
+    // The number the member's own phone (or the trainer's Live Log) shows,
+    // saved with the draft. Working it out again here used a different body
+    // weight and, on a phone still running an older app version, a different
+    // formula, so the board and the phone disagreed for the whole workout.
+    // Drafts from app versions that don't send it fall back to the estimate.
+    let kcal = Number(d.live_kcal);
+    if (d.live_kcal == null || !Number.isFinite(kcal) || kcal < 0) {
+      try {
+        const w = parseFloat(weightOf[d.user_id]);
+        kcal = computeLiveCalories(exercises, d.timer_started_at, Array.isArray(d.pause_intervals) ? d.pause_intervals : [], w > 0 ? w : undefined).totalKcal;
+      } catch { continue; }
+    }
     const cur = by.get(d.user_id) || { memberId: d.user_id, kcal: 0, sets: 0, lastTickAt: 0, withTrainer: false };
     cur.kcal = Math.round((cur.kcal + kcal) * 10) / 10;
     cur.sets += sets;
@@ -1091,7 +1098,7 @@ async function gymInProgress(gid, ids) {
   const drafts = [];
   for (let i = 0; i < ids.length; i += 150) {
     drafts.push(...await svcSelect(
-      `workout_drafts?user_id=in.(${ids.slice(i, i + 150).join(',')})&updated_at=gte.${since}&select=user_id,source,exercises,timer_started_at,pause_intervals,updated_at`,
+      `workout_drafts?user_id=in.(${ids.slice(i, i + 150).join(',')})&updated_at=gte.${since}&select=user_id,source,exercises,timer_started_at,pause_intervals,live_kcal,updated_at`,
       'gym-live drafts'
     ));
   }

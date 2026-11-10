@@ -171,3 +171,11 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* Client logger: the same tick box, on its own card above Save. */
+.client-carry-over {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm, 10px);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+}

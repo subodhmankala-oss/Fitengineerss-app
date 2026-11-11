@@ -66,7 +66,7 @@ export const MUSCLE_SIZE = {
 // are never cut — the coach gets this warning instead.
 export const TRAINING_DAYS = {
   coachChoiceWins: true,
-  overMaxWarning: '{days} training days is above the usual maximum of {max} for a {level} client. Kept as you asked — watch recovery.'
+  overMaxWarning: '{days} training days is above the usual maximum of {max} for {aLevel} client. Kept as you asked — watch recovery.'
 };
 
 // ─── 2. Rep ranges by goal and level ────────────────────────────────────────
@@ -296,9 +296,10 @@ export const BRIEF_WARNINGS = {
   missingEffects: { age: 'age (no age rules)', sex: 'sex', height: 'height (no BMI rule)', weight: 'weight (no BMI rule)', goal: 'goal (using General Fitness)' },
   removed: '{day}: removed {name} ({why}).',
   clamped: '{day}: sets/reps adjusted on {count} exercise{s} to fit the client\'s ranges.',
-  overCap: '{muscle}: {sets} sets this week, above the {cap}-set cap for a {level} client. Consider trimming one {muscle} exercise.',
+  overCap: '{muscle}: {sets} sets this week, above the {cap}-set cap for {aLevel} client. Consider trimming one {muscle} exercise.',
   untaggedInDraft: '{day}: {name} has no safety tags (custom or new exercise) — check it suits this client.',
-  equipmentHome: 'Equipment read as home kit: dumbbells, kettlebells, bands and bodyweight only.'
+  equipmentHome: 'Equipment read as home kit: dumbbells, kettlebells, bands and bodyweight only.',
+  noCardio: '{goal} calls for cardio every day, but no cardio exercise in your library fits this client\'s limits, so the draft has none. Add one by hand (e.g. a seated bike) if it suits them.'
 };
 
 // Why an exercise was removed, as the coach reads it.

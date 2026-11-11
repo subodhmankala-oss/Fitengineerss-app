@@ -368,7 +368,7 @@ describe('programming brief', () => {
     const requests = fakeGroq([okReply({ programSummary: 'S', days: [chest('Day 1'), chest('Day 2')] })]);
     const r = await call(body({ options: { trainingDays: 2 } }));
     expect(requests).toHaveLength(1);
-    expect(r.body.warnings).toContainEqual({ kind: 'week', text: 'Chest: 24 sets this week, above the 16-set cap for a intermediate client. Consider trimming one Chest exercise.' });
+    expect(r.body.warnings).toContainEqual({ kind: 'week', text: 'Chest: 24 sets this week, above the 16-set cap for an intermediate client. Consider trimming one Chest exercise.' });
   });
 
   it('top-up days are held to the same brief', async () => {

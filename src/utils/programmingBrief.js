@@ -26,6 +26,10 @@ import {
 import { getExerciseTags } from './exerciseTags.js';
 import { exerciseNameKey } from './exerciseName.js';
 import { getMuscleGroupsForExercise, parseMuscleText, OPTIONAL_MUSCLES } from './muscleGroups.js';
+import { isCardioExercise } from '../data/exerciseLibrary.js';
+
+// "a beginner", "an intermediate", "an advanced".
+export const withArticle = (word) => `${/^[aeiou]/i.test(String(word)) ? 'an' : 'a'} ${word}`;
 
 const fill = (template, values) =>
   template.replace(/\{(\w+)\}/g, (m, k) => (values[k] !== undefined ? String(values[k]) : m));
@@ -133,7 +137,7 @@ export function buildProgrammingBrief({ profile = {}, options = {}, level: coach
   // ── Days (change 2b): the coach's count wins, with a warning ──
   const days = num(options.days) ? Math.round(num(options.days)) : null;
   if (days && days > L.maxDaysPerWeek && TRAINING_DAYS.coachChoiceWins) {
-    warnings.push(fill(TRAINING_DAYS.overMaxWarning, { days, max: L.maxDaysPerWeek, level }));
+    warnings.push(fill(TRAINING_DAYS.overMaxWarning, { days, max: L.maxDaysPerWeek, aLevel: withArticle(level) }));
   }
 
   // ── Goals (section 2): first sets reps, second only adds its cardio ──
@@ -239,6 +243,12 @@ export function buildProgrammingBrief({ profile = {}, options = {}, level: coach
   // ── Preferred substitutes that survived the filter ──
   const allowedByKey = new Map(allowedCatalog.map(e => [exerciseNameKey(e.name), e.name]));
   cardio.preferred = cardio.preferred.map(n => allowedByKey.get(exerciseNameKey(n))).filter(Boolean);
+  // A goal that needs daily cardio, but every cardio exercise is filtered
+  // out (e.g. 60+ no-impact with home kit): tell the coach, and the prompt
+  // stops asking for cardio it can't have.
+  const isCardio = (e) => e.category === 'Cardio' || isCardioExercise(e.name);
+  cardio.available = allowedCatalog.some(isCardio) || !catalog.some(isCardio);
+  if (cardio.required && !cardio.available) warnings.push(fill(BRIEF_WARNINGS.noCardio, { goal: cardio.goal }));
   const preferred = {};
   areas.forEach(a => {
     preferred[a] = INJURY_AREAS[a].preferred.map(n => allowedByKey.get(exerciseNameKey(n))).filter(Boolean);

@@ -10,6 +10,7 @@ import { INJURY_AREAS, BRIEF_WARNINGS, EXCLUSION_REASON_TEXT } from '../data/aiP
 import { matchCatalogExercise } from './aiWorkoutCatalog.js';
 import { exerciseNameKey } from './exerciseName.js';
 import { getExerciseTags } from './exerciseTags.js';
+import { withArticle } from './programmingBrief.js';
 import { getMuscleGroupsForExercise, parseMuscleText, LARGE_MUSCLES, SECONDARY_WEIGHT } from './muscleGroups.js';
 
 const fill = (template, values) =>
@@ -40,7 +41,9 @@ export function briefPromptRules({ brief, preferred = {} }) {
     `- In the JSON, "setCount" and "reps" are each ONE whole number chosen inside those ranges (for example 10), and "durationMinutes" is ONE number (for example 0.5) — never a range, a dash or text.`,
     `- Weekly working sets per muscle: large muscles (chest, back, shoulders, quads, hamstrings, glutes) about ${b.weeklySets.large.target}, never above ${b.weeklySets.large.cap}; small muscles (biceps, triceps, calves, forearms, core) about ${b.weeklySets.small.target}, never above ${b.weeklySets.small.cap}.`,
     `- Leave at least ${b.minRestHoursSameMuscle} h before training the same muscle again.`,
-    b.cardio.required
+    b.cardio.required && b.cardio.available === false
+      ? '- Cardio: no cardio exercise in the library is allowed for this client — leave cardio out.'
+      : b.cardio.required
       ? `- Cardio: finish every day with ${range(b.cardio.minutes, ' min')} of ${b.cardio.style}${b.cardio.intervals ? ` (intervals of ${range(b.cardio.intervals, ' min')} are allowed)` : ''}${b.cardio.preferred.length ? `, using ${b.cardio.preferred.join(' or ')}` : ''}.`
       : `- Cardio: optional, at most ${b.cardio.minutes[1]} min a day.`,
     b.cardio.coreEveryDay ? '- Include one core exercise every day.' : null,
@@ -162,7 +165,7 @@ export function weeklySetWarnings(days, brief, catalog = []) {
   const out = [];
   weeklySetsByMuscle(days, catalog).forEach((sets, muscle) => {
     const cap = (LARGE_MUSCLES.has(muscle) ? brief.weeklySets.large : brief.weeklySets.small).cap;
-    if (sets > cap) out.push(fill(BRIEF_WARNINGS.overCap, { muscle, sets: Math.round(sets * 10) / 10, cap, level: brief.level }));
+    if (sets > cap) out.push(fill(BRIEF_WARNINGS.overCap, { muscle, sets: Math.round(sets * 10) / 10, cap, aLevel: withArticle(brief.level) }));
   });
   return out;
 }

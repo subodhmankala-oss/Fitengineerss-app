@@ -389,3 +389,17 @@ describe('purity', () => {
     expect(IMPACT_ORDER).toEqual(['none', 'low', 'high']);
   });
 });
+
+describe('cardio the filters rule out', () => {
+  it('warns and marks cardio unavailable when a goal needs it but none is allowed', () => {
+    const r = buildProgrammingBrief({ profile: { age: 63, heightCm: 160, weightKg: 66, sex: 'female', goal: 'General Fitness' }, options: { equipment: 'Home, dumbbells only' }, level: 'beginner', injuryAreas: ['knee'], catalog: CATALOG });
+    expect(r.brief.cardio.available).toBe(false);
+    expect(r.warnings.join(' ')).toMatch(/General Fitness calls for cardio every day, but no cardio exercise in your library fits/);
+  });
+
+  it('is quiet when some cardio survives', () => {
+    const r = buildProgrammingBrief({ profile: { age: 30, heightCm: 175, weightKg: 70, goal: 'Fat Loss' }, level: 'beginner', catalog: CATALOG });
+    expect(r.brief.cardio.available).toBe(true);
+    expect(r.warnings.join(' ')).not.toMatch(/calls for cardio/);
+  });
+});

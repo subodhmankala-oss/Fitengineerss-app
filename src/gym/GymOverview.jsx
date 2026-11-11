@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import GymInvite from './GymInvite';
 import GymTodayMessages from './GymTodayMessages';
+import GymFollowUps from './GymFollowUps';
+import { FirstThirtyDaysCard, NotRenewCard } from './GymOwnerCards';
 import { busyLabel, greeting, istDate, istTime, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees, visitsToday, whoIsIn } from './gymView';
 
 const HOW = {
@@ -26,7 +28,6 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
   const stopped = clients.filter((c) => ['quiet', 'inactive'].includes(c.engagement?.status)).length;
   const slipping = clients.filter((c) => c.engagement?.status === 'slipping').length;
   const waiting = clients.filter((c) => !c.trainerName && !c.selfGuided).length;
-  const fresh = clients.filter((c) => c.engagement?.status === 'new').length;
   const ranked = rankTrainers(trainers).slice(0, 3);
   const weekly = insights?.weekly || [];
   const today = insights?.today;
@@ -68,7 +69,6 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
           <h1 className="gx-h1">{greeting()}{first ? `, ${first}` : ''}</h1>
           <div className="gx-pills">
             <span className="gx-pill amber">{trainedWeek} of {clients.length} members trained this week</span>
-            {fresh > 0 && <span className="gx-pill green">{fresh} new member{fresh === 1 ? '' : 's'} not started</span>}
           </div>
         </div>
       </div>
@@ -136,6 +136,12 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
       )}
 
       <GymTodayMessages data={data} biz={biz} service={service} onChanged={onChanged} />
+      <GymFollowUps data={data} biz={biz} service={service} onChanged={onChanged} />
+
+      <div className="gx-grid2 even">
+        <NotRenewCard data={data} plans={plans} upiId={biz?.settings?.upi_id} onOpenMembers={onOpenMembers} />
+        <FirstThirtyDaysCard data={data} onOpenMembers={onOpenMembers} />
+      </div>
 
       <section className="gx-card">
         <h2 className="gx-h2">Today’s game plan</h2>

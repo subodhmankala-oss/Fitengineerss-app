@@ -37,3 +37,27 @@ export function receiptMessageText(gymName, amount, planName) {
 export function sendWhatsapp(client, text) {
   openWhatsapp(toWhatsappNumber(client.phone), buildNudgeMessage(text, { userName: client.name }));
 }
+
+// First-weeks nudges for a new member who has not trained yet, or only a little.
+export function newMemberMessageText(gymName, stage) {
+  const gym = gymName || 'the gym';
+  return stage === 'waiting'
+    ? `Hi {name}, welcome to ${gym}! Ready for your first workout? Open the app and your trainer will get you started.`
+    : `Hi {name}, great start at ${gym}! Keep the momentum going, see you at your next session.`;
+}
+
+export function messageNewMember(client, gymName, stage) {
+  openWhatsapp(toWhatsappNumber(client.phone), buildNudgeMessage(newMemberMessageText(gymName, stage), { userName: client.name }));
+}
+
+// Renewal message for a plan that is ending or ended. With the gym's UPI ID it
+// carries the renewal price as a pay link (the plain ID is spelled out too).
+// A member who still owes money gets the payment-due message instead.
+export function renewalMessageText(client, gymName, plan, upiId) {
+  if (plan.state === 'due') return planMessageText(client, gymName, plan, upiId);
+  const gym = gymName || 'the gym';
+  const when = plan.daysLeft < 0 ? `ended on ${shortDate(plan.endsOn)}` : plan.daysLeft === 0 ? 'ends today' : `ends in ${plan.daysLeft} day${plan.daysLeft === 1 ? '' : 's'}`;
+  const base = `Hi {name}, your ${plan.planName} at ${gym} ${when}. We would love to keep you training with us!`;
+  const link = upiLink({ upiId, payeeName: gymName, amount: plan.price, note: `${plan.planName} renewal - ${client?.name || ''}`.trim() });
+  return link ? `${base}\n\nRenew for ${rupees(plan.price)}: pay by UPI to ${String(upiId).trim()}\nOr tap to pay: ${link}` : `${base} Want to renew?`;
+}

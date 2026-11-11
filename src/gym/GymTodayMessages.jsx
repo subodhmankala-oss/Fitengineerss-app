@@ -35,7 +35,7 @@ export default function GymTodayMessages({ data, biz, service, onChanged }) {
       <div className="gx-list">
         {items.map((m) => (
           <div key={m.key} className="gx-rank">
-            <div className="gx-grow">
+            <div className="gx-rank-main">
               <div className="gx-name">{m.client.name} <span className={`gx-pill ${m.kind === 'receipt' ? 'green' : 'amber'}`}>{TODAY_KINDS[m.kind].label}</span></div>
               <div className="gx-sub">{m.text.replace('{name}', m.client.name.split(' ')[0]).slice(0, 110)}{m.text.length > 110 ? '…' : ''}</div>
             </div>

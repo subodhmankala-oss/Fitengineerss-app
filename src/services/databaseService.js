@@ -3387,6 +3387,20 @@ const databaseService = {
     }
   },
 
+  // Reports page aggregates: collections, joins, retention, top exercises / muscles, lead conversion.
+  async getOwnerReports() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=owner-reports', { method: 'POST', headers, body: JSON.stringify({ email }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.gym) return { success: false, error: (data && data.error) || 'Could not load reports.' };
+      return { success: true, ...data };
+    } catch (e) {
+      console.error('[getOwnerReports] error:', e);
+      return { success: false, error: e.message || 'Could not load reports.' };
+    }
+  },
+
   // Live calorie board: this week's sessions (one calorie value each) for the owner's gym.
   // light: only who is mid-workout right now (cheap enough to poll every few seconds).
   async getGymLive({ light = false } = {}) {

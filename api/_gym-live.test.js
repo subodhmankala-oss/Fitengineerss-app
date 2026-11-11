@@ -5,11 +5,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 let liveSessions;
 let liveInProgress;
 let publicLivePayload;
+let monthStats;
 let shortName;
 let isCurrentMember;
 beforeEach(async () => {
   vi.resetModules();
-  ({ liveSessions, liveInProgress, publicLivePayload, shortName, isCurrentMember } = (await import('./data-read.js')).__test);
+  ({ liveSessions, liveInProgress, publicLivePayload, shortName, isCurrentMember, monthStats } = (await import('./data-read.js')).__test);
 });
 
 // n set rows of one saved session (calories/duration repeated on each row).
@@ -101,6 +102,13 @@ describe('shared board payload', () => {
     expect(out.gym).toEqual({ name: 'Test Gym' });
   });
 
+  it('adds only the two board numbers per member, nothing behind them', () => {
+    const withStats = { ...full, members: [{ ...full.members[0], monthDays: 9, improvement: 4 }] };
+    const out = publicLivePayload(withStats, 'Test Gym');
+    expect(Object.keys(out.members[0]).sort()).toEqual(['avatarUrl', 'id', 'improvement', 'monthDays', 'name', 'sex']);
+    expect(out.members[0]).toMatchObject({ name: 'Vinay N.', monthDays: 9, improvement: 4 });
+  });
+
   it('shortens names', () => {
     expect(shortName('Vinay Naidu')).toBe('Vinay N.');
     expect(shortName('gk.goginenikiran')).toBe('gk.goginenikiran');
@@ -120,5 +128,29 @@ describe('isCurrentMember', () => {
   });
   it('drops a paused client', () => {
     expect(isCurrentMember({ coach_id: 'c1' }, { coach_id: 'c1', paused_at: '2026-10-02T00:00:00Z' })).toBe(false);
+  });
+});
+
+describe('monthStats (Most consistent / Most improved)', () => {
+  const s = (memberId, date) => ({ memberId, date, kcal: 100, at: 't' });
+  const TODAY = '2026-11-10';
+
+  it('counts distinct days this month and the gain over the same days last month', () => {
+    const sessions = [
+      s('a', '2026-11-02'), s('a', '2026-11-02'), s('a', '2026-11-05'), s('a', '2026-11-09'),
+      s('a', '2026-10-03'), s('a', '2026-10-09'),
+      s('a', '2026-10-20') // after day 10 of last month: not compared
+    ];
+    expect(monthStats(sessions, TODAY).a).toEqual({ monthDays: 3, improvement: 2 });
+  });
+
+  it('never goes below zero and ignores members with no workout in that span last month', () => {
+    const sessions = [s('b', '2026-11-01'), s('b', '2026-10-01'), s('b', '2026-10-02'), s('c', '2026-11-03'), s('c', '2026-11-04')];
+    expect(monthStats(sessions, TODAY).b).toEqual({ monthDays: 1, improvement: 0 });
+    expect(monthStats(sessions, TODAY).c).toEqual({ monthDays: 2, improvement: 0 });
+  });
+
+  it('rolls over the year (January compares with December)', () => {
+    expect(monthStats([s('a', '2027-01-02'), s('a', '2027-01-03'), s('a', '2026-12-01')], '2027-01-05').a).toEqual({ monthDays: 2, improvement: 1 });
   });
 });

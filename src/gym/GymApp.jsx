@@ -7,6 +7,7 @@ import GymPayments from './GymPayments';
 import GymSettings from './GymSettings';
 import GymLeads from './GymLeads';
 import GymLive from './GymLive';
+import GymReports from './GymReports';
 import GymInvite from './GymInvite';
 import { GYM_COLOURS } from './gymView';
 import { NAV } from './nav';
@@ -22,11 +23,12 @@ const Icon = ({ d }) => (
 export default function GymApp({ data, biz, bizError, service, onReload, onSignOut }) {
   const [page, setPage] = useState('overview');
   const [memberFilter, setMemberFilter] = useState('all');
+  const [memberPick, setMemberPick] = useState(null);
 
   const owner = useMemo(() => data.trainers.find((t) => t.isOwner), [data]);
 
   // Jump to Members with a filter already chosen (tapping a card on Overview).
-  const openMembers = (filter = 'all') => { setMemberFilter(filter); setPage('members'); };
+  const openMembers = (filter = 'all', memberId = null) => { setMemberFilter(filter); setMemberPick(memberId); setPage('members'); };
 
   let body;
   if (page === 'overview') {
@@ -34,13 +36,15 @@ export default function GymApp({ data, biz, bizError, service, onReload, onSignO
   } else if (page === 'live') {
     body = <GymLive service={service} />;
   } else if (page === 'members') {
-    body = <GymMembers key={memberFilter} data={data} biz={biz} service={service} initialFilter={memberFilter} onChanged={onReload} />;
+    body = <GymMembers key={`${memberFilter}|${memberPick || ''}`} data={data} biz={biz} service={service} initialFilter={memberFilter} initialSelected={memberPick} onChanged={onReload} />;
   } else if (page === 'trainers') {
     body = <GymTrainers data={data} biz={biz} service={service} onChanged={onReload} onOpenMembers={openMembers} />;
   } else if (page === 'payments') {
     body = <GymPayments data={data} biz={biz} bizError={bizError} service={service} onChanged={onReload} />;
   } else if (page === 'leads') {
     body = <GymLeads data={data} biz={biz} bizError={bizError} service={service} onChanged={onReload} />;
+  } else if (page === 'reports') {
+    body = <GymReports data={data} biz={biz} service={service} />;
   } else if (page === 'settings') {
     body = <GymSettings biz={biz} bizError={bizError} gymName={data.gym.name} service={service} onSaved={onReload} />;
   } else {

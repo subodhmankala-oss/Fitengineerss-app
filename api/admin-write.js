@@ -481,7 +481,10 @@ const handleGymSavePlans = gymBusinessAction('gym_save_plans', 'gym-save-plans',
 ));
 const GYM_COLOURS = ['blue', 'teal', 'green', 'orange', 'pink'];
 const LEAD_SOURCES = ['instagram', 'walk-in', 'referral', 'google', 'other'];
-const LEAD_STAGES = ['new', 'trial_booked', 'trial_done', 'joined'];
+const LEAD_STAGES = ['new', 'trial_booked', 'trial_done', 'joined', 'lost'];
+const LEAD_LOST_REASONS = ['too_expensive', 'joined_elsewhere', 'no_response', 'other'];
+// A real calendar day, YYYY-MM-DD (or empty = none).
+const isDay = (d) => d == null || d === '' || (/^\d{4}-\d{2}-\d{2}$/.test(String(d)) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`)) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d);
 const isTimestamp = (t) => t == null || t === '' || !Number.isNaN(Date.parse(String(t)));
 const handleGymSaveSettings = gymBusinessAction('gym_save_settings', 'gym-save-settings', (b, c) => (
   GYM_COLOURS.includes(b.color) && isInt(Number(b.joinGoal), 1, 100000) && isInt(Number(b.capacity), 1, 100000) && isInt(Number(b.sharePct), 0, 100)
@@ -510,17 +513,26 @@ const handleGymMessageSent = gymBusinessAction('gym_message_sent', 'gym-message-
 
 const handleGymLead = gymBusinessAction('gym_lead_action', 'gym-lead', (b, c) => {
   const base = { p_owner_id: c.id, p_op: b.op, p_lead_id: null, p_name: null, p_phone: null, p_source: null, p_note: null, p_stage: null, p_trial_at: isTimestamp(b.trialAt) && b.trialAt ? new Date(b.trialAt).toISOString() : null };
+  // The lost reason and follow-up date are only sent when used, so the older
+  // 9-argument function keeps working until sql/gym_leads_lost.sql is applied.
+  const extra = {};
+  if (b.followUpOn) extra.p_follow_up_on = b.followUpOn;
   if (b.op === 'add') {
-    return typeof b.name === 'string' && b.name.trim().length >= 1 && b.name.length <= 80 && LEAD_SOURCES.includes(b.source || 'walk-in') && isTimestamp(b.trialAt)
+    return typeof b.name === 'string' && b.name.trim().length >= 1 && b.name.length <= 80 && LEAD_SOURCES.includes(b.source || 'walk-in') && isTimestamp(b.trialAt) && isDay(b.followUpOn)
       && (b.phone == null || String(b.phone).length <= 20) && (b.note == null || String(b.note).length <= 200)
-      ? { ...base, p_name: b.name, p_phone: b.phone || null, p_source: b.source || 'walk-in', p_note: b.note || null }
+      ? { ...base, ...extra, p_name: b.name, p_phone: b.phone || null, p_source: b.source || 'walk-in', p_note: b.note || null }
       : null;
   }
   if (b.op === 'move') {
-    return UUID_RE.test(String(b.leadId || '')) && LEAD_STAGES.includes(b.stage) && isTimestamp(b.trialAt)
-      ? { ...base, p_lead_id: b.leadId, p_stage: b.stage }
-      : null;
+    if (!UUID_RE.test(String(b.leadId || '')) || !LEAD_STAGES.includes(b.stage) || !isTimestamp(b.trialAt) || !isDay(b.followUpOn)) return null;
+    if (b.stage === 'lost') {
+      if (!LEAD_LOST_REASONS.includes(b.reason)) return null;
+      extra.p_lost_reason = b.reason;
+    }
+    return { ...base, ...extra, p_lead_id: b.leadId, p_stage: b.stage };
   }
+  // Set (or, with no date, clear) the follow-up day.
+  if (b.op === 'follow_up') return UUID_RE.test(String(b.leadId || '')) && isDay(b.followUpOn) ? { ...base, p_lead_id: b.leadId, p_follow_up_on: b.followUpOn || null } : null;
   if (b.op === 'delete') return UUID_RE.test(String(b.leadId || '')) ? { ...base, p_lead_id: b.leadId } : null;
   return null;
 });

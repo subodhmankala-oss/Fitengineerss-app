@@ -49,7 +49,8 @@ export const MEMBER_FILTERS = [
 // Filters that depend on each member's plan (need the memberPlans map).
 export const PLAN_FILTERS = [
   { key: 'ends', label: 'Ends soon', dot: '#ffb02e', test: (c, plans) => ['ends-soon', 'expired'].includes(plans[c.id]?.state) },
-  { key: 'due', label: 'Payment due', dot: '#f08a2e', test: (c, plans) => plans[c.id]?.state === 'due' }
+  { key: 'due', label: 'Payment due', dot: '#f08a2e', test: (c, plans) => plans[c.id]?.state === 'due' },
+  { key: 'notrenew', label: 'Likely not to renew', dot: '#f05b6b', test: (c, plans) => isLikelyNotToRenew(c, plans[c.id]) }
 ];
 
 export function greeting(now = new Date()) {
@@ -127,7 +128,12 @@ export const LEAD_STAGES = [
   { key: 'new', label: 'New enquiry', tone: 'blue' },
   { key: 'trial_booked', label: 'Trial booked', tone: 'amber' },
   { key: 'trial_done', label: 'Trial done', tone: 'yellow' },
-  { key: 'joined', label: 'Joined', tone: 'green' }
+  { key: 'joined', label: 'Joined', tone: 'green' },
+  { key: 'lost', label: 'Lost', tone: 'grey' }
+];
+export const LEAD_LOST_REASONS = [
+  { key: 'too_expensive', label: 'Too expensive' }, { key: 'joined_elsewhere', label: 'Joined elsewhere' },
+  { key: 'no_response', label: 'No response' }, { key: 'other', label: 'Other' }
 ];
 export const LEAD_SOURCES = [
   { key: 'instagram', label: 'Instagram' }, { key: 'walk-in', label: 'Walk-in' },
@@ -142,10 +148,20 @@ export const istTime = (iso) => new Date(Date.parse(iso) + IST_MS).toISOString()
 // Leads that joined this month (YYYY-MM of `today`) against the goal.
 export function leadStats(leads, goal, today) {
   const month = today.slice(0, 7);
-  const joined = (leads || []).filter((l) => l.stage === 'joined' && l.joined_at && istDate(l.joined_at).slice(0, 7) === month).length;
+  const inMonth = (iso) => !!iso && istDate(iso).slice(0, 7) === month;
+  const joined = (leads || []).filter((l) => l.stage === 'joined' && inMonth(l.joined_at)).length;
+  const lost = (leads || []).filter((l) => l.stage === 'lost' && inMonth(l.lost_at)).length;
   const day = new Date(`${today}T00:00:00Z`);
   const daysInMonth = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 0)).getUTCDate();
-  return { joined, goal, toGo: Math.max(0, goal - joined), daysLeft: daysInMonth - day.getUTCDate() };
+  return { joined, lost, followUps: followUpsDue(leads, today).length, goal, toGo: Math.max(0, goal - joined), daysLeft: daysInMonth - day.getUTCDate() };
+}
+
+// Leads whose follow-up day is today or already passed, oldest first. Joined
+// people never need one; lost leads can have one (a win-back call).
+export function followUpsDue(leads, today) {
+  return (leads || [])
+    .filter((l) => l.follow_up_on && l.stage !== 'joined' && String(l.follow_up_on).slice(0, 10) <= today)
+    .sort((a, b) => String(a.follow_up_on).localeCompare(String(b.follow_up_on)) || String(a.name).localeCompare(String(b.name)));
 }
 
 // Who is inside now: checked in, not out, and in within the last 6 hours.
@@ -238,8 +254,25 @@ export function liveBoard(live, period, sex = 'all') {
   for (const w of live.inProgress || []) working[w.memberId] = w;
   return (live.members || [])
     .filter((m) => sex === 'all' || m.sex === sex)
-    .map((m) => ({ id: m.id, name: m.name || 'Member', email: m.email || null, avatarUrl: m.avatarUrl || null, kcal: Math.round((by[m.id]?.kcal || 0) + (working[m.id]?.kcal || 0)), sessions: by[m.id]?.sessions || 0, lastAt: working[m.id]?.lastTickAt || by[m.id]?.lastAt || '', working: !!working[m.id], workingSets: working[m.id]?.sets || 0, withTrainer: !!working[m.id]?.withTrainer }))
+    .map((m) => ({ id: m.id, name: m.name || 'Member', email: m.email || null, avatarUrl: m.avatarUrl || null, value: Math.round((by[m.id]?.kcal || 0) + (working[m.id]?.kcal || 0)), kcal: Math.round((by[m.id]?.kcal || 0) + (working[m.id]?.kcal || 0)), sessions: by[m.id]?.sessions || 0, lastAt: working[m.id]?.lastTickAt || by[m.id]?.lastAt || '', working: !!working[m.id], workingSets: working[m.id]?.sets || 0, withTrainer: !!working[m.id]?.withTrainer }))
     .sort((a, b) => (b.kcal - a.kcal) || (a.kcal && b.kcal ? a.lastAt.localeCompare(b.lastAt) : 0) || (b.sessions - a.sessions) || a.name.localeCompare(b.name));
+}
+
+// "Most consistent" (days trained this month) and "Most improved" (workouts
+// this month vs the same days last month) for the Live board. The server sends
+// only monthDays and improvement per member. Zeros are listed last, A to Z.
+export const LIVE_METRICS = [
+  { key: 'kcal', label: 'Calories' },
+  { key: 'consistent', label: 'Most consistent', unit: 'days', empty: 'Nobody has trained this month yet.' },
+  { key: 'improved', label: 'Most improved', unit: 'more workouts', empty: 'Nobody has trained more than in the same days of last month yet.' }
+];
+export function liveMonthBoard(live, metric, sex = 'all') {
+  if (!live) return [];
+  const field = metric === 'improved' ? 'improvement' : 'monthDays';
+  return (live.members || [])
+    .filter((m) => sex === 'all' || m.sex === sex)
+    .map((m) => ({ id: m.id, name: m.name || 'Member', email: m.email || null, avatarUrl: m.avatarUrl || null, value: Number(m[field]) || 0, sessions: 0, working: false, workingSets: 0, withTrainer: false }))
+    .sort((a, b) => (b.value - a.value) || a.name.localeCompare(b.name));
 }
 
 // Member counts for the Live board's All / Male / Female tabs, plus how many
@@ -250,3 +283,125 @@ export function liveSexCounts(live) {
   const female = members.filter((m) => m.sex === 'female').length;
   return { all: members.length, male, female, unset: members.length - male - female };
 }
+
+// ─── Renewal risk ───
+// Members whose plan has ended or ends soon, split by how they are training.
+// 'high' = they have stopped or are slipping, so they will likely not renew
+// unless the owner reaches out; 'watch' = still training, a plain reminder
+// is enough. Most urgent first (ended longest ago / ends soonest).
+const TRAINING_AT_RISK = ['slipping', 'quiet', 'inactive'];
+export function renewalRisk(clients, plans) {
+  const out = [];
+  (clients || []).forEach((c) => {
+    const plan = plans?.[c.id];
+    if (!plan || !['ends-soon', 'expired'].includes(plan.state)) return;
+    const level = TRAINING_AT_RISK.includes(c.engagement?.status) ? 'high' : 'watch';
+    out.push({ client: c, plan, level });
+  });
+  return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'high' ? -1 : 1) || a.plan.daysLeft - b.plan.daysLeft);
+}
+
+// ─── New-member journey ───
+// For members who joined in the last 28 days: where they are. 'waiting' =
+// no workout yet, 'started' = trained but fewer than 3 times, 'hooked' = 3+
+// workouts. dayN is how many days since joining (day 1 = joining day).
+export const JOURNEY_DAYS = 28;
+export function newMemberJourney(clients) {
+  return (clients || [])
+    .filter((c) => c.journey && c.journey.joinedDaysAgo < JOURNEY_DAYS)
+    .map((c) => {
+      const { joinedDaysAgo, firstWorkoutDay, workoutsFirst14d } = c.journey;
+      const stage = firstWorkoutDay === null ? 'waiting' : workoutsFirst14d >= 3 ? 'hooked' : 'started';
+      return { client: c, stage, dayN: joinedDaysAgo + 1, firstWorkoutDay, workouts: workoutsFirst14d };
+    })
+    .sort((a, b) => (a.stage === 'waiting' ? 0 : 1) - (b.stage === 'waiting' ? 0 : 1) || b.dayN - a.dayN);
+}
+
+// ─── Likely not to renew ───
+// A plan that ends within 14 days (or ended up to 60 days ago, so long-gone
+// members do not fill the list for ever) held by a member who is slipping,
+// has stopped coming, or never started. Activity only: plan dates + training.
+export const NOT_RENEW_DAYS = 14;
+export const NOT_RENEW_ENDED_MAX = 60;
+export function isLikelyNotToRenew(client, plan) {
+  if (!plan || plan.daysLeft > NOT_RENEW_DAYS || plan.daysLeft < -NOT_RENEW_ENDED_MAX) return false;
+  return TRAINING_AT_RISK.includes(client?.engagement?.status);
+}
+
+// Most urgent first: ended longest ago, then ending soonest.
+export function likelyNotToRenew(clients, plans) {
+  return (clients || [])
+    .filter((c) => isLikelyNotToRenew(c, plans?.[c.id]))
+    .map((c) => ({ client: c, plan: plans[c.id], lastWorkout: c.lastWorkout || null, status: c.engagement.status }))
+    .sort((a, b) => a.plan.daysLeft - b.plan.daysLeft || a.client.name.localeCompare(b.client.name));
+}
+
+// ─── First 30 days ───
+// Members who joined in the last 30 days and how far along they are: joined,
+// first workout, then 4+ workouts in their first 14 days. Anyone with no first
+// workout after 3 days is flagged for a nudge. Needs `journey` (owner payload).
+export const FIRST_DAYS = 30;
+export const NO_START_FLAG_DAYS = 3;
+export const HOOKED_WORKOUTS = 4;
+export function firstThirtyDays(clients) {
+  const rows = (clients || [])
+    .filter((c) => c.journey && c.journey.joinedDaysAgo >= 0 && c.journey.joinedDaysAgo < FIRST_DAYS)
+    .map((c) => {
+      const { joinedDaysAgo, firstWorkoutDay, workoutsFirst14d } = c.journey;
+      const started = firstWorkoutDay !== null;
+      return {
+        client: c,
+        dayN: joinedDaysAgo + 1,
+        started,
+        firstWorkoutDay,
+        workouts: workoutsFirst14d,
+        hooked: workoutsFirst14d >= HOOKED_WORKOUTS,
+        needsNudge: !started && joinedDaysAgo >= NO_START_FLAG_DAYS,
+        needsTrainer: !c.trainerName && !c.selfGuided
+      };
+    });
+  const summary = {
+    joined: rows.length,
+    started: rows.filter((r) => r.started).length,
+    hooked: rows.filter((r) => r.hooked).length,
+    needNudge: rows.filter((r) => r.needsNudge).length
+  };
+  rows.sort((a, b) => (b.needsNudge - a.needsNudge) || (b.dayN - a.dayN) || a.client.name.localeCompare(b.client.name));
+  return { rows, summary };
+}
+
+// ─── Reports page helpers ───
+const hourNum = (h) => (h % 12 === 0 ? 12 : h % 12);
+const hourAmPm = (h) => (h % 24 < 12 ? 'AM' : 'PM');
+// "6-8 PM", "11 AM-1 PM"
+export const hourSpan = (from, len = 2) => {
+  const to = from + len;
+  return hourAmPm(from) === hourAmPm(to) ? `${hourNum(from)}-${hourNum(to)} ${hourAmPm(to)}` : `${hourNum(from)} ${hourAmPm(from)}-${hourNum(to)} ${hourAmPm(to)}`;
+};
+// One line from the Monday-first 7x24 grid: the busiest and quietest 2-hour
+// windows (6 AM to 10 PM) for weekdays and weekends, compared per day so a
+// 5-day group does not beat a 2-day one by size alone. null when too little data.
+export function peakTakeaway(grid, total = 0) {
+  if (!grid || total < 5) return null;
+  const groups = [{ label: 'weekdays', rows: [0, 1, 2, 3, 4] }, { label: 'weekends', rows: [5, 6] }];
+  const windows = [];
+  for (const g of groups) {
+    for (let h = 6; h <= 20; h += 1) {
+      const sum = g.rows.reduce((s, r) => s + (grid[r]?.[h] || 0) + (grid[r]?.[h + 1] || 0), 0);
+      windows.push({ label: g.label, from: h, perDay: sum / g.rows.length });
+    }
+  }
+  const best = windows.reduce((a, b) => (b.perDay > a.perDay ? b : a));
+  const worst = windows.reduce((a, b) => (b.perDay < a.perDay ? b : a));
+  if (best.perDay === worst.perDay) return null;
+  return `Busiest: ${best.label} ${hourSpan(best.from)}; quietest: ${worst.label} ${hourSpan(worst.from)}.`;
+}
+
+// "+12%", "-8%", "new" (nothing last month), "same".
+export function trendLabel(change, lastMonth) {
+  if (change === null || change === undefined) return lastMonth ? '' : 'new';
+  if (change === 0) return 'same';
+  return `${change > 0 ? '+' : ''}${change}%`;
+}
+
+export const monthName = (key) => `${MONTH_SHORT[Number(key.slice(5, 7)) - 1]} ${key.slice(2, 4)}`;

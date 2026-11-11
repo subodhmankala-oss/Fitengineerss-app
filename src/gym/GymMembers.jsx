@@ -8,10 +8,10 @@ import { toWhatsappNumber } from '../utils/whatsappNudge';
 // Members: filter chips, one row per member with a one-tap action, and a
 // detail panel with their last 14 days. Plan / payment tags (Ends soon,
 // Payment due) arrive with the Payments stage.
-export default function GymMembers({ data, biz, service, initialFilter = 'all', onChanged }) {
+export default function GymMembers({ data, biz, service, initialFilter = 'all', initialSelected = null, onChanged }) {
   const { clients, trainers, gym, insights } = data;
   const [filter, setFilter] = useState(initialFilter);
-  const [selId, setSelId] = useState(null);
+  const [selId, setSelId] = useState(initialSelected);
   const plans = useMemo(() => (biz && insights?.today ? memberPlans(biz, insights.today) : {}), [biz, insights]);
   const filters = useMemo(() => (biz ? [...MEMBER_FILTERS, ...PLAN_FILTERS] : MEMBER_FILTERS), [biz]);
   const countOf = (f) => clients.filter((c) => f.test(c, plans)).length;

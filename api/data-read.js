@@ -14,7 +14,7 @@
 
 import { createHash } from 'node:crypto';
 import { computeLiveCalories } from '../src/utils/liveWorkoutTimer.js';
-import { buildOwnerGymPayload, buildMemberPayload, TREND_WEEKS } from './_ownerInsights.js';
+import { buildOwnerGymPayload, buildMemberPayload, buildOwnerReports, reportsLogSince, TREND_WEEKS } from './_ownerInsights.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -800,6 +800,41 @@ async function handleOwnerGym(req, res) {
   }
 }
 
+// Reports page: month-by-month collections, joins and retention, most-used
+// exercises and muscles, and lead conversion by source. Aggregates only
+// (api/_ownerInsights.js buildOwnerReports); workout_logs is read for the
+// verified caller's own gym members.
+async function handleOwnerReports(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  try {
+    const me = await svcSelect(`users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id&limit=1`, 'owner-reports caller');
+    if (!me[0]) return res.status(200).json({ gym: null });
+    const gyms = await svcSelect(`gyms?owner_id=eq.${me[0].id}&select=id&order=created_at.asc&limit=1`, 'owner-reports gym');
+    if (!gyms[0]) return res.status(200).json({ gym: null });
+    const gid = gyms[0].id;
+    const members = await svcSelect(`users?gym_id=eq.${gid}&select=id,role,created_at`, 'owner-reports members');
+    const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
+    const since = reportsLogSince();
+    const paySince = `${since.slice(0, 4)}-01-01`;
+    const [logs, payments, leads] = await Promise.all([
+      clientIds.length
+        ? svcSelectAll(`workout_logs?select=user_id,log_date,exercise_name&user_id=in.(${clientIds.join(',')})&log_date=gte.${since}&order=id.asc`, 'owner-reports logs')
+        : [],
+      svcSelect(`gym_payments?gym_id=eq.${gid}&paid_on=gte.${paySince}&select=amount_inr,paid_on&limit=20000`, 'owner-reports payments'),
+      // The table exists only once sql/gym_business_2.sql is applied: null until then.
+      svcSelect(`gym_leads?gym_id=eq.${gid}&select=source,stage,trial_at,created_at&order=created_at.desc&limit=2000`, 'owner-reports leads').catch(() => null)
+    ]);
+    return res.status(200).json({ gym: { id: gid }, ...buildOwnerReports({ members, logs, payments, leads }) });
+  } catch (err) {
+    console.error('owner-reports error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to build your reports.' });
+  }
+}
+
 // One member's profile for their gym's owner (activity + coaching history
 // only). The caller must own the gym the member is in — checked here from the
 // VERIFIED email, never from anything in the request body.
@@ -916,7 +951,7 @@ async function handleCoachGym(req, res) {
   }
 }
 
-export const __test = { ownerGymPayload, buildMemberPayload, liveSessions, liveInProgress, publicLivePayload, shortName, isCurrentMember };
+export const __test = { ownerGymPayload, buildMemberPayload, liveSessions, liveInProgress, publicLivePayload, shortName, isCurrentMember, monthStats };
 
 // The gym owner's money + settings: plans, memberships, payments, settings.
 // Reads for the gym the VERIFIED caller owns (sql/gym_business.sql).
@@ -1038,6 +1073,43 @@ function liveSessions(rows) {
   return out;
 }
 
+// "Most consistent" and "Most improved" on the Live board, per member:
+//   monthDays    distinct days trained this month (IST)
+//   improvement  workouts this month minus workouts in the SAME days of last
+//                month, never below 0; 0 for anyone who did not train in that
+//                span last month (a brand-new member is not "improved")
+// Only these two numbers leave the server, never the workouts behind them.
+function monthStats(sessions, today) {
+  const month = today.slice(0, 7);
+  const dom = Number(today.slice(8, 10));
+  const [y, m] = today.split('-').map(Number);
+  const ld = new Date(Date.UTC(y, m - 2, 1));
+  const lastMonth = `${ld.getUTCFullYear()}-${String(ld.getUTCMonth() + 1).padStart(2, '0')}`;
+  const by = {};
+  for (const s of sessions) {
+    const d = String(s.date).slice(0, 10);
+    const o = by[s.memberId] || (by[s.memberId] = { days: new Set(), now: 0, before: 0 });
+    if (d.slice(0, 7) === month) { o.days.add(d); o.now += 1; }
+    else if (d.slice(0, 7) === lastMonth && Number(d.slice(8, 10)) <= dom) o.before += 1;
+  }
+  return Object.fromEntries(Object.entries(by).map(([id, o]) => [id, { monthDays: o.days.size, improvement: o.before > 0 ? Math.max(0, o.now - o.before) : 0 }]));
+}
+
+// Reads last month + this month's workouts for the board (cached by the caller).
+async function gymMonthStats(ids, today) {
+  const [y, m] = today.split('-').map(Number);
+  const ld = new Date(Date.UTC(y, m - 2, 1));
+  const since = `${ld.getUTCFullYear()}-${String(ld.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    rows.push(...await svcSelectAll(
+      `workout_logs?user_id=in.(${ids.slice(i, i + 150).join(',')})&log_date=gte.${since}&select=id,user_id,log_date,session_id,plan_name,calories_burned,duration_seconds,created_at&order=id.asc`,
+      'gym-live month logs'
+    ));
+  }
+  return monthStats(liveSessions(rows), today);
+}
+
 // A workout counts as "working out now" for 90 minutes after its last ticked set. Its calories are the client's own
 // live calculation (computeLiveCalories) over the draft's ticked sets, using
 // the member's saved body weight when there is one. Nobody shows up before
@@ -1156,9 +1228,11 @@ async function gymLivePayload(gid, light) {
     ));
   }
   const sessions = liveSessions(rows);
+  // Refreshed every 5 minutes, not every 30 seconds: two months of rows is the heavy read.
+  const stats = await cachedFor(300000, `month:${gid}:${today}`, () => gymMonthStats(ids, today)).catch((e) => { console.warn('gym-live month stats skipped:', e.message); return {}; });
   return {
     gym: { id: gid }, today, weekStart, inProgress,
-    members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: m.sex })),
+    members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: m.sex, monthDays: stats[m.id]?.monthDays || 0, improvement: stats[m.id]?.improvement || 0 })),
     sessions
   };
 }
@@ -1183,7 +1257,7 @@ function publicLivePayload(payload, gymName) {
   return {
     ...out,
     weekStart: payload.weekStart,
-    members: payload.members.map((m) => ({ id: opaque(m.id), name: shortName(m.name), avatarUrl: m.avatarUrl, sex: m.sex })),
+    members: payload.members.map((m) => ({ id: opaque(m.id), name: shortName(m.name), avatarUrl: m.avatarUrl, sex: m.sex, monthDays: m.monthDays || 0, improvement: m.improvement || 0 })),
     sessions: payload.sessions.map((x) => ({ ...x, memberId: opaque(x.memberId) }))
   };
 }
@@ -1251,6 +1325,7 @@ const RESOURCE_HANDLERS = {
   'admin-gyms': handleAdminGyms,
   'owner-gym': handleOwnerGym,
   'owner-member': handleOwnerMember,
+  'owner-reports': handleOwnerReports,
   'gym-business': handleGymBusiness,
   'gym-live': handleGymLive,
   'gym-live-public': handleGymLivePublic,

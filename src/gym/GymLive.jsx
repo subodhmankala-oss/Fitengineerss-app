@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Avatar from '../components/Avatar';
-import { liveBoard, liveSexCounts } from './gymView';
+import { LIVE_METRICS, liveBoard, liveMonthBoard, liveSexCounts } from './gymView';
 
 const FULL_REFRESH_MS = 30000; // saved workouts for the day / week
 // Who is mid-workout, and their calories so far: every 2 s while anyone is
@@ -21,6 +21,7 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('today');
   const [sex, setSex] = useState('all');
+  const [metric, setMetric] = useState('kcal');
   const [updatedAt, setUpdatedAt] = useState(0);
   const [now, setNow] = useState(0);
   const [moves, setMoves] = useState({});
@@ -93,11 +94,15 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
     };
   }, [load, fullMs, activeMs, idleMs]);
 
-  const rows = liveBoard(live, period, sex);
+  const isKcal = metric === 'kcal';
+  const metricInfo = LIVE_METRICS.find((m) => m.key === metric);
+  const rows = isKcal ? liveBoard(live, period, sex) : liveMonthBoard(live, metric, sex);
   const counts = liveSexCounts(live);
-  const active = rows.filter((r) => r.kcal > 0);
-  const top = active[0]?.kcal || 1;
-  const moved = moves[period] || {};
+  const active = rows.filter((r) => r.value > 0);
+  const top = active[0]?.value || 1;
+  const moved = isKcal ? (moves[period] || {}) : {};
+  const unit = isKcal ? 'kcal' : metricInfo.unit;
+  const plus = metric === 'improved' ? '+' : '';
 
   const fullScreen = () => {
     const el = boardRef.current;
@@ -107,7 +112,7 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
   };
 
   const ago = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : null;
-  const totalKcal = active.reduce((s, r) => s + r.kcal, 0);
+  const totalKcal = isKcal ? active.reduce((s, r) => s + r.kcal, 0) : 0;
   const shareUrl = live?.boardToken ? `${window.location.origin}/gym/board/${live.boardToken}` : '';
 
   const copyLink = async () => {
@@ -151,11 +156,19 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
         <div className="gx-live-top">
           <span className="gx-live-badge"><span className="gx-live-dot" aria-hidden="true" />{error ? 'PAUSED' : 'LIVE'}</span>
           <span className="gx-live-status">{error ? 'Not updating' : ago === null ? 'Connecting…' : `Updated ${ago < 3 ? 'just now' : `${ago}s ago`}`}</span>
-          <div className="gx-live-toggle" role="group" aria-label="Period">
-            {[['today', 'Today'], ['week', 'This week']].map(([k, label]) => (
-              <button key={k} type="button" className={period === k ? 'on' : ''} aria-pressed={period === k} onClick={() => setPeriod(k)}>{label}</button>
-            ))}
-          </div>
+          {isKcal ? (
+            <div className="gx-live-toggle" role="group" aria-label="Period">
+              {[['today', 'Today'], ['week', 'This week']].map(([k, label]) => (
+                <button key={k} type="button" className={period === k ? 'on' : ''} aria-pressed={period === k} onClick={() => setPeriod(k)}>{label}</button>
+              ))}
+            </div>
+          ) : <span className="gx-live-status">This month</span>}
+        </div>
+
+        <div className="gx-live-toggle gx-live-metrics" role="group" aria-label="Ranking">
+          {LIVE_METRICS.map((m) => (
+            <button key={m.key} type="button" className={metric === m.key ? 'on' : ''} aria-pressed={metric === m.key} onClick={() => setMetric(m.key)}>{m.label}</button>
+          ))}
         </div>
 
         <div className="gx-live-tabs" role="tablist" aria-label="Who to show">
@@ -171,14 +184,14 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
 
         {live && (
           <>
-            <div className="gx-live-summary">
+            {isKcal && <div className="gx-live-summary">
               <div><b>{fmt(totalKcal)}</b><span>kcal burned {period === 'today' ? 'today' : 'this week'}</span></div>
               <div><b>{active.length}</b><span>{active.length === 1 ? 'member' : 'members'} trained{sex !== 'all' ? ` · ${sex === 'male' ? 'men' : 'women'}` : ''}</span></div>
               <div><b>{rows.reduce((s, r) => s + r.sessions, 0)}</b><span>workouts logged</span></div>
-            </div>
+            </div>}
 
             {active.length === 0 ? (
-              <p className="gx-live-empty">Nobody{sex === 'all' ? '' : sex === 'male' ? ' in the men’s group' : ' in the women’s group'} has finished a workout {period === 'today' ? 'today' : 'this week'} yet. The first one to log goes straight to the top.</p>
+              !isKcal ? <p className="gx-live-empty">{metricInfo.empty}</p> : <p className="gx-live-empty">Nobody{sex === 'all' ? '' : sex === 'male' ? ' in the men’s group' : ' in the women’s group'} has finished a workout {period === 'today' ? 'today' : 'this week'} yet. The first one to log goes straight to the top.</p>
             ) : (
               <div className="gx-live-podium">
                 {PODIUM_ORDER.map((i) => {
@@ -188,19 +201,19 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
                     <div key={r.id} className={`gx-live-pod p${i + 1}${moved[r.id] ? ' moved' : ''}`}>
                       <span className="gx-live-avatar"><Avatar email={r.email} name={r.name} avatarUrl={r.avatarUrl} size={42} /></span>
                       <span className="gx-live-pod-name">{r.working && <i className="gx-live-pod-live" aria-label="working out now" />}{r.name}</span>
-                      <span className="gx-live-pod-bar"><i>{i + 1}</i><b>{fmt(r.kcal)}</b><small>kcal</small></span>
+                      <span className="gx-live-pod-bar"><i>{i + 1}</i><b>{plus}{fmt(r.value)}</b><small>{unit}</small></span>
                     </div>
                   );
                 })}
               </div>
             )}
 
-            <div className="gx-live-head" aria-hidden="true"><span>#</span><span /><span>MEMBER</span><span className="bar" /><span>KCAL</span></div>
+            <div className="gx-live-head" aria-hidden="true"><span>#</span><span /><span>MEMBER</span><span className="bar" /><span>{unit.toUpperCase()}</span></div>
             <ol className="gx-live-list" style={{ height: rows.length * ROW_H }}>
               {rows.map((r, i) => (
                 <li
                   key={r.id}
-                  className={`gx-live-row${r.kcal ? '' : ' idle'}${moved[r.id] ? ' moved' : ''}${i < 3 && r.kcal ? ` top${i + 1}` : ''}`}
+                  className={`gx-live-row${r.value ? '' : ' idle'}${moved[r.id] ? ' moved' : ''}${i < 3 && r.value ? ` top${i + 1}` : ''}`}
                   style={{ transform: `translateY(${i * ROW_H}px)` }}
                 >
                   <span className="gx-live-rank">{i + 1}</span>
@@ -208,20 +221,20 @@ export default function GymLive({ service, publicView = false, fullMs = FULL_REF
                   <span className="gx-live-who">
                     <span className="gx-live-name">{r.name}</span>
                     <span className="gx-live-meta">
-                      {r.working ? <span className="gx-live-working"><i aria-hidden="true" />{r.withTrainer ? 'With trainer' : 'Working out'} · {r.workingSets} set{r.workingSets === 1 ? '' : 's'} done</span>
+                      {!isKcal ? (r.value ? '' : 'None yet') : r.working ? <span className="gx-live-working"><i aria-hidden="true" />{r.withTrainer ? 'With trainer' : 'Working out'} · {r.workingSets} set{r.workingSets === 1 ? '' : 's'} done</span>
                         : r.sessions ? `${r.sessions} workout${r.sessions === 1 ? '' : 's'}` : 'No workout yet'}
                       {moved[r.id] ? <em> · up {moved[r.id]}</em> : null}
                     </span>
                   </span>
-                  <span className="gx-live-bar" aria-hidden="true"><i style={{ width: `${Math.round((r.kcal / top) * 100)}%` }} /></span>
-                  <span className="gx-live-kcal"><b key={r.kcal} className={r.working ? 'flash' : ''}>{fmt(r.kcal)}</b> kcal</span>
+                  <span className="gx-live-bar" aria-hidden="true"><i style={{ width: `${Math.round((r.value / top) * 100)}%` }} /></span>
+                  <span className="gx-live-kcal"><b key={r.value} className={r.working ? 'flash' : ''}>{plus}{fmt(r.value)}</b> {unit}</span>
                 </li>
               ))}
             </ol>
             {sex !== 'all' && counts.unset > 0 && (
               <p className="gx-live-note">{counts.unset} member{counts.unset === 1 ? ' hasn’t' : 's haven’t'} said male or female yet, so {counts.unset === 1 ? 'they show' : 'they show'} only under All.</p>
             )}
-            <p className="gx-live-note">Calories climb as members tick their sets in the app.</p>
+            <p className="gx-live-note">{isKcal ? 'Calories climb as members tick their sets in the app.' : metric === 'consistent' ? 'Days with at least one saved workout this month.' : 'Workouts this month compared with the same days of last month. Needs a workout in that span last month.'}</p>
           </>
         )}
       </section>

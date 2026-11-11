@@ -73,6 +73,16 @@ describe('buildOwnerGymPayload', () => {
     expect(by('a').recentDays).toEqual([ago(0), ago(2), ago(4), ago(6)]);
   });
 
+  it('tracks the first 14 days for members who joined inside the window, null for older ones', () => {
+    const o = buildOwnerGymPayload(GYM, [trainer('t1'), member('n1', { created_at: ago(10) + 'T00:00:00Z' }), member('n2', { created_at: ago(10) + 'T00:00:00Z' }), member('old')], [
+      ...days('n1', [9, 8, 2]) // joined 10 days ago: first workout on day 1, 3 workouts so far
+    ], NOW);
+    const get = (id) => o.clients.find((c) => c.id === id);
+    expect(get('n1').journey).toEqual({ joinedDaysAgo: 10, firstWorkoutDay: 1, workoutsFirst14d: 3 });
+    expect(get('n2').journey).toEqual({ joinedDaysAgo: 10, firstWorkoutDay: null, workoutsFirst14d: 0 });
+    expect(get('old').journey).toBeNull();
+  });
+
   it('builds the 8-week trend oldest → newest from distinct member-days', () => {
     const { weekly } = out.insights;
     expect(weekly).toHaveLength(8);

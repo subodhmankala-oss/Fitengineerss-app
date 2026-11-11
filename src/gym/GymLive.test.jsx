@@ -31,6 +31,27 @@ describe('GymLive', () => {
     expect(within(list).getAllByText('420').length).toBe(1);
   });
 
+  it('switches to Most consistent and Most improved', async () => {
+    const monthly = { ...live, members: [
+      { id: 'a', name: 'Asha R.', sex: 'female', monthDays: 5, improvement: 0 },
+      { id: 'b', name: 'Bala K.', sex: 'male', monthDays: 9, improvement: 2 },
+      { id: 'c', name: 'Chitra M.', sex: null, monthDays: 0, improvement: 0 }
+    ] };
+    const service = { getGymLive: vi.fn().mockResolvedValue(monthly) };
+    render(<GymLive service={service} />);
+    const list = await screen.findByRole('list');
+    const names = () => within(list).getAllByRole('listitem').map((li) => li.querySelector('.gx-live-name').textContent);
+    fireEvent.click(screen.getByRole('button', { name: 'Most consistent' }));
+    expect(names()).toEqual(['Bala K.', 'Asha R.', 'Chitra M.']);
+    expect(within(list).getByText('9')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'This week' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Most improved' }));
+    expect(names()).toEqual(['Bala K.', 'Asha R.', 'Chitra M.']);
+    expect(within(list).getByText('+2')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: /Female/ }));
+    expect(names()).toEqual(['Asha R.']);
+  });
+
   it('says so when nobody has trained yet', async () => {
     const service = { getGymLive: vi.fn().mockResolvedValue({ ...live, sessions: [] }) };
     render(<GymLive service={service} />);

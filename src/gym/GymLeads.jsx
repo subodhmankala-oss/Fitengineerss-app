@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { LEAD_SOURCES, LEAD_STAGES, istDate, istTime, leadStats } from './gymView';
+import { LEAD_LOST_REASONS, LEAD_SOURCES, LEAD_STAGES, istDate, istTime, leadStats } from './gymView';
 import { openWhatsapp, toWhatsappNumber } from '../utils/whatsappNudge';
 import { shortDate } from '../utils/ownerView';
 
 const sourceLabel = (k) => LEAD_SOURCES.find((s) => s.key === k)?.label || k;
+const reasonLabel = (k) => LEAD_LOST_REASONS.find((r) => r.key === k)?.label || k;
 const NEXT = { new: 'trial_booked', trial_booked: 'trial_done', trial_done: 'joined' };
 const PREV = { trial_booked: 'new', trial_done: 'trial_booked', joined: 'trial_done' };
 const NEXT_LABEL = { new: 'Book trial →', trial_booked: 'Came for trial →', trial_done: 'Joined! →' };
@@ -26,8 +27,12 @@ export default function GymLeads({ data, biz, bizError, service, onChanged }) {
   const [booking, setBooking] = useState(null); // lead id picking a trial time
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [draft, setDraft] = useState({ name: '', phone: '', source: 'walk-in', note: '' });
+  const [draft, setDraft] = useState({ name: '', phone: '', source: 'walk-in', note: '', followUpOn: '' });
   const [trialAt, setTrialAt] = useState('');
+  const [losing, setLosing] = useState(null); // lead id picking why they did not join
+  const [lostReason, setLostReason] = useState('');
+  const [followFor, setFollowFor] = useState(null); // lead id picking a follow-up day
+  const [followOn, setFollowOn] = useState('');
 
   if (bizError || !biz || !biz.leads) {
     return (
@@ -54,7 +59,7 @@ export default function GymLeads({ data, biz, bizError, service, onChanged }) {
 
   const add = async (e) => {
     e.preventDefault();
-    if (await run({ op: 'add', ...draft, trialAt: null })) { setAdding(false); setDraft({ name: '', phone: '', source: 'walk-in', note: '' }); }
+    if (await run({ op: 'add', ...draft, followUpOn: draft.followUpOn || null, trialAt: null })) { setAdding(false); setDraft({ name: '', phone: '', source: 'walk-in', note: '', followUpOn: '' }); }
   };
 
   const advance = (lead) => {
@@ -65,6 +70,15 @@ export default function GymLeads({ data, biz, bizError, service, onChanged }) {
   const bookTrial = async (lead) => {
     if (!trialAt) { setError('Pick a date and time for the trial.'); return; }
     if (await run({ op: 'move', leadId: lead.id, stage: 'trial_booked', trialAt: new Date(trialAt).toISOString() })) setBooking(null);
+  };
+
+  const markLost = async (lead) => {
+    if (!lostReason) { setError('Pick why they did not join.'); return; }
+    if (await run({ op: 'move', leadId: lead.id, stage: 'lost', reason: lostReason })) { setLosing(null); setLostReason(''); }
+  };
+  const saveFollowUp = async (lead, day) => {
+    if (day === undefined) { setError('Pick a day to follow up.'); return; }
+    if (await run({ op: 'follow_up', leadId: lead.id, followUpOn: day })) { setFollowFor(null); setFollowOn(''); }
   };
 
   return (
@@ -78,7 +92,7 @@ export default function GymLeads({ data, biz, bizError, service, onChanged }) {
         <div><span className="gx-tile-label light-sub">New members this month</span><div className="gx-big gx-light">{stats.joined} <small>/ {stats.goal} goal</small></div></div>
         <div className="gx-goal-bar" role="img" aria-label={`${stats.joined} of ${stats.goal} joined`}>
           <span><i style={{ width: `${pct}%` }} /></span>
-          <p className="gx-sub light-sub">{stats.toGo} more to hit the goal · {stats.daysLeft} day{stats.daysLeft === 1 ? '' : 's'} left</p>
+          <p className="gx-sub light-sub">{stats.toGo} more to hit the goal · {stats.daysLeft} day{stats.daysLeft === 1 ? '' : 's'} left{stats.lost ? ` · ${stats.lost} lost this month` : ''}</p>
         </div>
       </section>
 
@@ -94,6 +108,7 @@ export default function GymLeads({ data, biz, bizError, service, onChanged }) {
               </select>
             </label>
           </div>
+          <label className="gx-field">Follow up on (optional)<input className="gx-input" type="date" min={today} value={draft.followUpOn} onChange={(e) => setDraft({ ...draft, followUpOn: e.target.value })} /></label>
           <label className="gx-field">What they want<input className="gx-input" maxLength={200} value={draft.note} placeholder="e.g. Wants fat loss, evenings" onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
           <div className="gx-actions"><button type="submit" className="gx-btn gx-btn-dark" disabled={busy}>Save enquiry</button><button type="button" className="gx-btn gx-btn-soft" onClick={() => setAdding(false)}>Cancel</button></div>
         </form>
@@ -120,7 +135,27 @@ export default function GymLeads({ data, biz, bizError, service, onChanged }) {
                   <div className="gx-lead-top"><b>{l.name}</b><span className="gx-src">{sourceLabel(l.source)}</span></div>
                   {l.trial_at && l.stage === 'trial_booked' && <p className="gx-sub">{trialText(l.trial_at, today)}</p>}
                   {l.note && <p className="gx-sub">{l.note}</p>}
-                  {booking === l.id ? (
+                  {l.stage === 'lost' && <p className="gx-sub"><span className="gx-pill red">{reasonLabel(l.lost_reason)}</span></p>}
+                  {l.follow_up_on && l.stage !== 'joined' && (
+                    <p className="gx-sub">
+                      <span className={`gx-pill ${String(l.follow_up_on).slice(0, 10) <= today ? 'red' : 'amber'}`}>Follow up {String(l.follow_up_on).slice(0, 10) === today ? 'today' : shortDate(String(l.follow_up_on).slice(0, 10))}</span>{' '}
+                      <button type="button" className="gx-link" disabled={busy} onClick={() => saveFollowUp(l, null)}>Done</button>
+                    </p>
+                  )}
+                  {losing === l.id ? (
+                    <div className="gx-form-inline">
+                      <select className="gx-select" aria-label="Why they did not join" value={lostReason} onChange={(e) => setLostReason(e.target.value)}>
+                        <option value="">Why not?</option>
+                        {LEAD_LOST_REASONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+                      </select>
+                      <div className="gx-actions"><button type="button" className="gx-btn gx-btn-dark" disabled={busy} onClick={() => markLost(l)}>Mark lost</button><button type="button" className="gx-btn gx-btn-soft" onClick={() => setLosing(null)}>Cancel</button></div>
+                    </div>
+                  ) : followFor === l.id ? (
+                    <div className="gx-form-inline">
+                      <input className="gx-input" type="date" aria-label="Follow up on" min={today} value={followOn} onChange={(e) => setFollowOn(e.target.value)} />
+                      <div className="gx-actions"><button type="button" className="gx-btn gx-btn-dark" disabled={busy} onClick={() => saveFollowUp(l, followOn || undefined)}>Save</button><button type="button" className="gx-btn gx-btn-soft" onClick={() => setFollowFor(null)}>Cancel</button></div>
+                    </div>
+                  ) : booking === l.id ? (
                     <div className="gx-form-inline">
                       <input className="gx-input" type="datetime-local" aria-label="Trial date and time" value={trialAt} onChange={(e) => setTrialAt(e.target.value)} />
                       <div className="gx-actions"><button type="button" className="gx-btn gx-btn-dark" disabled={busy} onClick={() => bookTrial(l)}>Book</button><button type="button" className="gx-btn gx-btn-soft" onClick={() => setBooking(null)}>Cancel</button></div>
@@ -128,10 +163,14 @@ export default function GymLeads({ data, biz, bizError, service, onChanged }) {
                   ) : (
                     <div className="gx-lead-actions">
                       {PREV[l.stage] && <button type="button" className="gx-btn gx-btn-soft gx-btn-icon" aria-label="Move back a step" disabled={busy} onClick={() => run({ op: 'move', leadId: l.id, stage: PREV[l.stage] })}>←</button>}
-                      {NEXT[l.stage]
+                      {l.stage === 'lost'
+                        ? <button type="button" className="gx-btn gx-btn-dark gx-grow" disabled={busy} onClick={() => run({ op: 'move', leadId: l.id, stage: 'new' })}>Reopen</button>
+                        : NEXT[l.stage]
                         ? <button type="button" className={`gx-btn ${l.stage === 'trial_done' ? 'gx-btn-green' : 'gx-btn-dark'} gx-grow`} disabled={busy} onClick={() => advance(l)}>{NEXT_LABEL[l.stage]}</button>
                         : <span className="gx-tag green gx-grow">Welcome aboard!</span>}
                       {toWhatsappNumber(l.phone) && <button type="button" className="gx-btn gx-btn-soft gx-btn-icon" aria-label={`WhatsApp ${l.name}`} onClick={() => openWhatsapp(toWhatsappNumber(l.phone), `Hi ${l.name.split(' ')[0]}, thanks for your interest in ${data.gym.name}!`)}>WA</button>}
+                      {l.stage !== 'joined' && <button type="button" className="gx-link" onClick={() => { setFollowFor(l.id); setFollowOn(''); }}>Follow up</button>}
+                      {l.stage !== 'joined' && l.stage !== 'lost' && <button type="button" className="gx-link" onClick={() => { setLosing(l.id); setLostReason(''); }}>Lost</button>}
                       <button type="button" className="gx-link" onClick={() => run({ op: 'delete', leadId: l.id })}>Remove</button>
                     </div>
                   )}

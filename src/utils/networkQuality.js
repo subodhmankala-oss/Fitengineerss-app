@@ -39,3 +39,13 @@ export function isSlowConnection() {
 export function adaptiveTimeout(baseMs, { slowMultiplier = 2.5 } = {}) {
   return isSlowConnection() ? Math.round(baseMs * slowMultiplier) : baseMs;
 }
+
+// Timeout for a file upload, scaled to the file's size. A flat 30s abort
+// killed larger exercise videos (e.g. a two-move combo clip of 10-30MB) on
+// a phone's upload link before they finished. Budget ~50KB/s on top of the
+// base, so a 20MB file gets ~7 minutes; the slow-connection multiplier
+// still applies on top.
+export function uploadTimeout(fileSizeBytes, baseMs = 30000) {
+  const size = Number(fileSizeBytes) || 0;
+  return adaptiveTimeout(baseMs + Math.ceil(size / 50000) * 1000);
+}

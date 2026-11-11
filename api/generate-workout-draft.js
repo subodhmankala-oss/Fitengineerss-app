@@ -177,7 +177,57 @@ export const rateLimitWaitMs = (message, retryAfterHeader) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const callGroq = async (apiKey, payload) => {
+// Usage logging: one line per generation (one request to this endpoint, which
+// may make several Groq calls — retries, top-up days), so the free-tier budget
+// can be watched in the Vercel logs. Groq's rate-limit headers give requests
+// left TODAY (x-ratelimit-*-requests is the daily RPD window) but tokens left
+// only for the current MINUTE (x-ratelimit-*-tokens is the TPM window) — it
+// does not expose tokens left today, so that number isn't logged. Never log
+// client data here: counts and headers only.
+export const newUsage = (mode) => ({
+  mode,
+  calls: 0,
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  requestsLeftToday: null,
+  requestsLimitToday: null,
+  tokensLeftThisMinute: null,
+  dailyLimitHit: false
+});
+
+export const recordUsage = (usage, data, headers) => {
+  if (!usage) return;
+  usage.calls += 1;
+  const u = data?.usage;
+  if (u) {
+    usage.promptTokens += Number(u.prompt_tokens) || 0;
+    usage.completionTokens += Number(u.completion_tokens) || 0;
+    usage.totalTokens += Number(u.total_tokens) || 0;
+  }
+  const num = (name) => {
+    const v = headers?.get?.(name);
+    return v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
+  };
+  usage.requestsLeftToday = num('x-ratelimit-remaining-requests') ?? usage.requestsLeftToday;
+  usage.requestsLimitToday = num('x-ratelimit-limit-requests') ?? usage.requestsLimitToday;
+  usage.tokensLeftThisMinute = num('x-ratelimit-remaining-tokens') ?? usage.tokensLeftThisMinute;
+};
+
+export const formatUsageLine = (u) => [
+  'generate-workout-draft usage:',
+  `mode=${u.mode}`,
+  `calls=${u.calls}`,
+  `prompt_tokens=${u.promptTokens}`,
+  `completion_tokens=${u.completionTokens}`,
+  `total_tokens=${u.totalTokens}`,
+  `requests_left_today=${u.requestsLeftToday ?? '?'}/${u.requestsLimitToday ?? '?'}`,
+  `tokens_left_this_minute=${u.tokensLeftThisMinute ?? '?'}`,
+  ...(u.format ? [`format=${u.format}`] : []),
+  ...(u.dailyLimitHit ? ['DAILY_LIMIT_HIT'] : [])
+].join(' ');
+
+const callGroq = async (apiKey, payload, usage = null) => {
   let waited = 0;
   for (let attempt = 0; ; attempt += 1) {
     const resp = await fetch(GROQ_URL, {
@@ -189,11 +239,16 @@ const callGroq = async (apiKey, payload) => {
       body: JSON.stringify(payload)
     });
     const data = await resp.json().catch(() => ({}));
+    recordUsage(usage, data, resp.headers);
     if (resp.status !== 429) return { resp, data };
 
     const message = data?.error?.message || '';
     const wait = rateLimitWaitMs(message, resp.headers.get('retry-after'));
     const daily = /per day|\bTPD\b|\bRPD\b/i.test(message);
+    if (daily) {
+      if (usage) usage.dailyLimitHit = true;
+      console.warn(`generate-workout-draft: WARNING — Groq DAILY limit reached for ${GROQ_MODEL}. AI drafts will fail for every coach until it resets${wait ? ` (in about ${Math.round(wait / 60000)} min)` : ''}.`);
+    }
     if (daily || attempt >= MAX_RATE_LIMIT_RETRIES || wait == null || waited + wait > MAX_RATE_LIMIT_WAIT_MS) {
       console.warn('generate-workout-draft: Groq rate limit, giving up:', message);
       return {
@@ -208,6 +263,17 @@ const callGroq = async (apiKey, payload) => {
     waited += wait;
     await sleep(wait);
   }
+};
+
+// A failed draft's structure without its text (day count, exercise counts,
+// keys) — enough to see what went wrong without logging anything the model
+// wrote about the client.
+export const describeShape = (parsed) => {
+  if (!parsed || typeof parsed !== 'object') return `type=${typeof parsed}`;
+  const days = Array.isArray(parsed.days) ? parsed.days : (parsed.day ? [parsed.day] : null);
+  if (!days) return `keys=${Object.keys(parsed).join(',')}`;
+  return `days=${days.length} exercises=[${days.map(d => (Array.isArray(d?.exercises) ? d.exercises.length : 'none')).join(',')}]`
+    + ` types=[${[...new Set(days.flatMap(d => (Array.isArray(d?.exercises) ? d.exercises.map(e => e?.type) : [])))].join(',')}]`;
 };
 
 const sanitizeCatalog = (raw) => (Array.isArray(raw) ? raw : [])
@@ -243,6 +309,7 @@ export default async function handler(req, res) {
   // completed rather than handed over looking finished.
   const wantDays = dayMode ? 1 : Math.min(7, Math.max(0, Math.round(Number(options?.trainingDays)) || 0));
   const isWeak = (d) => !d || d.exercises.length < MIN_EXERCISES_PER_DAY;
+  const usage = newUsage(dayMode ? 'day' : 'full');
 
   // One model call, parsed + validated + repaired. Resolves to
   // { fatal } (don't retry), { failure } (retry) or { summary, days }.
@@ -255,9 +322,11 @@ export default async function handler(req, res) {
       ],
       response_format: { type: 'json_object' },
       temperature: 0.6
-    });
+    }, usage);
     if (!resp.ok) {
-      console.error('generate-workout-draft: Groq error:', resp.status, data);
+      // Status + Groq's own error text only: a failed_generation field can
+      // carry model output that echoes the client profile.
+      console.error('generate-workout-draft: Groq error:', resp.status, data?.error?.code || '', data?.error?.message || '');
       return { fatal: { status: friendlyError ? 429 : 502, error: friendlyError || data?.error?.message || 'Failed to generate workout draft.' } };
     }
     const rawText = data?.choices?.[0]?.message?.content;
@@ -266,14 +335,14 @@ export default async function handler(req, res) {
     try {
       parsed = JSON.parse(rawText);
     } catch (parseErr) {
-      console.error('generate-workout-draft: JSON parse failed:', parseErr, rawText);
+      console.error('generate-workout-draft: JSON parse failed:', parseErr.message, `(${rawText.length} chars)`);
       return { failure: 'The AI returned an unreadable draft. Please try again.' };
     }
     // One day comes back as { day } — checked by the same validator as a
     // one-day draft.
     const draft = isDay ? { days: parsed?.day ? [parsed.day] : [] } : parsed;
     if (!validateDraft(draft)) {
-      console.error('generate-workout-draft: draft failed validation:', JSON.stringify(parsed));
+      console.error('generate-workout-draft: draft failed validation:', describeShape(parsed));
       return { failure: 'The AI returned an incomplete draft. Please try again.' };
     }
     return { summary: draft.programSummary, days: draft.days.map(d => repairDay(d, catalog)), raw: draft.days };
@@ -335,7 +404,11 @@ The "days" array MUST contain exactly ${wantDays} training days — no more, no 
     if (days.some(isWeak)) return res.status(502).json({ error: 'The AI picked too few exercises from your library. Please try again.' });
     return res.status(200).json({ draft: { programSummary: best.summary, days } });
   } catch (err) {
-    console.error('generate-workout-draft error:', err);
+    console.error('generate-workout-draft error:', err?.message || err);
     return res.status(500).json({ error: err.message || 'Failed to generate workout draft.' });
+  } finally {
+    const line = formatUsageLine(usage);
+    if (usage.dailyLimitHit) console.warn(line);
+    else console.log(line);
   }
 }

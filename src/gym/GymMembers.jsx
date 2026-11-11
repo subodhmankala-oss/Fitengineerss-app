@@ -56,7 +56,7 @@ export default function GymMembers({ data, biz, service, initialFilter = 'all', 
                 <button
                   type="button" className={`gx-btn ${tag.tone === 'green' ? 'gx-btn-soft' : 'gx-btn-dark'}`}
                   disabled={!canMessage} title={canMessage ? '' : 'No phone number saved for this member'}
-                  onClick={() => (moneyTag ? messagePlan(c, gym.name, plan) : messageMember(c, gym.name))}
+                  onClick={() => (moneyTag ? messagePlan(c, gym.name, plan, biz?.settings?.upi_id) : messageMember(c, gym.name))}
                 >{tag.action}</button>
               </div>
             );

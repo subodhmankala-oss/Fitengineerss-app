@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import GymInvite from './GymInvite';
+import GymTodayMessages from './GymTodayMessages';
 import { busyLabel, greeting, istDate, istTime, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees, visitsToday, whoIsIn } from './gymView';
 
 const HOW = {
@@ -133,6 +134,8 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
           </section>
         </div>
       )}
+
+      <GymTodayMessages data={data} biz={biz} service={service} onChanged={onChanged} />
 
       <section className="gx-card">
         <h2 className="gx-h2">Today’s game plan</h2>

@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
+import { matchInjuryAreas, normalizeLevel } from '../utils/programmingBrief';
+import { INJURY_AREAS, INJURY_UNMATCHED_WARNING } from '../data/aiProgrammingRules';
 import './AIWorkoutBuilderModal.css';
 
 const WORKOUT_LENGTH_OPTIONS = [30, 45, 60, 75];
 const TRAINING_DAYS_OPTIONS = [2, 3, 4, 5, 6];
 const SPLIT_OPTIONS = ['Full Body', 'Upper Lower', 'Push Pull Legs', 'Bro Split', 'Custom'];
 const DIFFICULTY_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
+const INJURY_AREA_OPTIONS = Object.entries(INJURY_AREAS).map(([key, a]) => ({ key, label: a.label }));
+const titleCase = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 
 const PLACEHOLDER = `Create a 5-day hypertrophy workout.
 Prioritize upper chest and shoulders.
@@ -72,6 +76,13 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
   const [injuries, setInjuries] = useState('');
   const [equipment, setEquipment] = useState('');
   const [savedProfile, setSavedProfile] = useState(null);
+  // Ticked injury areas (the server excludes exercises by these). Pre-ticked
+  // from the saved / typed injury note; the coach can change them.
+  const [injuryAreas, setInjuryAreas] = useState([]);
+  // The client's Workout Library level, if they've started a library
+  // program — a saved level, so the level picker isn't required then.
+  const [libraryLevel, setLibraryLevel] = useState(null);
+  const [levelMissing, setLevelMissing] = useState(false);
   const [quickStartId, setQuickStartId] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -87,10 +98,27 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
       setSavedProfile(p);
       setExperienceLevel(prev => prev || p.experienceLevel || '');
       setInjuries(prev => prev || p.injuries || '');
+      setInjuryAreas(prev => (prev.length ? prev : matchInjuryAreas(p.injuries)));
       setEquipment(prev => prev || p.equipment || '');
     });
     return () => { cancelled = true; };
   }, [client.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!client.id) return undefined;
+    Promise.resolve(databaseService.getLibraryLevelPref?.(client.id)).then(pref => {
+      if (!cancelled) setLibraryLevel(normalizeLevel(pref?.level));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [client.id]);
+
+  const savedLevel = libraryLevel || normalizeLevel(savedProfile?.experienceLevel);
+  const levelRequired = !savedLevel;
+  const injuryUnmatched = injuries.trim() !== '' && matchInjuryAreas(injuries).length === 0;
+  const toggleInjuryArea = (key) => setInjuryAreas(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
+  // Typing an area into the note ticks it (never unticks one).
+  const tickFromNote = () => setInjuryAreas(prev => [...new Set([...prev, ...matchInjuryAreas(injuries)])]);
 
   const summaryItems = [
     ['Name', client.name],
@@ -119,11 +147,17 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
 
   const handleGenerate = async () => {
     if (generating) return;
+    if (levelRequired && !normalizeLevel(experienceLevel)) {
+      setLevelMissing(true);
+      setError('Pick a training level for this client — it sets the sets, reps and how hard the exercises can be.');
+      return;
+    }
     if (!instructions.trim() && !split && !trainingDays) {
       setError('Pick a starting point, or write a quick instruction, so the AI has something to work from.');
       return;
     }
     setError('');
+    setLevelMissing(false);
     setGenerating(true);
     const profile = { experienceLevel, injuries: injuries.trim(), equipment: equipment.trim() };
     const changed = !savedProfile
@@ -132,23 +166,30 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
     if (client.id && changed) {
       databaseService.saveClientTrainingProfile(client.id, profile, coachId).then(() => setSavedProfile(profile));
     }
+    // What the server builds the programming brief from (it never takes a
+    // brief from here). No name: it isn't sent to the AI.
+    const requestClient = {
+      age: client.age,
+      sex: client.sex || null,
+      height: client.height,
+      weight: client.weight,
+      goal: client.goal,
+      calories: client.calories,
+      protein: client.protein,
+      experienceLevel: experienceLevel || null,
+      libraryLevel: libraryLevel || null,
+      injuries: profile.injuries || null,
+      injuryAreas,
+      equipment: profile.equipment || null
+    };
+    const level = experienceLevel || libraryLevel || null;
     try {
       const resp = await fetch('/api/generate-workout-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client: {
-            name: client.name,
-            age: client.age,
-            height: client.height,
-            weight: client.weight,
-            goal: client.goal,
-            calories: client.calories,
-            protein: client.protein,
-            experienceLevel: experienceLevel || null,
-            injuries: profile.injuries || null,
-            equipment: profile.equipment || null
-          },
+          client: requestClient,
+          level,
           instructions,
           options: {
             workoutLengthMinutes,
@@ -164,14 +205,11 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
       // Hands back the request too, so "Regenerate this day" in the editor
       // can ask again with the same brief.
       onGenerated(data.draft, {
-        client: {
-          name: client.name, age: client.age, height: client.height, weight: client.weight,
-          goal: client.goal, calories: client.calories, protein: client.protein,
-          experienceLevel: experienceLevel || null, injuries: profile.injuries || null, equipment: profile.equipment || null
-        },
+        client: requestClient,
+        level,
         instructions,
         options: { workoutLengthMinutes, trainingDays, split, difficulty }
-      });
+      }, { brief: data.brief || null, warnings: data.warnings || [] });
     } catch (err) {
       setError(err.message || 'Something went wrong generating the draft. Please try again.');
     } finally {
@@ -233,11 +271,15 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
             <div className="ai-optional-fields-row">
               <select
                 value={experienceLevel}
-                onChange={e => setExperienceLevel(e.target.value)}
-                className="ai-select"
+                onChange={e => { setExperienceLevel(e.target.value); setLevelMissing(false); }}
+                className={`ai-select ${levelMissing ? 'ai-field-missing' : ''}`}
                 disabled={generating}
+                aria-required={levelRequired}
+                aria-label="Training level"
               >
-                <option value="">Experience level (optional)</option>
+                <option value="">
+                  {levelRequired ? 'Training level (required)' : `Training level (${titleCase(savedLevel)} saved)`}
+                </option>
                 {DIFFICULTY_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
               <input
@@ -245,6 +287,7 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
                 placeholder="Injuries (optional)"
                 value={injuries}
                 onChange={e => setInjuries(e.target.value)}
+                onBlur={tickFromNote}
                 className="ai-text-input"
                 disabled={generating}
               />
@@ -256,6 +299,30 @@ const AIWorkoutBuilderModal = ({ client, coachId, catalog, onClose, onGenerated 
                 className="ai-text-input"
                 disabled={generating}
               />
+            </div>
+            <div className="ai-option-group">
+              <span className="ai-option-group-label">Injured areas — exercises that load these are left out</span>
+              <div className="ai-chip-row" role="group" aria-label="Injured areas">
+                {INJURY_AREA_OPTIONS.map(a => (
+                  <button
+                    key={a.key}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={injuryAreas.includes(a.key)}
+                    className={`ai-option-chip ai-injury-chip ${injuryAreas.includes(a.key) ? 'active' : ''}`}
+                    onClick={() => toggleInjuryArea(a.key)}
+                    disabled={generating}
+                  >
+                    <span className="ai-injury-box" aria-hidden="true">
+                      {injuryAreas.includes(a.key) && (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7" /></svg>
+                      )}
+                    </span>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+              {injuryUnmatched && <p className="ai-builder-warning">{INJURY_UNMATCHED_WARNING}</p>}
             </div>
           </div>
 

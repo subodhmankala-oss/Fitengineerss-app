@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import GymPlanForm from './GymPlanForm';
 import { initials, memberPlans, monthlyCollections, rupees } from './gymView';
 import { messagePlan } from './gymMessages';
+import GymUpiPanel from './GymUpiPanel';
 import { shortDate } from '../utils/ownerView';
 import { toWhatsappNumber } from '../utils/whatsappNudge';
 
@@ -15,6 +16,8 @@ export default function GymPayments({ data, biz, bizError, service, onChanged })
   const today = insights?.today;
   const [form, setForm] = useState(null); // { memberId, mode }
   const [pick, setPick] = useState('');
+  const [upiFor, setUpiFor] = useState(null);
+  const upiId = biz?.settings?.upi_id || '';
 
   const plans = useMemo(() => (biz && today ? memberPlans(biz, today) : {}), [biz, today]);
   const byId = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
@@ -83,9 +86,11 @@ export default function GymPayments({ data, biz, bizError, service, onChanged })
                   <span className="gx-avatar sm">{initials(c.name)}</span>
                   <span className="gx-member-main"><span><span className="gx-name">{c.name}</span><span className="gx-sub">{detail(p)}</span></span></span>
                   <span className={`gx-tag ${STATE_TONE[p.state]}`}>{STATE_LABEL[p.state]}</span>
-                  <button type="button" className="gx-btn gx-btn-soft" disabled={!toWhatsappNumber(c.phone)} title={toWhatsappNumber(c.phone) ? '' : 'No phone number saved for this member'} onClick={() => messagePlan(c, gym.name, p)}>Message</button>
+                  <button type="button" className="gx-btn gx-btn-soft" disabled={!toWhatsappNumber(c.phone)} title={toWhatsappNumber(c.phone) ? '' : 'No phone number saved for this member'} onClick={() => messagePlan(c, gym.name, p, upiId)}>Message</button>
+                  {p.state === 'due' && <button type="button" className="gx-btn gx-btn-soft" aria-expanded={upiFor === c.id} onClick={() => setUpiFor(upiFor === c.id ? null : c.id)}>UPI link</button>}
                   <button type="button" className="gx-btn gx-btn-dark" onClick={() => setForm(open ? null : { memberId: c.id, mode: p.state === 'due' ? 'pay' : 'renew' })}>{p.state === 'due' ? 'Record payment' : 'Renew'}</button>
                 </div>
+                {upiFor === c.id && p.state === 'due' && <GymUpiPanel upiId={upiId} gymName={gym.name} member={c} plan={p} />}
                 {open && (
                   <GymPlanForm key={`${form.mode}-${c.id}`} mode={form.mode === 'pay' ? 'pay' : 'start'} member={c} plans={biz.plans} current={p} service={service} onDone={done} onCancel={() => setForm(null)} />
                 )}

@@ -489,6 +489,25 @@ const handleGymSaveSettings = gymBusinessAction('gym_save_settings', 'gym-save-s
     : null
 ));
 
+// The gym's UPI ID (sql/gym_owner_finish.sql). Blank clears it.
+const UPI_RE = /^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9]{1,32}$/;
+const handleGymSaveUpi = gymBusinessAction('gym_save_upi', 'gym-save-upi', (b, c) => {
+  if (b.upiId == null) return { p_owner_id: c.id, p_upi_id: null };
+  if (typeof b.upiId !== 'string') return null;
+  const upi = b.upiId.trim();
+  if (!upi) return { p_owner_id: c.id, p_upi_id: null };
+  return UPI_RE.test(upi) ? { p_owner_id: c.id, p_upi_id: upi } : null;
+});
+
+// Owner marks a "Today's messages" item as sent / skipped so it is not shown again.
+const MESSAGE_KINDS = ['renewal', 'miss', 'receipt'];
+const handleGymMessageSent = gymBusinessAction('gym_message_sent', 'gym-message-sent', (b, c) => (
+  UUID_RE.test(String(b.memberId || '')) && MESSAGE_KINDS.includes(b.kind)
+    && typeof b.ref === 'string' && b.ref.length >= 1 && b.ref.length <= 64 && ['sent', 'skipped'].includes(b.action || 'sent')
+    ? { p_owner_id: c.id, p_member_id: b.memberId, p_kind: b.kind, p_ref: b.ref, p_action: b.action || 'sent' }
+    : null
+));
+
 const handleGymLead = gymBusinessAction('gym_lead_action', 'gym-lead', (b, c) => {
   const base = { p_owner_id: c.id, p_op: b.op, p_lead_id: null, p_name: null, p_phone: null, p_source: null, p_note: null, p_stage: null, p_trial_at: isTimestamp(b.trialAt) && b.trialAt ? new Date(b.trialAt).toISOString() : null };
   if (b.op === 'add') {
@@ -599,6 +618,8 @@ const ACTION_HANDLERS = {
   'gym-pay-membership': handleGymPayMembership,
   'gym-save-plans': handleGymSavePlans,
   'gym-save-settings': handleGymSaveSettings,
+  'gym-save-upi': handleGymSaveUpi,
+  'gym-message-sent': handleGymMessageSent,
   'gym-lead': handleGymLead,
   'gym-checkin': handleGymCheckin,
   'gym-payout': handleGymPayout,

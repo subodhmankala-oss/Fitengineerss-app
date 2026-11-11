@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { GYM_COLOURS, rupees } from './gymView';
+import { isValidUpiId } from './gymUpi';
 
 const MESSAGES = [
   { key: 'renewal', label: 'Renewal reminder', when: '3 days before a plan ends', preview: 'Hi Rahul! Your Quarterly plan ends on 15 Oct. Renew now and keep that streak going!' },
   { key: 'miss', label: '“We miss you”', when: 'After 7 days with no visit', preview: 'Hi Rahul, we haven’t seen you in a week. Everything okay? Your next workout is ready.' },
   { key: 'receipt', label: 'Payment receipt', when: 'Right after each payment', preview: 'Thanks Rahul! We received ₹8,400 for your Quarterly plan.' },
-  { key: 'birthday', label: 'Birthday wishes', when: 'On the member’s birthday', preview: 'Happy birthday Rahul! Have a great day from all of us.' }
+  { key: 'birthday', label: 'Birthday wishes', when: 'Not available yet: birthdays aren’t saved', preview: 'Happy birthday Rahul! Have a great day from all of us.' }
 ];
 
 // Settings: gym colour, which WhatsApp messages are switched on, and plans &
-// prices. The message switches are saved now; the automatic sending itself is
-// a later stage (said on the screen, so nothing looks like it is already live).
+// prices. The message switches choose what shows in Overview's "Today's
+// messages to send" list (the owner taps Send; nothing is sent automatically).
 export default function GymSettings({ biz, bizError, gymName, service, onSaved }) {
   const s = biz?.settings;
   const [color, setColor] = useState(s?.brand_color || 'blue');
   const [flags, setFlags] = useState({ renewal: s?.wa_renewal ?? true, miss: s?.wa_miss ?? true, receipt: s?.wa_receipt ?? true, birthday: s?.wa_birthday ?? false });
   const [plans, setPlans] = useState(() => (biz?.plans || []).map((p) => ({ id: p.id, name: p.name, months: p.months, sessions: p.sessions, priceInr: p.price_inr })));
   const [limits, setLimits] = useState({ joinGoal: s?.join_goal ?? 20, capacity: s?.capacity ?? 60, sharePct: s?.trainer_share_pct ?? 70 });
+  const [upi, setUpi] = useState(s?.upi_id || '');
   const [preview, setPreview] = useState('renewal');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ ok: true, text: '' });
@@ -37,13 +39,18 @@ export default function GymSettings({ biz, bizError, gymName, service, onSaved }
 
   const save = async () => {
     if (busy) return;
+    if (upi.trim() && !isValidUpiId(upi)) { setMsg({ ok: false, text: 'That UPI ID doesn’t look right. It should look like yourgym@okhdfcbank.' }); return; }
     setBusy(true); setMsg({ ok: true, text: '' });
-    const [a, b] = await Promise.all([
+    // Only touch the UPI ID when it changed, so saving the rest still works
+    // before sql/gym_owner_finish.sql has been applied.
+    const upiChanged = upi.trim() !== (s?.upi_id || '');
+    const [a, b, u] = await Promise.all([
       service.saveGymSettings({ color, ...flags, joinGoal: Number(limits.joinGoal), capacity: Number(limits.capacity), sharePct: Number(limits.sharePct) }),
-      service.saveGymPlans(plans.map((p) => ({ ...p, priceInr: Number(p.priceInr), months: Number(p.months) })))
+      service.saveGymPlans(plans.map((p) => ({ ...p, priceInr: Number(p.priceInr), months: Number(p.months) }))),
+      upiChanged ? service.saveGymUpi(upi.trim()) : Promise.resolve({ success: true })
     ]);
     setBusy(false);
-    if (a.success && b.success) { setMsg({ ok: true, text: 'Saved.' }); onSaved(); } else setMsg({ ok: false, text: a.error || b.error });
+    if (a.success && b.success && u.success) { setMsg({ ok: true, text: 'Saved.' }); onSaved(); } else setMsg({ ok: false, text: a.error || b.error || u.error });
   };
 
   const shown = MESSAGES.find((m) => m.key === preview);
@@ -75,10 +82,16 @@ export default function GymSettings({ biz, bizError, gymName, service, onSaved }
         </div>
       </section>
 
+      <section className="gx-card">
+        <h2 className="gx-h2">Collect payments on UPI</h2>
+        <p className="gx-sub">Your gym’s UPI ID. Members who owe money get a pay link and QR code for exactly what they owe, and the link goes in the “payment due” WhatsApp message.</p>
+        <label className="gx-field">UPI ID<input className="gx-input" type="text" inputMode="email" autoCapitalize="none" autoCorrect="off" placeholder="yourgym@okhdfcbank" maxLength={100} value={upi} onChange={(e) => setUpi(e.target.value)} /></label>
+      </section>
+
       <div className="gx-grid-members">
         <section className="gx-card">
           <h2 className="gx-h2">WhatsApp messages</h2>
-          <p className="gx-sub">Tap a message to preview it · flip the switch to turn it on or off. Your choices are saved; automatic sending is coming in a later stage.</p>
+          <p className="gx-sub">Tap a message to preview it · flip the switch to choose which messages show up in “Today’s messages to send” on Overview. You tap Send on each one; nothing is sent automatically.</p>
           <div className="gx-list">
             {MESSAGES.map((m) => (
               <div key={m.key} className={`gx-msg${preview === m.key ? ' on' : ''}`}>

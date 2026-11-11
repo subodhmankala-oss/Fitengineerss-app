@@ -39,6 +39,8 @@ import { getActivityStatus } from '../utils/activityStatus';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
+import AiDraftBriefSummary from './AiDraftBriefSummary';
+import { weeklySetWarnings } from '../utils/programmingBriefDraft';
 import SwapExerciseSheet from './SwapExerciseSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
@@ -1686,6 +1688,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const [aiDraftDays, setAiDraftDays] = useState([]); // [{ dayLabel, focus, planName, exercises }]
   const [activeAiDraftDayIndex, setActiveAiDraftDayIndex] = useState(0);
   const [aiDraftSummary, setAiDraftSummary] = useState('');
+  // The programming brief the server applied ("Built for this client") and
+  // its warnings — [{ kind: 'profile' | 'day' | 'week', day?, text }].
+  const [aiDraftBrief, setAiDraftBrief] = useState(null);
+  const [aiDraftNotes, setAiDraftNotes] = useState([]);
   const [assigningAiDraft, setAssigningAiDraft] = useState(false);
   // The coach's exercise library the AI picks from and Swap suggests from
   // (utils/loadAiCatalog) — loaded the first time either is opened.
@@ -2589,6 +2595,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
           aiDraftDays,
           activeAiDraftDayIndex,
           aiDraftSummary,
+          aiDraftBrief,
+          aiDraftNotes,
           savedAt: Date.now()
         }));
       } catch (err) {
@@ -2598,7 +2606,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     return () => {
       if (planEditorDraftSaveTimerRef.current) clearTimeout(planEditorDraftSaveTimerRef.current);
     };
-  }, [showPlanEditor, selectedClient, editingPlan, editorPlanName, editorExercises, extraAssignClientIds, isAiDraftMode, aiDraftDays, activeAiDraftDayIndex, aiDraftSummary]);
+  }, [showPlanEditor, selectedClient, editingPlan, editorPlanName, editorExercises, extraAssignClientIds, isAiDraftMode, aiDraftDays, activeAiDraftDayIndex, aiDraftSummary, aiDraftBrief, aiDraftNotes]);
 
   // Clears the localStorage draft above — called whenever the editor closes
   // for a "real" reason (saved/assigned, or explicitly cancelled) so a stale
@@ -3856,6 +3864,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setAiDraftDays(draft.aiDraftDays || []);
     setActiveAiDraftDayIndex(draft.activeAiDraftDayIndex || 0);
     setAiDraftSummary(draft.aiDraftSummary || '');
+    setAiDraftBrief(draft.aiDraftBrief || null);
+    setAiDraftNotes(Array.isArray(draft.aiDraftNotes) ? draft.aiDraftNotes : []);
     setShowPlanEditor(true);
     setRestoredPlanDraft(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4632,10 +4642,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     });
   };
 
-  const handleAiDraftGenerated = async (draft, request = null) => {
+  const handleAiDraftGenerated = async (draft, request = null, meta = null) => {
     const days = await Promise.all((draft.days || []).map(linkAiDayToLibrary));
     if (days.length === 0) return;
     setAiDraftRequest(request);
+    setAiDraftBrief(meta?.brief || null);
+    setAiDraftNotes(meta?.warnings || []);
     setAiDraftDays(days);
     setAiDraftSummary(draft.programSummary || '');
     setActiveAiDraftDayIndex(0);
@@ -4697,6 +4709,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       if (!resp.ok || !data.day) throw new Error(data.error || 'Could not regenerate this day.');
       const day = await linkAiDayToLibrary({ ...data.day, focus: data.day.focus || current.focus });
       setAiDraftDays(prev => prev.map((d, i) => (i === activeAiDraftDayIndex ? day : d)));
+      if (data.brief) {
+        // The new day's notes replace the old ones for that day; the week's
+        // sets per muscle are re-counted here (same shared rule as the
+        // server) since only one day came back.
+        const week = aiDraftDays.map((d, i) => (i === activeAiDraftDayIndex ? day : d)).map(d => ({
+          exercises: (d.exercises || []).map(e => ({ name: e.name, type: isCardioExercise(e.name) ? 'cardio' : 'strength', setCount: (e.sets || []).length }))
+        }));
+        const weekNotes = weeklySetWarnings(week, data.brief, catalog).map(text => ({ kind: 'week', text }));
+        const fresh = data.warnings || [];
+        setAiDraftBrief(data.brief);
+        setAiDraftNotes(prev => [
+          ...fresh.filter(n => n.kind === 'profile'),
+          ...prev.filter(n => n.kind === 'day' && n.day !== current.dayLabel),
+          ...fresh.filter(n => n.kind === 'day'),
+          ...weekNotes
+        ]);
+      }
       setEditorPlanName(day.planName);
       setEditorExercises(day.exercises);
     } catch (err) {
@@ -9338,6 +9367,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           which day's data is loaded into that same state. */}
                       {isAiDraftMode && (
                         <div style={{ marginBottom: '16px' }}>
+                          <AiDraftBriefSummary brief={aiDraftBrief} notes={aiDraftNotes} />
                           {aiDraftSummary && (
                             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '10px', lineHeight: 1.5 }}>
                               💡 {aiDraftSummary}
@@ -11435,6 +11465,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             id: selectedClient?.id,
             name: selectedClient?.userName,
             age: selectedClient?.userAge,
+            sex: selectedClient?.userSex || null,
             height: selectedClient?.userHeight,
             // Real weight only — never the calorie maths' 70 kg placeholder
             // (aiProgrammingRules.js MISSING_DATA.sendWeightWhenMissing).

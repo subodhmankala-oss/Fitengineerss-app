@@ -255,3 +255,34 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Programming brief inputs (2026-11-11): the required level picker and the
+   injured-area tick boxes. Selected = tint + ring, like the other chips. */
+.ai-select.ai-field-missing {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+.ai-injury-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-injury-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1.5px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-builder-warning {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--warning);
+}

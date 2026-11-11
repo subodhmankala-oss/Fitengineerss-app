@@ -74,8 +74,20 @@ export function buildOwnerGymPayload(gym, members, logs, now = new Date()) {
     const prior28 = ago.filter((a) => a >= 14 && a < 42).length;
     const lastDaysAgo = ago.length ? Math.min(...ago) : null;
     const joinedDaysAgo = c.created_at ? daysAgoOf(String(c.created_at).slice(0, 10), today) : null;
+    // New-member journey: only knowable for people who joined inside the
+    // activity window (older logs are not read), so it is null for the rest.
+    const inWindow = joinedDaysAgo !== null && joinedDaysAgo >= 0 && joinedDaysAgo < TREND_WEEKS * 7;
+    const sinceJoin = inWindow ? ago.map((a) => joinedDaysAgo - a).filter((n) => n >= 0) : [];
+    const journey = inWindow
+      ? {
+          joinedDaysAgo,
+          firstWorkoutDay: sinceJoin.length ? Math.min(...sinceJoin) : null,
+          workoutsFirst14d: sinceJoin.filter((n) => n < 14).length
+        }
+      : null;
     return {
       lastWorkout: list.length ? list[list.length - 1] : null,
+      journey,
       workouts7d: ago.filter((a) => a < 7).length,
       workouts28d: ago.filter((a) => a < 28).length,
       workouts30d: ago.filter((a) => a < 30).length,

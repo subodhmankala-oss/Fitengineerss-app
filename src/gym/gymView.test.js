@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { visitGrid, dayStreak, memberTag, rankTrainers, initials, liveBoard, liveSexCounts } from './gymView';
+import { visitGrid, dayStreak, memberTag, rankTrainers, initials, liveBoard, liveSexCounts, renewalRisk, newMemberJourney } from './gymView';
 
 describe('gymView', () => {
   it('marks the days trained, oldest first', () => {
@@ -211,5 +211,25 @@ describe('live board in-progress workouts', () => {
   });
   it('adds to the weekly total too', () => {
     expect(liveBoard(live, 'week')[0]).toMatchObject({ id: 'b', kcal: 150 });
+  });
+});
+
+describe('renewal risk and new-member journey', () => {
+  const c = (id, status, extra = {}) => ({ id, name: id, engagement: { status }, ...extra });
+  it('puts members who stopped training before ones who are still active', () => {
+    const plans = {
+      a: { state: 'ends-soon', daysLeft: 3 }, b: { state: 'expired', daysLeft: -5 }, d: { state: 'active', daysLeft: 40 },
+      e: { state: 'ends-soon', daysLeft: 6 }, f: { state: 'due', daysLeft: 20 }
+    };
+    const out = renewalRisk([c('a', 'thriving'), c('b', 'quiet'), c('d', 'quiet'), c('e', 'slipping'), c('f', 'quiet'), c('z', 'quiet')], plans);
+    expect(out.map((r) => [r.client.id, r.level])).toEqual([['b', 'high'], ['e', 'high'], ['a', 'watch']]);
+  });
+  it('sorts the journey with members who have not started first, oldest first', () => {
+    const j = (joinedDaysAgo, firstWorkoutDay, workoutsFirst14d) => ({ journey: { joinedDaysAgo, firstWorkoutDay, workoutsFirst14d } });
+    const out = newMemberJourney([
+      c('a', 'new', j(2, 0, 1)), c('b', 'new', j(5, null, 0)), c('d', 'new', j(12, 1, 4)), c('e', 'new', j(9, null, 0)),
+      c('old', 'steady', { journey: null }), c('far', 'steady', j(40, 1, 5))
+    ]);
+    expect(out.map((r) => [r.client.id, r.stage, r.dayN])).toEqual([['e', 'waiting', 10], ['b', 'waiting', 6], ['d', 'hooked', 13], ['a', 'started', 3]]);
   });
 });

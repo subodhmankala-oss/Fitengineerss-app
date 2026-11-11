@@ -250,3 +250,36 @@ export function liveSexCounts(live) {
   const female = members.filter((m) => m.sex === 'female').length;
   return { all: members.length, male, female, unset: members.length - male - female };
 }
+
+// ─── Renewal risk ───
+// Members whose plan has ended or ends soon, split by how they are training.
+// 'high' = they have stopped or are slipping, so they will likely not renew
+// unless the owner reaches out; 'watch' = still training, a plain reminder
+// is enough. Most urgent first (ended longest ago / ends soonest).
+const TRAINING_AT_RISK = ['slipping', 'quiet', 'inactive'];
+export function renewalRisk(clients, plans) {
+  const out = [];
+  (clients || []).forEach((c) => {
+    const plan = plans?.[c.id];
+    if (!plan || !['ends-soon', 'expired'].includes(plan.state)) return;
+    const level = TRAINING_AT_RISK.includes(c.engagement?.status) ? 'high' : 'watch';
+    out.push({ client: c, plan, level });
+  });
+  return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'high' ? -1 : 1) || a.plan.daysLeft - b.plan.daysLeft);
+}
+
+// ─── New-member journey ───
+// For members who joined in the last 28 days: where they are. 'waiting' =
+// no workout yet, 'started' = trained but fewer than 3 times, 'hooked' = 3+
+// workouts. dayN is how many days since joining (day 1 = joining day).
+export const JOURNEY_DAYS = 28;
+export function newMemberJourney(clients) {
+  return (clients || [])
+    .filter((c) => c.journey && c.journey.joinedDaysAgo < JOURNEY_DAYS)
+    .map((c) => {
+      const { joinedDaysAgo, firstWorkoutDay, workoutsFirst14d } = c.journey;
+      const stage = firstWorkoutDay === null ? 'waiting' : workoutsFirst14d >= 3 ? 'hooked' : 'started';
+      return { client: c, stage, dayN: joinedDaysAgo + 1, firstWorkoutDay, workouts: workoutsFirst14d };
+    })
+    .sort((a, b) => (a.stage === 'waiting' ? 0 : 1) - (b.stage === 'waiting' ? 0 : 1) || b.dayN - a.dayN);
+}

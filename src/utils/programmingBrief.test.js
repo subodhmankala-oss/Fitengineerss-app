@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildProgrammingBrief, resolveLevel, computeBmi } from './programmingBrief.js';
+import { buildProgrammingBrief, resolveLevel, computeBmi, matchInjuryAreas, resolveEquipment } from './programmingBrief.js';
 import { getExerciseTags } from './exerciseTags.js';
 import { EXERCISE_TAGS } from '../data/exerciseTags.js';
 import {
@@ -188,20 +188,29 @@ describe('injuries', () => {
   });
 
   it('free text that matches no area excludes nothing and warns', () => {
-    const r = run({ level: 'advanced', options: { injuryText: 'tennis elbow-ish, old' } });
+    const r = run({ level: 'advanced', options: { injuryText: 'old surgery, takes it easy' } });
     expect(r.warnings).toContain(INJURY_UNMATCHED_WARNING);
     expect(r.excluded).toEqual([]);
+    // Text that does name an area gives no warning (the ticks decide what's excluded).
+    expect(run({ level: 'advanced', options: { injuryText: 'tennis elbow' } }).warnings).not.toContain(INJURY_UNMATCHED_WARNING);
   });
 
-  it('untagged custom exercises stay, and are flagged when there is an injury', () => {
+  it('matches free text to areas by whole words', () => {
+    expect(matchInjuryAreas('Left knee pain, lower back stiff')).toEqual(['lowerBack', 'knee']);
+    expect(matchInjuryAreas('Rotator cuff tear; tennis elbow')).toEqual(['shoulder', 'wristElbow']);
+    expect(matchInjuryAreas('hip flexor tight, whiplash 2019')).toEqual(['hip', 'neck']);
+    expect(matchInjuryAreas('chipped tooth')).toEqual([]); // "hip" inside a word
+    expect(matchInjuryAreas('')).toEqual([]);
+  });
+
+  it('untagged custom exercises stay; the brief says to flag them when there is an injury', () => {
     const r = run({ injuryAreas: ['shoulder'] });
     expect(has(r, CUSTOM.name)).toBe(true);
     expect(r.brief.flagUntagged).toBe(true);
-    expect(r.warnings.join(' ')).toMatch(/1 exercise in your library has no safety tags/);
+    expect(r.brief.untaggedCount).toBe(1);
     const plain = run();
     expect(has(plain, CUSTOM.name)).toBe(true);
     expect(plain.brief.flagUntagged).toBe(false);
-    expect(plain.warnings.join(' ')).not.toMatch(/safety tags/);
   });
 });
 
@@ -218,7 +227,17 @@ describe('missing data (section 7)', () => {
   it('age missing: no age rule', () => {
     const r = run({ profile: { ...ADULT, age: null } });
     expect(r.brief.age).toBeNull();
-    expect(r.warnings.join(' ')).toMatch(/Age missing/);
+    expect(r.brief.missing).toEqual(['age']);
+    expect(r.warnings).toContain("Missing from the client's profile: age (no age rules). Fill it in for a better fit.");
+  });
+
+  it('lists every missing field in one warning', () => {
+    const r = run({ profile: { goal: '' } });
+    expect(r.brief.missing).toEqual(['age', 'sex', 'height', 'weight', 'goal']);
+    expect(r.warnings.filter(w => /Missing from/.test(w))).toEqual([
+      "Missing from the client's profile: age (no age rules), sex, height (no BMI rule), weight (no BMI rule), goal (using General Fitness). Fill them in for a better fit."
+    ]);
+    expect(run().brief.missing).toEqual([]);
   });
 
   it('sex missing: no rule, nothing changes', () => {
@@ -234,7 +253,7 @@ describe('missing data (section 7)', () => {
     const noWeight = run({ level: 'beginner', profile: { ...ADULT, weightKg: undefined } });
     expect(noWeight.brief.client.weightKg).toBeNull();
     expect(noWeight.brief.bmi).toBeNull();
-    expect(noWeight.warnings.join(' ')).toMatch(/BMI not used: weight missing/);
+    expect(noWeight.warnings.join(' ')).toMatch(/weight \(no BMI rule\)/);
     const noHeight = run({ level: 'beginner', profile: { ...ADULT, heightCm: 0, weightKg: 140 } });
     expect(noHeight.brief.bmi).toBeNull();
     expect(noHeight.brief.impactCap).toBeNull();
@@ -243,7 +262,7 @@ describe('missing data (section 7)', () => {
   it('goal missing: General Fitness', () => {
     const r = run({ profile: { ...ADULT, goal: '' } });
     expect(r.brief.goals).toEqual(['General Fitness']);
-    expect(r.warnings.join(' ')).toMatch(/No goal set/);
+    expect(r.warnings.join(' ')).toMatch(/goal \(using General Fitness\)/);
   });
 
   it('injuries missing: none excluded', () => {
@@ -255,6 +274,17 @@ describe('missing data (section 7)', () => {
     const home = run({ level: 'advanced', options: { equipment: 'home' } });
     tagsOf(home).forEach(t => expect(['dumbbell', 'kettlebell', 'band', 'bodyweight']).toContain(t.equipment));
     expect(has(home, 'Leg Press')).toBe(false);
+  });
+
+  it('reads the free-text equipment note', () => {
+    expect(resolveEquipment('Home').preset).toBe('home');
+    expect(resolveEquipment('home, dumbbells only').preset).toBe('home');
+    expect(resolveEquipment('Gym').preset).toBe('fullGym');
+    expect(resolveEquipment('home gym with rack').preset).toBe('fullGym');
+    expect(resolveEquipment('').allow).toBeNull();
+    const home = run({ level: 'advanced', options: { equipment: 'Home' } });
+    expect(home.brief.equipment).toBe('home');
+    expect(home.warnings.join(' ')).toMatch(/home kit/);
   });
 });
 
@@ -341,9 +371,9 @@ describe('62-year-old beginner, knee injury, BMI 33', () => {
     expect(r.preferred.knee).toEqual(['Glute Bridge', 'Leg Curl (Lying)', 'Seated Leg Curl  Machine', 'Cycling']);
   });
 
-  it('warns about thin groups and untagged exercises', () => {
+  it('warns about thin groups and marks untagged exercises for flagging', () => {
     expect(r.brief.thinMuscles.length).toBeGreaterThan(0);
-    expect(r.warnings.join(' ')).toMatch(/safety tags/);
+    expect(r.brief.flagUntagged).toBe(true);
   });
 });
 

@@ -307,3 +307,120 @@ describe('catalog in the prompt', () => {
     expect(system).not.toMatch(/Latissimus Dorsi:/);
   });
 });
+
+// ── Programming brief (Part 3) ─────────────────────────────────────────────
+
+describe('programming brief', () => {
+  const BRIEF_CLIENT = { name: 'Zelda Secretname', age: 34, height: 170, weight: 65, sex: 'female', goal: 'Muscle Building', injuries: 'Left knee pain', injuryAreas: ['knee'] };
+  const body = (extra = {}) => ({ client: BRIEF_CLIENT, level: 'intermediate', instructions: 'Upper/lower', options: { trainingDays: 1 }, catalog: CATALOG, ...extra });
+  const strength = (name, setCount, reps) => ({ name, type: 'strength', setCount, reps, durationMinutes: null, notes: null });
+
+  it('puts the brief in the system prompt, sends only the allowed catalog, and never the client name', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const requests = fakeGroq([okReply({ programSummary: 'S', days: [day('Day 1', ['Bench Press (Barbell)', 'Barbell Row', 'Seated Cable Row'])] })]);
+    await call(body());
+    const [system, user] = requests[0].messages.map(m => m.content);
+    expect(system).toMatch(/CLIENT PROGRAMMING RULES/);
+    expect(system).toMatch(/Level: intermediate/);
+    expect(system).toMatch(/Sets per exercise: 3\. Reps per set: main compound lifts 8–10, accessories 10–12/);
+    expect(system).toMatch(/Knee injury: exercises that load it are already removed/);
+    expect(system).toMatch(/5-6 exercises per day/);
+    expect(system).not.toMatch(/Use the client's stats/);
+    // Knee-loading exercises are not offered at all.
+    expect(system).not.toMatch(/Leg Press|Barbell Squat/);
+    expect(system).toMatch(/Romanian Deadlift/);
+    expect(user).not.toMatch(/Zelda|Secretname/);
+    expect(user).toMatch(/Sex: female/);
+    expect(user).toMatch(/exactly 1 training days .* each with 5-6 exercises/);
+  });
+
+  it('removes excluded exercises, clamps sets/reps, and returns the brief summary + warnings beside the draft', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const requests = fakeGroq([okReply({ programSummary: 'S', days: [{ dayLabel: 'Day 1', focus: 'Mixed', planName: 'P', exercises: [
+      strength('Bench Press (Barbell)', 6, 3), // sets → 3, main reps → 8
+      strength('Leg Press', 3, 10), // knee: removed
+      strength('Seated Cable Row', 3, 10),
+      strength('Lateral Raise', 3, 30), // accessory reps → 12
+      strength('Plank', 3, 10)
+    ] }] })]);
+    const r = await call(body());
+    expect(requests).toHaveLength(1);
+    expect(r.status).toBe(200);
+    const exs = r.body.draft.days[0].exercises;
+    expect(exs.map(e => e.name)).toEqual(['Bench Press (Barbell)', 'Seated Cable Row', 'Lateral Raise', 'Plank']);
+    expect(exs[0]).toMatchObject({ setCount: 3, reps: 8 });
+    expect(exs[2]).toMatchObject({ reps: 12 });
+    expect(r.body.brief).toMatchObject({ level: 'intermediate', levelSource: 'coachPick', injuries: ['Knee'], impactCap: null, reps: { mainLifts: [8, 10], accessories: [10, 12] } });
+    expect(r.body.warnings).toEqual(expect.arrayContaining([
+      { kind: 'day', day: 'Day 1', text: 'Day 1: removed Leg Press (knee injury).' },
+      { kind: 'day', day: 'Day 1', text: "Day 1: sets/reps adjusted on 2 exercises to fit the client's ranges." }
+    ]));
+  });
+
+  it('weekly sets over the cap are a warning, not another call', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const chest = (label) => ({ dayLabel: label, focus: 'Chest', planName: label, exercises: ['Bench Press (Barbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Pec Deck Fly'].map(n => strength(n, 3, 10)) });
+    const requests = fakeGroq([okReply({ programSummary: 'S', days: [chest('Day 1'), chest('Day 2')] })]);
+    const r = await call(body({ options: { trainingDays: 2 } }));
+    expect(requests).toHaveLength(1);
+    expect(r.body.warnings).toContainEqual({ kind: 'week', text: 'Chest: 24 sets this week, above the 16-set cap for a intermediate client. Consider trimming one Chest exercise.' });
+  });
+
+  it('top-up days are held to the same brief', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const requests = fakeGroq([
+      okReply({ programSummary: 'S', days: [day('Day 1', ['Bench Press (Barbell)', 'Barbell Row', 'Seated Cable Row'])] }),
+      okReply({ programSummary: 'S', days: [day('Day 1', ['Bench Press (Barbell)', 'Barbell Row', 'Seated Cable Row'])] }),
+      okReply({ day: day('Day 2', ['Leg Press', 'Romanian Deadlift', 'Plank', 'Lateral Raise', 'Cable Fly']) })
+    ]);
+    const r = await call(body({ options: { trainingDays: 2 } }));
+    expect(requests).toHaveLength(3);
+    expect(requests[2].messages[0].content).toMatch(/CLIENT PROGRAMMING RULES/);
+    expect(r.body.draft.days[1].exercises.map(e => e.name)).not.toContain('Leg Press');
+    expect(r.body.warnings).toContainEqual({ kind: 'day', day: 'Day 2', text: 'Day 2: removed Leg Press (knee injury).' });
+  });
+
+  it('regenerate one day uses the brief and returns { day, brief, warnings }', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const requests = fakeGroq([okReply({ day: day('Monday', ['Leg Press', 'Romanian Deadlift', 'Plank', 'Lateral Raise', 'Cable Fly']) })]);
+    const r = await call(body({ mode: 'day', day: { dayLabel: 'Monday', focus: 'Legs', currentExercises: ['Barbell Squat'], otherDays: [] } }));
+    expect(requests[0].messages[0].content).toMatch(/CLIENT PROGRAMMING RULES/);
+    expect(Object.keys(r.body)).toEqual(['day', 'brief', 'warnings']);
+    expect(r.body.day.exercises.map(e => e.name)).toEqual(['Romanian Deadlift', 'Plank', 'Lateral Raise', 'Cable Fly']);
+    expect(r.body.warnings).toContainEqual({ kind: 'day', day: 'Monday', text: 'Monday: removed Leg Press (knee injury).' });
+  });
+
+  it('never trusts a brief or allowed catalog sent by the browser', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const requests = fakeGroq([okReply({ programSummary: 'S', days: [day('Day 1', ['Bench Press (Barbell)', 'Barbell Row', 'Seated Cable Row'])] })]);
+    await call(body({ brief: { level: 'advanced', injuries: [] }, allowedCatalog: CATALOG }));
+    const system = requests[0].messages[0].content;
+    expect(system).toMatch(/Level: intermediate/);
+    expect(system).not.toMatch(/Leg Press/);
+  });
+
+  it('an older client with only injury text and a Difficulty chip still gets a brief from the text', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const requests = fakeGroq([okReply({ programSummary: 'S', days: [day('Day 1', ['Bench Press (Barbell)', 'Barbell Row', 'Seated Cable Row'])] })]);
+    const r = await call({ client: CLIENT, instructions: 'x', options: { trainingDays: 1, difficulty: 'Intermediate' }, catalog: CATALOG });
+    expect(requests[0].messages[0].content).not.toMatch(/Leg Press/);
+    expect(r.body.brief.injuries).toEqual(['Knee']);
+  });
+
+  it('an older client with no level keeps the old prompt and response shape', async () => {
+    process.env.GROQ_API_KEY = 'test';
+    captureLogs();
+    const requests = fakeGroq([okReply({ programSummary: 'S', days: [day('Day 1', ['Bench Press (Barbell)', 'Barbell Row', 'Leg Press'])] })]);
+    const r = await call({ client: CLIENT, instructions: 'x', options: { trainingDays: 1 }, catalog: CATALOG });
+    expect(requests[0].messages[0].content).toMatch(/Use the client's stats/);
+    expect(requests[0].messages[1].content).not.toMatch(/Zelda/);
+    expect(Object.keys(r.body)).toEqual(['draft']);
+  });
+});

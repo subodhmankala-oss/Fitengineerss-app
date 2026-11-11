@@ -30,9 +30,23 @@
 // the coach — so every exercise arrives with its library spelling, Form Guide
 // video and PREV. `mode: 'day'` regenerates a single day of an existing
 // draft with the same prompt pieces, one level narrower.
+//
+// Programming brief (2026-11-11): the server computes the client's brief
+// itself from the request (src/utils/programmingBrief.js — never a brief the
+// browser sends) with the rules in src/data/aiProgrammingRules.js. The model
+// sees only the brief's allowed catalog and gets the brief as hard rules;
+// every returned day — full draft, top-up day and "regenerate this day" — is
+// then held to it in code (checkDraftDay: excluded exercises removed, sets
+// and reps clamped), and the week's sets per muscle are counted. Anything
+// adjusted, and any weekly cap exceeded, comes back as a coach warning —
+// never an extra Groq call. A request with no level at all (an older cached
+// client) gets no brief and the previous behaviour, response shape included.
 
 import { formatCatalogForPrompt, matchCatalogExercise } from '../src/utils/aiWorkoutCatalog.js';
 import { exerciseNameKey } from '../src/utils/exerciseName.js';
+import { buildProgrammingBrief, matchInjuryAreas } from '../src/utils/programmingBrief.js';
+import { briefPromptRules, briefClientLines, checkDraftDay, weeklySetWarnings, briefSummary } from '../src/utils/programmingBriefDraft.js';
+import { INJURY_AREAS } from '../src/data/aiProgrammingRules.js';
 
 const GROQ_MODEL = 'openai/gpt-oss-120b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -131,10 +145,15 @@ EXERCISE LIBRARY (grouped by body area) — you may ONLY use exercises from this
 ${formatCatalogForPrompt(catalog)}
 `);
 
-const buildSystemPrompt = (catalog = [], mode = 'full') => `You are an assistant that drafts workout programs for a fitness coach. The coach reviews, edits, and approves every draft before anything is assigned to a client — you are not making the final call, so favor practical, conventional programming over anything experimental.
+// "5-7", or the brief's own exercises-per-day range.
+const perDayText = (brief) => (brief ? brief.exercisesPerDay.join('-') : '5-7');
 
-Rules:
-- Use the client's stats (age, weight, height, goal, calories, protein target) to size the program appropriately — do not ignore them.
+const buildSystemPrompt = (catalog = [], mode = 'full', brief = null, preferred = {}) => `You are an assistant that drafts workout programs for a fitness coach. The coach reviews, edits, and approves every draft before anything is assigned to a client — you are not making the final call, so favor practical, conventional programming over anything experimental.
+
+${brief ? `${briefPromptRules({ brief, preferred })}
+
+Other rules:` : `Rules:
+- Use the client's stats (age, weight, height, goal, calories, protein target) to size the program appropriately — do not ignore them.`}
 - If injuries or medical restrictions are mentioned, you MUST avoid exercises that load or aggravate that area, and say so in a note on the safer substitute exercise.
 - Respect the coach's written instructions as the primary source of truth — advanced-option hints are secondary, the free-text instructions take priority if they conflict.
 - Keep weekly volume balanced across muscle groups — do not overload one muscle group across multiple days without adequate recovery between sessions.
@@ -143,21 +162,24 @@ Rules:
 - "type" must be exactly "strength", "cardio", or "timed" — strength = reps+weight sets, cardio = distance/time, timed = isometric hold.
 - "reps" is a single target number per set, never a range like "8-10".
 - Do not include rest days as entries in "days".
-- Order each day with the big compound lifts first, then accessories, then core/cardio last. 5-7 exercises per day unless the session length calls for fewer or more.
+- Order each day with the big compound lifts first, then accessories, then core/cardio last. ${perDayText(brief)} exercises per day${brief ? '' : ' unless the session length calls for fewer or more'}.
 - Never repeat the same exercise twice in one day.
 ${catalogRules(catalog)}
 Respond with ONLY valid JSON matching this exact shape — no prose, no markdown code fences, no commentary before or after:
 ${mode === 'day' ? `${DAY_JSON_SHAPE}\n\nwhere each exercise has the fields shown here:\n${DRAFT_JSON_SHAPE}` : DRAFT_JSON_SHAPE}`;
 
-const buildUserPrompt = ({ client, instructions, options, day }) => {
+// No client name is ever sent to Groq. With a brief, the stats come from it
+// (no placeholder weight); without one (older client), from the request.
+const buildUserPrompt = ({ client, instructions, options, day, brief = null }) => {
   const lines = [
     '=== Client Profile ===',
-    `Name: ${client.name || 'Unknown'}`,
-    client.age ? `Age: ${client.age}` : null,
-    client.gender ? `Gender: ${client.gender}` : null,
-    client.height ? `Height: ${client.height} cm` : null,
-    client.weight ? `Weight: ${client.weight} kg` : null,
-    client.goal ? `Fitness goal: ${client.goal}` : null,
+    ...(brief ? briefClientLines(brief) : [
+      client.age ? `Age: ${client.age}` : null,
+      client.sex || client.gender ? `Sex: ${client.sex || client.gender}` : null,
+      client.height ? `Height: ${client.height} cm` : null,
+      client.weight ? `Weight: ${client.weight} kg` : null,
+      client.goal ? `Fitness goal: ${client.goal}` : null
+    ]),
     client.calories ? `Daily calorie target: ${client.calories} kcal` : null,
     client.protein ? `Daily protein target: ${client.protein} g` : null,
     client.experienceLevel ? `Experience level: ${client.experienceLevel}` : null,
@@ -367,6 +389,42 @@ const sanitizeCatalog = (raw) => (Array.isArray(raw) ? raw : [])
     ...(typeof e.category === 'string' && e.category.trim() ? { category: e.category.trim().slice(0, 40) } : {})
   }));
 
+// The brief, computed here from the request — a brief the browser sends is
+// never read. Injury areas: the coach's ticks when the request has them (an
+// empty list means "none"); an older client sends only the free text, which
+// is matched to areas. Level: the saved experience, then library_level, then
+// the coach's pick (`level`, or an older client's Difficulty chip). No level
+// at all → no brief (previous behaviour).
+export function briefFromRequest(body, catalog) {
+  const client = body?.client || {};
+  const options = body?.options || {};
+  const ticked = Array.isArray(client.injuryAreas)
+    ? client.injuryAreas.filter(a => typeof a === 'string' && INJURY_AREAS[a])
+    : null;
+  return buildProgrammingBrief({
+    profile: {
+      age: client.age,
+      heightCm: client.height,
+      weightKg: client.weight,
+      sex: client.sex || client.gender,
+      goal: client.goal,
+      experience: client.experienceLevel,
+      libraryLevel: client.libraryLevel
+    },
+    options: {
+      days: options.trainingDays,
+      equipment: typeof client.equipment === 'string' ? client.equipment : '',
+      liftSafetyCaps: options.liftSafetyCaps === true,
+      injuryText: typeof client.injuries === 'string' ? client.injuries : ''
+    },
+    level: (typeof body?.level === 'string' && body.level) || options.difficulty || null,
+    injuryAreas: ticked ?? matchInjuryAreas(client.injuries),
+    catalog
+  });
+}
+
+const note = (kind, text, day = null) => ({ kind, text, ...(day ? { day } : {}) });
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -395,11 +453,30 @@ export default async function handler(req, res) {
   // completed rather than handed over looking finished.
   const wantDays = dayMode ? 1 : Math.min(7, Math.max(0, Math.round(Number(options?.trainingDays)) || 0));
   const isWeak = (d) => !d || d.exercises.length < MIN_EXERCISES_PER_DAY;
+
+  const { brief, allowedCatalog, excluded, preferred, warnings: briefWarnings } = briefFromRequest(req.body, catalog);
+  // The model only ever sees what this client may do.
+  const promptCatalog = brief && catalog.length ? allowedCatalog : catalog;
+  const profileNotes = brief ? briefWarnings.map(w => note('profile', w)) : [];
+  // Holds a day to the brief (or, with no brief, the old library repair).
+  const checkDay = (d, dayLabel) => {
+    if (!brief) return { day: repairDay(d, catalog), warnings: [] };
+    const r = checkDraftDay(d, { brief, catalog, excluded, dayLabel: dayLabel || d.dayLabel });
+    return { day: r.day, warnings: r.warnings };
+  };
+  // Adds the brief summary + warnings to a response body; leaves an older
+  // client's (no brief) body exactly as it was.
+  const withBrief = (body, notes) => (brief
+    ? { ...body, brief: briefSummary(brief, excluded), warnings: [...profileNotes, ...notes] }
+    : body);
   const usage = newUsage(dayMode ? 'day' : 'full');
   usage.format = 'json_schema';
   // Strict schema until Groq rejects it once; then plain JSON mode for the
   // rest of this request (every call here uses the same schemas).
   let strict = true;
+
+  // A one-day call's notes carry the label the day will be shown under.
+  let dayLabelFor = null;
 
   // One model call, parsed + validated + repaired. Resolves to
   // { fatal } (don't retry), { failure } (retry) or { summary, days }.
@@ -407,7 +484,7 @@ export default async function handler(req, res) {
     const payload = (useStrict) => ({
       model: GROQ_MODEL,
       messages: [
-        { role: 'system', content: buildSystemPrompt(catalog, isDay ? 'day' : 'full') },
+        { role: 'system', content: buildSystemPrompt(promptCatalog, isDay ? 'day' : 'full', brief, preferred) },
         { role: 'user', content: user }
       ],
       response_format: responseFormatFor(isDay, useStrict),
@@ -442,10 +519,16 @@ export default async function handler(req, res) {
       console.error('generate-workout-draft: draft failed validation:', describeShape(parsed));
       return { failure: 'The AI returned an incomplete draft. Please try again.' };
     }
-    return { summary: draft.programSummary, days: draft.days.map(d => repairDay(d, catalog)), raw: draft.days };
+    const checked = draft.days.map(d => checkDay(d, isDay ? dayLabelFor : null));
+    return {
+      summary: draft.programSummary,
+      days: checked.map(c => c.day),
+      dayWarnings: checked.map(c => c.warnings),
+      raw: draft.days
+    };
   };
 
-  const baseUser = (dayArg) => buildUserPrompt({ client, instructions: instructions || '', options: options || {}, day: dayArg });
+  const baseUser = (dayArg) => buildUserPrompt({ client, instructions: instructions || '', options: options || {}, day: dayArg, brief });
   const describeDay = (d) => `${d.dayLabel}${d.focus ? ` (${d.focus})` : ''}: ${d.exercises.map(e => e.name).join(', ')}`;
 
   try {
@@ -458,7 +541,12 @@ export default async function handler(req, res) {
       // rather than an error.
       const opts = { temperature: TEMPERATURE_REGENERATE_DAY, budget: { waitedMs: 0 } };
       const current = day.currentExercises || [];
-      const send = (d) => res.status(200).json({ day: { ...d, dayLabel: day.dayLabel } });
+      dayLabelFor = day.dayLabel;
+      // got = { d: the checked day, w: its warnings }
+      const send = (got) => res.status(200).json(withBrief(
+        { day: { ...got.d, dayLabel: day.dayLabel } },
+        got.w.map(t => note('day', t, day.dayLabel))
+      ));
       let failure = null;
       let repeated = null;
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -467,17 +555,17 @@ export default async function handler(req, res) {
           if (repeated) return send(repeated);
           return res.status(r.fatal.status).json({ error: r.fatal.error });
         }
-        const got = r.failure ? null : r.days[0];
-        if (!got || isWeak(got)) {
+        const got = r.failure ? null : { d: r.days[0], w: r.dayWarnings[0] };
+        if (!got || isWeak(got.d)) {
           failure = r.failure || 'The AI picked too few exercises from your library for that day. Please try again.';
           if (repeated) return send(repeated);
           continue;
         }
         if (repeated) {
-          return send(overlapRatio(got.exercises, current) < overlapRatio(repeated.exercises, current) ? got : repeated);
+          return send(overlapRatio(got.d.exercises, current) < overlapRatio(repeated.d.exercises, current) ? got : repeated);
         }
-        if (overlapRatio(got.exercises, current) > 0.5 && attempt < 2) {
-          console.warn(`generate-workout-draft: regenerated day repeated ${countOverlap(got.exercises, current)}/${got.exercises.length} current exercises — retrying once with a do-not-use list.`);
+        if (overlapRatio(got.d.exercises, current) > 0.5 && attempt < 2) {
+          console.warn(`generate-workout-draft: regenerated day repeated ${countOverlap(got.d.exercises, current)}/${got.d.exercises.length} current exercises — retrying once with a do-not-use list.`);
           repeated = got;
           continue;
         }
@@ -489,7 +577,7 @@ export default async function handler(req, res) {
     const fullUser = baseUser(null)
       + (wantDays ? `
 
-The "days" array MUST contain exactly ${wantDays} training days — no more, no fewer — each with 5-7 exercises.` : '');
+The "days" array MUST contain exactly ${wantDays} training days — no more, no fewer — each with ${perDayText(brief)} exercises.` : '');
     const goodCount = (days) => days.filter(d => !isWeak(d)).length;
     let best = null;
     let failure = null;
@@ -497,25 +585,32 @@ The "days" array MUST contain exactly ${wantDays} training days — no more, no 
       const r = await askModel(false, fullUser);
       if (r.fatal) return res.status(r.fatal.status).json({ error: r.fatal.error });
       if (r.failure) { failure = r.failure; continue; }
-      const cut = wantDays ? r.days.slice(0, wantDays) : r.days;
-      const rawCut = wantDays ? r.raw.slice(0, wantDays) : r.raw;
-      if (!best || goodCount(cut) > goodCount(best.days)) best = { summary: r.summary, days: cut, raw: rawCut };
+      const take = (list) => (wantDays ? list.slice(0, wantDays) : list);
+      const cut = take(r.days);
+      if (!best || goodCount(cut) > goodCount(best.days)) {
+        best = { summary: r.summary, days: cut, raw: take(r.raw), dayWarnings: take(r.dayWarnings) };
+      }
       if (goodCount(cut) === (wantDays || cut.length)) break;
     }
     if (!best) return res.status(502).json({ error: failure || 'Failed to generate workout draft.' });
 
-    // Top up: fill each missing / stub day on its own.
+    // Top up: fill each missing / stub day on its own, held to the same brief.
     const days = [...best.days];
+    const dayWarnings = [...best.dayWarnings];
     for (let i = 0; i < (wantDays || 0); i += 1) {
       if (!isWeak(days[i])) continue;
       const label = best.raw[i]?.dayLabel || `Day ${i + 1}`;
       const focus = best.raw[i]?.focus || 'a focus that complements the other days of the week';
       const otherDays = days.filter((d, j) => j !== i && !isWeak(d)).map(describeDay);
+      dayLabelFor = label;
       let filled = null;
       for (let attempt = 0; attempt < 3 && !filled; attempt += 1) {
         const r = await askModel(true, baseUser({ dayLabel: label, focus, currentExercises: [], otherDays }));
         if (r.fatal) return res.status(r.fatal.status).json({ error: r.fatal.error });
-        if (!r.failure && !isWeak(r.days[0])) filled = { ...r.days[0], dayLabel: label };
+        if (!r.failure && !isWeak(r.days[0])) {
+          filled = { ...r.days[0], dayLabel: label };
+          dayWarnings[i] = r.dayWarnings[0];
+        }
       }
       if (!filled) {
         console.error(`generate-workout-draft: could not complete day ${i + 1} of ${wantDays}`);
@@ -524,7 +619,12 @@ The "days" array MUST contain exactly ${wantDays} training days — no more, no 
       days[i] = filled;
     }
     if (days.some(isWeak)) return res.status(502).json({ error: 'The AI picked too few exercises from your library. Please try again.' });
-    return res.status(200).json({ draft: { programSummary: best.summary, days } });
+    // Weekly sets per muscle over the cap: a warning, never another call.
+    const notes = [
+      ...days.flatMap((d, i) => (dayWarnings[i] || []).map(t => note('day', t, d.dayLabel))),
+      ...weeklySetWarnings(days, brief, catalog).map(t => note('week', t))
+    ];
+    return res.status(200).json(withBrief({ draft: { programSummary: best.summary, days } }, notes));
   } catch (err) {
     console.error('generate-workout-draft error:', err?.message || err);
     return res.status(500).json({ error: err.message || 'Failed to generate workout draft.' });

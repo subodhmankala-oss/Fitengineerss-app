@@ -97,10 +97,27 @@ const floorRange = ([lo, hi], floor) => (floor ? [Math.max(lo, floor), Math.max(
 const muscleOf = (entry) =>
   getMuscleGroupsForExercise(entry.name)[0] || parseMuscleText(entry.muscle)[0] || 'Other';
 
-function equipmentAllowList(equipment) {
-  if (Array.isArray(equipment)) return equipment.length ? new Set(equipment) : null;
-  const preset = EQUIPMENT_PRESETS[equipment || MISSING_DATA.equipment];
-  return preset ? new Set(preset) : null;
+// Equipment: a list of tags, a preset key, or the coach's free text ("Gym",
+// "Home", "home, dumbbells only"). Free text reads as the home preset only
+// when it says home and not gym; anything else is a full gym.
+export function resolveEquipment(equipment) {
+  if (Array.isArray(equipment)) return { preset: null, allow: equipment.length ? new Set(equipment) : null };
+  const raw = String(equipment || '').trim();
+  const key = Object.prototype.hasOwnProperty.call(EQUIPMENT_PRESETS, raw) ? raw
+    : (/\bhome\b/i.test(raw) && !/\bgym\b/i.test(raw) ? 'home' : MISSING_DATA.equipment);
+  const preset = EQUIPMENT_PRESETS[key];
+  return { preset: key, allow: preset ? new Set(preset) : null };
+}
+
+const wordRe = (word) => new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+
+// The INJURY_AREAS keys a free-text injury note mentions, in config order.
+export function matchInjuryAreas(text) {
+  const t = String(text || '');
+  if (!t.trim()) return [];
+  return Object.entries(INJURY_AREAS)
+    .filter(([, area]) => (area.keywords || []).some(k => wordRe(k).test(t)))
+    .map(([key]) => key);
 }
 
 export function buildProgrammingBrief({ profile = {}, options = {}, level: coachPick = null, injuryAreas = [], catalog = [] } = {}) {
@@ -121,24 +138,33 @@ export function buildProgrammingBrief({ profile = {}, options = {}, level: coach
 
   // ── Goals (section 2): first sets reps, second only adds its cardio ──
   let goals = resolveGoals(profile);
-  if (goals.length === 0) {
-    goals = [MISSING_DATA.goal];
-    warnings.push(BRIEF_WARNINGS.defaultGoal);
-  }
+  if (goals.length === 0) goals = [MISSING_DATA.goal];
   const repsGoal = GOAL_RULES[TWO_GOALS.repsFrom === 'first' ? goals[0] : goals.at(-1)];
   const cardioGoal = GOAL_RULES[goals.length > 1 && TWO_GOALS.cardioFrom === 'second' ? goals[1] : goals[0]];
 
   // ── Age (section 3) and BMI (section 4) ──
   const ageBand = ageBandFor(profile.age);
-  if (!ageBand) warnings.push(BRIEF_WARNINGS.ageMissing);
   const heightCm = num(profile.heightCm);
   const weightKg = num(profile.weightKg); // change 2d: never a placeholder
   const bmi = computeBmi(heightCm, weightKg);
   const bmiApplies = BMI.appliesToLevels.includes(level);
   const bmiBand = bmiApplies ? bmiBandFor(bmi) : null;
-  if (bmiApplies && bmi === null) {
-    const missing = [!heightCm && 'height', !weightKg && 'weight'].filter(Boolean).join(' and ');
-    warnings.push(fill(BRIEF_WARNINGS.bmiSkipped, { missing }));
+  const sex = String(profile.sex || '').trim().toLowerCase() || null;
+
+  // Profile fields the rules wanted but didn't get — one warning, with what
+  // each one costs.
+  const missing = [
+    !ageBand && 'age',
+    !sex && 'sex',
+    !heightCm && 'height',
+    !weightKg && 'weight',
+    resolveGoals(profile).length === 0 && 'goal'
+  ].filter(Boolean);
+  if (missing.length) {
+    warnings.push(fill(BRIEF_WARNINGS.missingFields, {
+      fields: missing.map(f => BRIEF_WARNINGS.missingEffects[f]).join(', '),
+      them: missing.length === 1 ? 'it' : 'them'
+    }));
   }
 
   // ── Caps (section 8): strictest of age, BMI, level; coach may lift age/BMI ──
@@ -176,11 +202,14 @@ export function buildProgrammingBrief({ profile = {}, options = {}, level: coach
   areas.forEach(a => INJURY_AREAS[a].joints.forEach(j => injuryJoints.set(j, a)));
   const injuryNames = new Map();
   areas.forEach(a => INJURY_AREAS[a].alsoExclude.forEach(n => injuryNames.set(exerciseNameKey(n), a)));
-  if (String(options.injuryText || '').trim() && areas.length === 0) warnings.push(INJURY_UNMATCHED_WARNING);
+  if (String(options.injuryText || '').trim() && matchInjuryAreas(options.injuryText).length === 0) {
+    warnings.push(INJURY_UNMATCHED_WARNING);
+  }
 
   const ageNames = new Set((ageBand?.excludeExercises || []).map(exerciseNameKey));
   const bmiNames = new Set((bmiBand?.excludeExercises || []).map(exerciseNameKey));
-  const equipment = equipmentAllowList(options.equipment);
+  const { preset: equipmentPreset, allow: equipment } = resolveEquipment(options.equipment);
+  if (equipmentPreset === 'home') warnings.push(BRIEF_WARNINGS.equipmentHome);
 
   const allowedCatalog = [];
   const excluded = [];
@@ -239,16 +268,10 @@ export function buildProgrammingBrief({ profile = {}, options = {}, level: coach
     }));
   });
 
-  // ── Untagged: flagged when an injury or impact cap is in force ──
+  // ── Untagged: kept; flagged per exercise in the draft (checkDraftDay) when
+  // an injury or impact cap is in force ──
   const flagUntagged = (UNTAGGED.flagWhen.injury && areas.length > 0) || (UNTAGGED.flagWhen.impactCap && impactCap !== null);
-  if (flagUntagged && untagged.length) {
-    const why = [areas.length && 'an injury', impactCap !== null && 'an impact limit'].filter(Boolean).join(' and ');
-    warnings.push(fill(BRIEF_WARNINGS.untagged, {
-      count: untagged.length, s: untagged.length === 1 ? '' : 's', have: untagged.length === 1 ? 'has' : 'have', why
-    }));
-  }
 
-  const sex = String(profile.sex || '').trim().toLowerCase() || null;
   const brief = {
     level,
     levelSource,
@@ -282,7 +305,10 @@ export function buildProgrammingBrief({ profile = {}, options = {}, level: coach
       heightCm,
       weightKg
     },
+    equipment: equipmentPreset,
+    missing,
     flagUntagged,
+    untaggedCount: untagged.length,
     thinMuscles
   };
 

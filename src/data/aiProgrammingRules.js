@@ -202,39 +202,48 @@ export const SEX_RULES = {
 // (src/data/exerciseTags.js), plus `alsoExclude` by name. Preferred
 // substitutes are suggested to the model; they must not carry the area's
 // joint tag (the test checks this).
+// `keywords` match the coach's free-text injury note to areas (whole words,
+// case-insensitive) — used to pre-tick the boxes and, for an older cached
+// client that sends no ticks, to pick the areas on the server.
 export const INJURY_AREAS = {
   lowerBack: {
     label: 'Lower back',
+    keywords: ['lower back', 'low back', 'lumbar', 'sciatica', 'disc', 'herniated', 'spine', 'spinal', 'l4', 'l5'],
     joints: ['lumbar'],
     alsoExclude: [],
     preferred: ['Chest-Supported Dumbbell', 'Seated Cable Row', 'Leg Press', 'Goblet Squat', 'Hip Thrust', 'Glute Bridge', 'Bird dog', 'Dead Bug', 'Pallof Press', 'Side Plank']
   },
   knee: {
     label: 'Knee',
+    keywords: ['knee', 'knees', 'acl', 'mcl', 'meniscus', 'patella', 'patellar'],
     joints: ['knee'],
     alsoExclude: [],
     preferred: ['Box Squat', 'Hip Thrust', 'Glute Bridge', 'Leg Curl (Lying)', 'Seated Leg Curl  Machine', 'Romanian Deadlift', 'Cycling']
   },
   shoulder: {
     label: 'Shoulder',
+    keywords: ['shoulder', 'shoulders', 'rotator cuff', 'rotator', 'impingement', 'labrum', 'frozen shoulder', 'ac joint'],
     joints: ['shoulder'],
     alsoExclude: [],
     preferred: ['Landmine Press', 'Floor Press', 'Seated Cable Row', 'Face Pull', 'External Rotation (Cable)', 'External Rotation (Band)']
   },
   wristElbow: {
     label: 'Wrist / elbow',
+    keywords: ['wrist', 'wrists', 'elbow', 'elbows', 'tennis elbow', 'golfer', 'golfers', 'carpal', 'forearm'],
     joints: ['wrist'],
     alsoExclude: [],
     preferred: ['Plank', 'Hammer Curl (Dumbbell)', 'EZ Bar Curl', 'Cable Curl', 'Chest Press (Machine)']
   },
   hip: {
     label: 'Hip',
+    keywords: ['hip', 'hips', 'groin', 'labral', 'piriformis'],
     joints: ['hip'],
     alsoExclude: [],
     preferred: ['Glute Bridge', 'Leg Press', 'Leg Curl (Lying)', 'Cable Pull Through']
   },
   neck: {
     label: 'Neck',
+    keywords: ['neck', 'cervical', 'whiplash'],
     joints: ['neck'],
     alsoExclude: [],
     preferred: ['Dead Bug', 'Plank', 'Pallof Press']
@@ -282,11 +291,20 @@ export const BRIEF_WARNINGS = {
   noLevel: 'No training level: set the client\'s experience or pick a level before generating.',
   lowMuscle: 'Only {count} usable {muscle} exercise{s} left after the client\'s restrictions{names}. The draft may repeat them or skip {muscle} — check it.',
   noMuscle: 'No usable {muscle} exercises left after the client\'s restrictions, so the draft won\'t train {muscle} directly. Add one by hand if it\'s needed.',
-  untagged: '{count} exercise{s} in your library {have} no safety tags (custom or new). They stay available, but check any the draft uses — this client has {why}.',
   capsLifted: 'Age/BMI safety caps lifted by your instructions — level and injury rules still apply.',
-  bmiSkipped: 'BMI not used: {missing} missing.',
-  ageMissing: 'Age missing: no age rules applied.',
-  defaultGoal: 'No goal set: using General Fitness.'
+  missingFields: 'Missing from the client\'s profile: {fields}. Fill {them} in for a better fit.',
+  missingEffects: { age: 'age (no age rules)', sex: 'sex', height: 'height (no BMI rule)', weight: 'weight (no BMI rule)', goal: 'goal (using General Fitness)' },
+  removed: '{day}: removed {name} ({why}).',
+  clamped: '{day}: sets/reps adjusted on {count} exercise{s} to fit the client\'s ranges.',
+  overCap: '{muscle}: {sets} sets this week, above the {cap}-set cap for a {level} client. Consider trimming one {muscle} exercise.',
+  untaggedInDraft: '{day}: {name} has no safety tags (custom or new exercise) — check it suits this client.',
+  equipmentHome: 'Equipment read as home kit: dumbbells, kettlebells, bands and bodyweight only.'
+};
+
+// Why an exercise was removed, as the coach reads it.
+export const EXCLUSION_REASON_TEXT = {
+  impact: 'impact limit', difficulty: 'too advanced for the level', equipment: 'equipment not available',
+  age: 'age rule', bmi: 'BMI rule'
 };
 
 // ─── 8. When rules conflict (highest priority first) ────────────────────────

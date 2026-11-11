@@ -267,6 +267,28 @@ export const MISSING_DATA = {
   equipment: 'fullGym'
 };
 
+// Equipment presets → allowed equipment tags (null = everything).
+export const EQUIPMENT_PRESETS = {
+  fullGym: null,
+  home: ['dumbbell', 'kettlebell', 'band', 'bodyweight']
+};
+
+// After filtering, a muscle group with fewer usable exercises than this gets
+// a coach warning (the filter is kept). Groups that had fewer than this
+// before filtering are not warned about.
+export const MIN_EXERCISES_PER_MUSCLE = 3;
+
+export const BRIEF_WARNINGS = {
+  noLevel: 'No training level: set the client\'s experience or pick a level before generating.',
+  lowMuscle: 'Only {count} usable {muscle} exercise{s} left after the client\'s restrictions{names}. The draft may repeat them or skip {muscle} — check it.',
+  noMuscle: 'No usable {muscle} exercises left after the client\'s restrictions, so the draft won\'t train {muscle} directly. Add one by hand if it\'s needed.',
+  untagged: '{count} exercise{s} in your library {have} no safety tags (custom or new). They stay available, but check any the draft uses — this client has {why}.',
+  capsLifted: 'Age/BMI safety caps lifted by your instructions — level and injury rules still apply.',
+  bmiSkipped: 'BMI not used: {missing} missing.',
+  ageMissing: 'Age missing: no age rules applied.',
+  defaultGoal: 'No goal set: using General Fitness.'
+};
+
 // ─── 8. When rules conflict (highest priority first) ────────────────────────
 // Injury exclusions can't be overridden by coach instructions; the safety caps
 // (age, BMI) can. For impact and difficulty the strictest of age, BMI and

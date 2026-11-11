@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, PROGRAM_TO_FITNESS_GOAL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
 import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
 import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
-import { adaptiveTimeout } from '../utils/networkQuality';
+import { adaptiveTimeout, uploadTimeout } from '../utils/networkQuality';
 import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
 import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
 import { setCatalogMuscles } from '../utils/muscleGroups';
@@ -7190,7 +7190,7 @@ const databaseService = {
     const token = await resolveBearerToken();
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(30000));
+    const timer = setTimeout(() => controller.abort(), uploadTimeout(file.size));
     try {
       const res = await fetch(`${supabaseUrl}/storage/v1/object/custom-exercise-media/${fileName}`, {
         method: 'POST',
@@ -7331,7 +7331,7 @@ const databaseService = {
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
 
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), adaptiveTimeout(30000));
+        const timer = setTimeout(() => controller.abort(), uploadTimeout(file.size));
         try {
           const res = await fetch(`${supabaseUrl}/storage/v1/object/exercise-videos/${fileName}`, {
             method: 'POST',
@@ -7354,6 +7354,10 @@ const databaseService = {
         return `${supabaseUrl}/storage/v1/object/public/exercise-videos/${fileName}`;
       } catch (err) {
         console.error('Error uploading video to Supabase Storage:', err);
+        if (err && err.name === 'AbortError') {
+          const mb = (file.size / (1024 * 1024)).toFixed(1);
+          throw new Error(`Upload timed out (${mb} MB). Try a stronger connection or a shorter/compressed clip.`);
+        }
         throw err;
       }
     } else {

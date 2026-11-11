@@ -6,7 +6,7 @@
 // function runs all of it; the coach screen re-runs weeklySetWarnings after
 // "Regenerate this day" so the week's totals stay current.
 
-import { INJURY_AREAS, BRIEF_WARNINGS, EXCLUSION_REASON_TEXT } from '../data/aiProgrammingRules.js';
+import { INJURY_AREAS, BRIEF_WARNINGS, EXCLUSION_REASON_TEXT, IMPACT_CAPS } from '../data/aiProgrammingRules.js';
 import { matchCatalogExercise } from './aiWorkoutCatalog.js';
 import { exerciseNameKey } from './exerciseName.js';
 import { getExerciseTags } from './exerciseTags.js';
@@ -21,11 +21,6 @@ const fill = (template, values) =>
 // Groq rejected the whole draft (json_validate_failed on 5-day drafts).
 const range = ([lo, hi], unit = '') => (lo === hi ? `${lo}${unit}` : `${lo} to ${hi}${unit}`);
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
-
-const IMPACT_RULE = {
-  low: 'No jumps, landings or running (impact capped at low).',
-  none: 'No impact at all: seated, lying or supported exercises only.'
-};
 
 // The brief as hard rules for the system prompt. It replaces the old
 // "use the client's stats to size the program" line: the sizing is decided
@@ -49,8 +44,8 @@ export function briefPromptRules({ brief, preferred = {} }) {
     b.cardio.coreEveryDay ? '- Include one core exercise every day.' : null,
     b.age?.perDay?.includes('balance') ? '- Include one balance exercise every day.' : null,
     b.age?.perDay?.includes('coreStabilityOrMobility') ? '- Include one core-stability or mobility exercise every day.' : null,
-    b.age?.preferMachines || b.bmi?.preferSupported ? '- Prefer machines and seated or supported exercises.' : null,
-    b.impactCap ? `- ${IMPACT_RULE[b.impactCap]}` : null,
+    b.age?.preferMachines || b.bmi?.preferSupported || (b.impactCap && IMPACT_CAPS[b.impactCap].preferSupported) ? '- Prefer machines and seated or supported exercises.' : null,
+    b.impactCap ? `- ${IMPACT_CAPS[b.impactCap].rule}` : null,
     ...b.injuries.map(a => `- ${INJURY_AREAS[a].label} injury: exercises that load it are already removed from the library.${preferred[a]?.length ? ` Good substitutes: ${preferred[a].join(', ')}.` : ''}`),
     '- The exercise library below is already filtered for this client (injuries, impact, difficulty, equipment): every listed exercise is allowed.'
   ];

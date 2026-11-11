@@ -61,7 +61,7 @@ Fat Loss cardio. The goal text is mapped to a goal by `GOAL_ALIASES`.
 | Under 18 | low | 2 | At least 8 reps on every lift |
 | 18–44 | none (no cap) | per level | No change |
 | 45–59 | low (Advanced: no cap) | 2 (Advanced: 3) | At least 8 reps on main lifts; one core-stability or mobility exercise per day |
-| 60+ | **no impact** | 2 (Beginner: 1) | 10–15 reps; prefer machines and supported moves; one balance exercise per day; no barbell overhead press, no jumping, no Olympic-style lifts (excluded by name in the config) |
+| 60+ | **no impact** (no jumps, landings or running; standing moves kept, seated/supported preferred) | 2 (Beginner: 1) | 10–15 reps; prefer machines and supported moves; one balance exercise per day; no barbell overhead press, no jumping, no Olympic-style lifts (excluded by name in the config) |
 
 ---
 
@@ -74,7 +74,7 @@ computed from height and weight. If either is missing, these rules don't apply.
 |---|---|
 | Under 30 | No change |
 | 30–34.9 | Impact capped at low: no jumps, burpees, box jumps, high knees or running. Cardio: cross trainer, cycling or incline walk |
-| 35 and over | No impact. No fast floor-to-standing moves (burpees, inch worm, wall ball). Push-ups only in incline or knee versions. Prefer seated or supported exercises. Cardio: cycling or air rowing |
+| 35 and over | No impact (as for 60+: standing moves kept, seated/supported preferred). No fast floor-to-standing moves (burpees, inch worm, wall ball). Push-ups only in incline or knee versions. Prefer seated or supported exercises. Cardio: cycling, air rowing or incline walk |
 
 ---
 
@@ -158,4 +158,4 @@ Every catalog exercise (329 on 2026-11-11) has these tags:
   `machine` (including Smith and cardio machines), `kettlebell`, `band`, `bodyweight`,
   `other`.
 
-A cap allows its own value and anything below it: cap `low` allows `none` and `low`.
+**What a cap lets through (`IMPACT_CAPS`).** Cap `low` allows `none` and `low` exercises. Cap `none` ("no impact") also allows `none` and `low`: it removes jumps, landings and running, and tells the model to prefer seated, lying or supported exercises. Coach decision 2026-11-11: allowing seated, lying or supported exercises only left a 60+ beginner with a knee injury and home kit 48 of 314 exercises and no cardio.

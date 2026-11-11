@@ -17,8 +17,27 @@
 
 export const LEVELS = ['beginner', 'intermediate', 'advanced'];
 
-// Ordered from least to most impact; a cap allows its own value and below.
+// Ordered from least to most impact — decides which cap is the strictest.
 export const IMPACT_ORDER = ['none', 'low', 'high'];
+
+// What each impact cap lets through (exercise impact tags) and the rule the
+// model is given. Coach decision 2026-11-11: a 'none' ("no impact") cap keeps
+// standing moves with both feet down and only asks for seated / supported
+// ones to be preferred. Allowing seated/lying/supported only left a 60+
+// beginner with a knee injury and home kit 48 of 314 exercises, the same
+// day twice and no cardio (walking is a standing move).
+export const IMPACT_CAPS = {
+  low: {
+    allows: ['none', 'low'],
+    preferSupported: false,
+    rule: 'No jumps, landings or running (impact capped at low).'
+  },
+  none: {
+    allows: ['none', 'low'],
+    preferSupported: true,
+    rule: 'No impact: no jumps, landings or running. Standing exercises with both feet down are fine, but prefer seated, lying or supported ones.'
+  }
+};
 
 // ─── 1. Experience levels ───────────────────────────────────────────────────
 export const LEVEL_RULES = {
@@ -171,9 +190,8 @@ export const BMI = {
     },
     {
       label: '35 and over', minBmi: 35, maxBmi: null, impactCap: 'none',
-      // Seated only: with the section 9 definitions a 'none' cap rules out
-      // every standing move, Cross Trainer and Incline Walk included.
-      preferredCardio: ['Cycling', 'Air Rowing'],
+      // Seated first (preferSupported), then a gentle standing option.
+      preferredCardio: ['Cycling', 'Air Rowing', 'Incline Walk'],
       preferSupported: true,
       // No fast floor-to-standing moves; push-ups only as incline or knee
       // versions (Incline Push-up, Incline knee push ups, Knee Push-ups stay).

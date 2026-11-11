@@ -6,7 +6,7 @@ import React from 'react';
 // exercises removed or adjusted per day, weekly sets over the cap.
 
 const LEVEL_SOURCE = { experience: 'saved level', library_level: 'library level', coachPick: 'your pick' };
-const IMPACT_TEXT = { none: 'no impact (seated / supported)', low: 'low (no jumps or running)' };
+const IMPACT_TEXT = { none: 'no impact (no jumps or running; seated preferred)', low: 'low (no jumps or running)' };
 const NOTE_ORDER = { profile: 0, day: 1, week: 2 };
 
 const span = ([lo, hi]) => (lo === hi ? `${lo}` : `${lo}–${hi}`);

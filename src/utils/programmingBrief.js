@@ -19,7 +19,7 @@
 // returns { brief, allowedCatalog, excluded, preferred, warnings }
 
 import {
-  LEVELS, IMPACT_ORDER, LEVEL_RULES, TRAINING_DAYS, GOAL_RULES, GOAL_ALIASES, TWO_GOALS,
+  LEVELS, IMPACT_ORDER, IMPACT_CAPS, LEVEL_RULES, TRAINING_DAYS, GOAL_RULES, GOAL_ALIASES, TWO_GOALS,
   AGE_BANDS, BMI, SEX_RULES, INJURY_AREAS, INJURY_UNMATCHED_WARNING, UNTAGGED, MISSING_DATA,
   EQUIPMENT_PRESETS, MIN_EXERCISES_PER_MUSCLE, BRIEF_WARNINGS, COACH_CAN_OVERRIDE
 } from '../data/aiProgrammingRules.js';
@@ -93,7 +93,7 @@ export const bmiBandFor = (bmi) =>
 const strictestImpact = (caps) => caps.filter(Boolean)
   .reduce((best, c) => (best === null || IMPACT_ORDER.indexOf(c) < IMPACT_ORDER.indexOf(best) ? c : best), null);
 
-const impactAllowed = (cap, impact) => cap === null || IMPACT_ORDER.indexOf(impact) <= IMPACT_ORDER.indexOf(cap);
+const impactAllowed = (cap, impact) => cap === null || IMPACT_CAPS[cap].allows.includes(impact);
 
 const floorRange = ([lo, hi], floor) => (floor ? [Math.max(lo, floor), Math.max(hi, floor)] : [lo, hi]);
 

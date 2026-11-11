@@ -118,7 +118,10 @@ describe('age bands', () => {
     expect(r.brief.reps.accessories).toEqual([10, 15]);
     expect(r.brief.age).toMatchObject({ perDay: ['balance'], preferMachines: true });
     ['Military Press', 'Push Press', 'Clean and Press'].forEach(n => expect(has(r, n), n).toBe(false));
-    tagsOf(r).forEach(t => expect(t.impact).toBe('none'));
+    // 'No impact' removes jumps, landings and running but keeps standing moves.
+    tagsOf(r).forEach(t => expect(t.impact, t.name).not.toBe('high'));
+    ['Running', 'Box jump', 'Jumping Jack'].forEach(n => expect(has(r, n), n).toBe(false));
+    ['Cable Curl', 'Walking', 'Face Pull'].forEach(n => expect(has(r, n), n).toBe(true));
     expect(at(65, 'beginner').brief.difficultyCap).toBe(1);
   });
 
@@ -322,8 +325,8 @@ describe('thin muscle groups (rule 4)', () => {
   it('keeps the filter and warns when a group drops below 3', () => {
     const r = run({ level: 'beginner', profile: { ...ADULT, age: 65 }, injuryAreas: ['knee'] });
     expect(r.brief.thinMuscles).toContain('Quads');
-    expect(r.warnings.join(' ')).toMatch(/No usable Quads exercises left/);
-    expect(r.warnings.join(' ')).toMatch(/Only 1 usable Calves exercise left/);
+    expect(r.warnings.join(' ')).toMatch(/usable Quads exercises left/);
+
     tagsOf(r).forEach(t => expect(t.joints).not.toContain('knee'));
   });
 
@@ -354,12 +357,12 @@ describe('62-year-old beginner, knee injury, BMI 33', () => {
     expect(r.brief.reps.accessories).toEqual([10, 15]);
     // BMI 30–34.9 suggests Cross Trainer / Cycling / Incline Walk, but the
     // 60+ 'none' impact cap removes the two standing ones.
-    expect(r.brief.cardio).toMatchObject({ goal: 'Fat Loss', required: true, preferred: ['Cycling'] });
+    expect(r.brief.cardio).toMatchObject({ goal: 'Fat Loss', required: true, preferred: ['Cross Trainer', 'Cycling', 'Incline Walk'] });
   });
 
-  it('keeps only seated/supported, easy, knee-free exercises', () => {
+  it('keeps only easy, knee-free exercises without jumping or running', () => {
     tagsOf(r).forEach(t => {
-      expect(t.impact, t.name).toBe('none');
+      expect(t.impact, t.name).not.toBe('high');
       expect(t.difficulty, t.name).toBe(1);
       expect(t.joints, t.name).not.toContain('knee');
     });
@@ -392,7 +395,7 @@ describe('purity', () => {
 
 describe('cardio the filters rule out', () => {
   it('warns and marks cardio unavailable when a goal needs it but none is allowed', () => {
-    const r = buildProgrammingBrief({ profile: { age: 63, heightCm: 160, weightKg: 66, sex: 'female', goal: 'General Fitness' }, options: { equipment: 'Home, dumbbells only' }, level: 'beginner', injuryAreas: ['knee'], catalog: CATALOG });
+    const r = buildProgrammingBrief({ profile: { age: 63, heightCm: 160, weightKg: 66, sex: 'female', goal: 'General Fitness' }, options: { equipment: ['dumbbell'] }, level: 'beginner', injuryAreas: ['knee'], catalog: CATALOG });
     expect(r.brief.cardio.available).toBe(false);
     expect(r.warnings.join(' ')).toMatch(/General Fitness calls for cardio every day, but no cardio exercise in your library fits/);
   });

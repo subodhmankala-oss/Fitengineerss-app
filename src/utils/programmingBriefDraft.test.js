@@ -21,9 +21,10 @@ describe('briefPromptRules', () => {
     expect(text).toMatch(/Each day: 4 to 5 exercises, the 2 big compound lifts first/);
     expect(text).toMatch(/Reps per set: main compound lifts 10 to 15, accessories 10 to 15/);
     expect(text).toMatch(/large muscles .* about 8, never above 10/);
-    expect(text).toMatch(/Cardio: finish every day with 10 to 15 min of easy cardio to finish every day, using Cycling/);
+    expect(text).toMatch(/Cardio: finish every day with 10 to 15 min of easy cardio to finish every day, using Cross Trainer or Cycling or Incline Walk/);
     expect(text).toMatch(/one balance exercise every day/);
-    expect(text).toMatch(/No impact at all/);
+    expect(text).toMatch(/No impact: no jumps, landings or running\. Standing exercises with both feet down are fine/);
+    expect(text).toMatch(/Prefer machines and seated or supported exercises/);
     expect(text).toMatch(/Knee injury: .* Good substitutes: Glute Bridge/);
   });
 
@@ -48,7 +49,9 @@ describe('checkDraftDay', () => {
   it('names every reason an exercise was removed', () => {
     const { brief, excluded } = make({ level: 'beginner', profile: { age: 65, heightCm: 175, weightKg: 70, goal: 'Fat Loss' } });
     const r = checkDraftDay({ dayLabel: 'Mon', exercises: [s('Push Press'), s('Chest Press (Machine)')] }, { brief, catalog: CATALOG, excluded });
-    expect(r.warnings[0]).toBe('Mon: removed Push Press (impact limit, too advanced for the level, age rule).');
+    expect(r.warnings[0]).toBe('Mon: removed Push Press (too advanced for the level, age rule).');
+    const jumpy = checkDraftDay({ dayLabel: 'Mon', exercises: [s('Box jump'), s('Chest Press (Machine)')] }, { brief, catalog: CATALOG, excluded });
+    expect(jumpy.warnings[0]).toBe('Mon: removed Box jump (impact limit, too advanced for the level).');
   });
 
   it('clamps sets and reps: the first compound lifts use main-lift reps, the rest accessory reps', () => {

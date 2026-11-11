@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  LEVELS, IMPACT_ORDER, LEVEL_RULES, GOAL_RULES, GOAL_ALIASES, AGE_BANDS, BMI, SEX_RULES,
+  LEVELS, IMPACT_ORDER, IMPACT_CAPS, LEVEL_RULES, GOAL_RULES, GOAL_ALIASES, AGE_BANDS, BMI, SEX_RULES,
   INJURY_AREAS, MISSING_DATA, TRAINING_DAYS, TAG_VALUES, UNTAGGED
 } from './aiProgrammingRules.js';
 import { EXERCISE_TAGS } from './exerciseTags.js';
@@ -8,7 +8,21 @@ import { getExerciseTags, untaggedWarnings } from '../utils/exerciseTags.js';
 import { exerciseNameKey } from '../utils/exerciseName.js';
 
 const isRange = (r) => Array.isArray(r) && r.length === 2 && r[0] <= r[1];
-const allows = (cap, impact) => cap == null || IMPACT_ORDER.indexOf(impact) <= IMPACT_ORDER.indexOf(cap);
+const allows = (cap, impact) => cap == null || IMPACT_CAPS[cap].allows.includes(impact);
+
+describe('impact caps', () => {
+  it('every cap is described, and none ever lets high impact through', () => {
+    IMPACT_ORDER.filter(c => c !== 'high').forEach(c => {
+      expect(IMPACT_CAPS[c].rule, c).toBeTruthy();
+      expect(IMPACT_CAPS[c].allows, c).not.toContain('high');
+    });
+  });
+
+  it("'no impact' keeps standing moves but prefers seated/supported (coach decision 2026-11-11)", () => {
+    expect(IMPACT_CAPS.none.allows).toEqual(['none', 'low']);
+    expect(IMPACT_CAPS.none.preferSupported).toBe(true);
+  });
+});
 
 describe('exercise tags', () => {
   it('every row uses only the section 9 values', () => {

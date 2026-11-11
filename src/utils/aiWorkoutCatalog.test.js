@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAiCatalog, matchCatalogExercise, swapAlternatives, formatCatalogForPrompt } from './aiWorkoutCatalog';
+import { buildAiCatalog, matchCatalogExercise, swapAlternatives, formatCatalogForPrompt, catalogForPrompt } from './aiWorkoutCatalog';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 
 const catalog = buildAiCatalog({ staticLibrary: EXERCISE_LIBRARY });
@@ -57,9 +57,30 @@ describe('swapAlternatives', () => {
   });
 });
 
+describe('catalogForPrompt', () => {
+  it('sends name, muscle and category only', () => {
+    expect(catalogForPrompt([{ name: 'Face Pull', muscle: 'Rear Delts', category: 'Shoulders', id: 'x' }, { name: 'Odd', muscle: 'Other', category: '' }]))
+      .toEqual([{ name: 'Face Pull', muscle: 'Rear Delts', category: 'Shoulders' }, { name: 'Odd', muscle: 'Other' }]);
+  });
+});
+
 describe('formatCatalogForPrompt', () => {
-  it('groups names by muscle, one line each', () => {
-    const text = formatCatalogForPrompt([{ name: 'A', muscle: 'Chest' }, { name: 'B', muscle: 'Chest' }, { name: 'C', muscle: 'Back' }]);
+  it('groups names by category, one line each', () => {
+    const text = formatCatalogForPrompt([
+      { name: 'A', muscle: 'Pectoralis Major', category: 'Chest' },
+      { name: 'B', muscle: 'Chest', category: 'Chest' },
+      { name: 'C', muscle: 'Lats, Teres Major', category: 'Back' }
+    ]);
     expect(text).toBe('Back: C\nChest: A; B');
+  });
+
+  it('falls back to the muscle label when an entry has no category (older cached client)', () => {
+    const text = formatCatalogForPrompt([{ name: 'A', muscle: 'Chest' }, { name: 'B', muscle: 'Chest' }, { name: 'C', muscle: 'Back' }, { name: 'D' }]);
+    expect(text).toBe('Back: C\nChest: A; B\nOther: D');
+  });
+
+  it('the real catalog collapses into a handful of groups', () => {
+    const lines = formatCatalogForPrompt(catalogForPrompt(catalog)).split('\n');
+    expect(lines.length).toBeLessThanOrEqual(12);
   });
 });

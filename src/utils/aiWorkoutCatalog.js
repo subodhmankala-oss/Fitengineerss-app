@@ -46,16 +46,22 @@ export function buildAiCatalog({ dbExercises = [], customExercises = [], staticL
   return out;
 }
 
-// What goes over the wire to the server: just name + muscle, so the prompt
-// stays small (~230 exercises is ~4k tokens).
+// What goes over the wire to the server: name, muscle and the picker
+// category — nothing else, so the request and prompt stay small.
 export const catalogForPrompt = (catalog) =>
-  (catalog || []).map(e => ({ name: e.name, muscle: e.muscle }));
+  (catalog || []).map(e => ({ name: e.name, muscle: e.muscle, ...(e.category ? { category: e.category } : {}) }));
 
-// "Chest: Bench Press (Barbell); Cable Fly; ..." one line per muscle group.
+// "Chest: Bench Press (Barbell); Cable Fly; ..." one line per group. Grouped
+// by the picker category (about 10 tidy groups: Chest, Back, Legs …) rather
+// than primary_muscle, which is free text in the DB (100+ spellings like
+// "Back / Lats", "Latissimus Dorsi", "Lats, Teres Major") and split the list
+// into dozens of one-name lines. An entry without a category — an older
+// cached client sends none, and some custom exercises have none — is grouped
+// by its muscle label instead.
 export function formatCatalogForPrompt(catalog) {
   const groups = new Map();
   (catalog || []).forEach(e => {
-    const m = e.muscle || 'Other';
+    const m = e.category || e.muscle || 'Other';
     if (!groups.has(m)) groups.set(m, []);
     groups.get(m).push(e.name);
   });

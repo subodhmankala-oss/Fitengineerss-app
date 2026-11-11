@@ -501,6 +501,10 @@ export default async function handler(req, res) {
     // and never show Groq's "adjust your prompt" text to the coach.
     if (resp.status === 400 && isGenerationFailure(data)) {
       console.warn(`generate-workout-draft: Groq ${data.error.code} (model output was not valid JSON for the schema) — counted as a failed attempt.`);
+      if (process.env.VERCEL_ENV === 'preview') { // TEMP DIAGNOSIS — remove before merge
+        const fg = String(data.error.failed_generation || '');
+        console.warn(`TEMPDIAG len=${fg.length} head=${JSON.stringify(fg.slice(0, 300))} tail=${JSON.stringify(fg.slice(-500))}`);
+      }
       return { failure: 'The AI returned an unreadable draft. Please try again.' };
     }
     if (strict && resp.status === 400) {

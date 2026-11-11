@@ -11436,7 +11436,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             name: selectedClient?.userName,
             age: selectedClient?.userAge,
             height: selectedClient?.userHeight,
-            weight: resolvedClientWeightKg,
+            // Real weight only — never the calorie maths' 70 kg placeholder
+            // (aiProgrammingRules.js MISSING_DATA.sendWeightWhenMissing).
+            weight: parseFloat(clientMeasurements[0]?.measurements?.weight) || parseFloat(selectedClient?.userWeight) || null,
             goal: selectedClient?.userGoal,
             calories: selectedClient?.userCalorieTarget,
             protein: selectedClient?.userProteinTarget

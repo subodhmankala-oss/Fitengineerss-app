@@ -38,6 +38,16 @@ const getRecoveryTokenFromHash = () => {
   }
   return '';
 };
+// True when this page load is the return leg of a Google (or other OAuth)
+// sign-in: Supabase puts the new session in the URL hash (#access_token=…,
+// implicit flow) or a ?code= (PKCE). A password-recovery link also carries
+// #access_token but has its own reset screen, so it's excluded.
+const isOAuthReturnUrl = () => {
+  if (typeof window === 'undefined') return false;
+  const hash = window.location.hash || '';
+  if (/access_token=/.test(hash) && !/type=recovery/.test(hash)) return true;
+  return new URLSearchParams(window.location.search).has('code');
+};
 import { isSuperAdmin } from './services/accessControl';
 import './index.css';
 
@@ -593,6 +603,20 @@ function App() {
     const hash = window.location.hash;
     return /type=recovery/.test(hash) && /access_token=/.test(hash);
   });
+  // Returning from Google sign-up/sign-in: the session is in the URL, but
+  // routing it (profile lookup, auto-creating a brand-new account's profile)
+  // takes several seconds — and until then onboardingComplete is still
+  // false, so the login screen used to sit there for 5-7 s before the
+  // dashboard appeared, looking like the sign-up had failed. Show a
+  // "Signing you in…" screen instead until processSessionUser finishes.
+  const [oauthReturnPending, setOauthReturnPending] = useState(isOAuthReturnUrl);
+  // Never strand someone on the spinner: if the session never resolves
+  // (bad/expired token, network), fall back to the login screen.
+  useEffect(() => {
+    if (!oauthReturnPending) return;
+    const t = setTimeout(() => setOauthReturnPending(false), 25000);
+    return () => clearTimeout(t);
+  }, [oauthReturnPending]);
   // Capture the recovery access token at init so the form can use it directly via
   // raw fetch — the Supabase SDK's updateUser hangs on this project for unknown reasons.
   const [recoveryAccessToken] = useState(() => getRecoveryTokenFromHash());
@@ -675,6 +699,7 @@ function App() {
     if (!isSupabaseConfigured || !supabase) return;
 
     const processSessionUser = async (user, accessToken) => {
+      let duplicateEvent = false;
       try {
         const email = user.email;
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
@@ -698,6 +723,7 @@ function App() {
 
         if (lastProcessedEmailRef.current === email) {
           // Avoid duplicate processing/database hits on same user to prevent state resets
+          duplicateEvent = true;
           return;
         }
         lastProcessedEmailRef.current = email;
@@ -1120,6 +1146,12 @@ function App() {
         console.error("Error processing session user:", err);
         lastProcessedEmailRef.current = '';
         setOnboardingComplete(false);
+      } finally {
+        // The "Signing you in…" screen (see oauthReturnPending) comes down
+        // once this sign-in has actually been routed — but not on the
+        // duplicate-event early return above, which fires while the first
+        // call is still mid-lookup and would bring the login screen back.
+        if (!duplicateEvent) setOauthReturnPending(false);
       }
     };
 
@@ -1160,7 +1192,12 @@ function App() {
       }
       if (session && session.user) {
         await processSessionUser(session.user, session.access_token);
-      } else if (
+        return;
+      }
+      // The URL looked like an OAuth return but the SDK found no session in
+      // it — nothing to wait for, show the login screen.
+      if (event === 'INITIAL_SESSION') setOauthReturnPending(false);
+      if (
         event === 'SIGNED_OUT' ||
         // No real session but localStorage still claims a logged-in client
         // (userEmail/onboardingComplete set from a previous visit). This is
@@ -1535,6 +1572,15 @@ function App() {
             Use a different account
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (!onboardingComplete && oauthReturnPending) {
+    return (
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', gap: '16px' }}>
+        <div style={{ width: '34px', height: '34px', border: '3px solid rgba(var(--fg-rgb), 0.12)', borderTopColor: 'var(--primary-accent-light)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>Signing you in…</p>
       </div>
     );
   }

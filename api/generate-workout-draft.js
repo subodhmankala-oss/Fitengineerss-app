@@ -145,8 +145,8 @@ EXERCISE LIBRARY (grouped by body area) — you may ONLY use exercises from this
 ${formatCatalogForPrompt(catalog)}
 `);
 
-// "5-7", or the brief's own exercises-per-day range.
-const perDayText = (brief) => (brief ? brief.exercisesPerDay.join('-') : '5-7');
+// "5-7", or the brief's own range written "6 to 7" (no dash: see programmingBriefDraft.js range()).
+const perDayText = (brief) => (brief ? brief.exercisesPerDay.join(' to ') : '5-7');
 
 const buildSystemPrompt = (catalog = [], mode = 'full', brief = null, preferred = {}) => `You are an assistant that drafts workout programs for a fitness coach. The coach reviews, edits, and approves every draft before anything is assigned to a client — you are not making the final call, so favor practical, conventional programming over anything experimental.
 
@@ -425,6 +425,10 @@ export function briefFromRequest(body, catalog) {
 
 const note = (kind, text, day = null) => ({ kind, text, ...(day ? { day } : {}) });
 
+// Groq's codes for "the model's output wasn't valid JSON / didn't fit the
+// schema" (as opposed to "this request or schema is not supported").
+export const isGenerationFailure = (data) => /^json_(validate|generate)_failed$/.test(String(data?.error?.code || ''));
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -491,6 +495,14 @@ export default async function handler(req, res) {
       temperature
     });
     let { resp, data, friendlyError } = await callGroq(apiKey, payload(strict), usage, budget);
+    // A 400 json_validate_failed / json_generate_failed means THIS output
+    // didn't parse or fit the schema — the schema itself was accepted. That
+    // is a normal retryable failure: keep strict mode, never switch formats,
+    // and never show Groq's "adjust your prompt" text to the coach.
+    if (resp.status === 400 && isGenerationFailure(data)) {
+      console.warn(`generate-workout-draft: Groq ${data.error.code} (model output was not valid JSON for the schema) — counted as a failed attempt.`);
+      return { failure: 'The AI returned an unreadable draft. Please try again.' };
+    }
     if (strict && resp.status === 400) {
       strict = false;
       usage.format = 'json_object_fallback';

@@ -18,10 +18,10 @@ describe('briefPromptRules', () => {
     const { brief, preferred } = make({ injuryAreas: ['knee'], profile: { age: 62, heightCm: 170, weightKg: 95.4, sex: 'female', goal: 'Fat Loss' }, level: 'beginner' });
     const text = briefPromptRules({ brief, preferred });
     expect(text).toMatch(/^CLIENT PROGRAMMING RULES/);
-    expect(text).toMatch(/Each day: 4–5 exercises, the 2 big compound lifts first/);
-    expect(text).toMatch(/Reps per set: main compound lifts 10–15, accessories 10–15/);
+    expect(text).toMatch(/Each day: 4 to 5 exercises, the 2 big compound lifts first/);
+    expect(text).toMatch(/Reps per set: main compound lifts 10 to 15, accessories 10 to 15/);
     expect(text).toMatch(/large muscles .* about 8, never above 10/);
-    expect(text).toMatch(/Cardio: finish every day with 10–15 min of easy cardio to finish every day, using Cycling/);
+    expect(text).toMatch(/Cardio: finish every day with 10 to 15 min of easy cardio to finish every day, using Cycling/);
     expect(text).toMatch(/one balance exercise every day/);
     expect(text).toMatch(/No impact at all/);
     expect(text).toMatch(/Knee injury: .* Good substitutes: Glute Bridge/);

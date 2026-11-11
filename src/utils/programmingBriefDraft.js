@@ -15,7 +15,10 @@ import { getMuscleGroupsForExercise, parseMuscleText, LARGE_MUSCLES, SECONDARY_W
 const fill = (template, values) =>
   template.replace(/\{(\w+)\}/g, (m, k) => (values[k] !== undefined ? String(values[k]) : m));
 
-const range = ([lo, hi], unit = '') => (lo === hi ? `${lo}${unit}` : `${lo}–${hi}${unit}`);
+// Ranges are written "8 to 10", never "8–10": with a dash the model copied
+// the range straight into "reps" (`"reps": 8–10`), which isn't JSON, and
+// Groq rejected the whole draft (json_validate_failed on 5-day drafts).
+const range = ([lo, hi], unit = '') => (lo === hi ? `${lo}${unit}` : `${lo} to ${hi}${unit}`);
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
 
 const IMPACT_RULE = {
@@ -34,6 +37,7 @@ export function briefPromptRules({ brief, preferred = {} }) {
     `- Level: ${b.level}. Default split if the coach gives none: ${b.defaultSplit}.`,
     `- Each day: ${range(b.exercisesPerDay)} exercises, the ${range(b.compoundLiftsPerDay)} big compound lift${b.compoundLiftsPerDay[1] === 1 ? '' : 's'} first.`,
     `- Sets per exercise: ${range(b.setsPerExercise)}. Reps per set: main compound lifts ${range(b.reps.mainLifts)}, accessories ${range(b.reps.accessories)}. Timed holds: ${range(b.reps.holdSeconds, ' s')} (durationMinutes ${range(b.reps.holdSeconds.map(s => Math.round((s / 60) * 100) / 100))}).`,
+    `- In the JSON, "setCount" and "reps" are each ONE whole number chosen inside those ranges (for example 10), and "durationMinutes" is ONE number (for example 0.5) — never a range, a dash or text.`,
     `- Weekly working sets per muscle: large muscles (chest, back, shoulders, quads, hamstrings, glutes) about ${b.weeklySets.large.target}, never above ${b.weeklySets.large.cap}; small muscles (biceps, triceps, calves, forearms, core) about ${b.weeklySets.small.target}, never above ${b.weeklySets.small.cap}.`,
     `- Leave at least ${b.minRestHoursSameMuscle} h before training the same muscle again.`,
     b.cardio.required

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import handler, {
   rateLimitWaitMs, newUsage, recordUsage, formatUsageLine, describeShape,
   DRAFT_SCHEMA, DAY_RESPONSE_SCHEMA, responseFormatFor, overlapRatio, countOverlap,
-  TEMPERATURE_FULL, TEMPERATURE_REGENERATE_DAY, isGenerationFailure
+  TEMPERATURE_FULL, TEMPERATURE_REGENERATE_DAY, isGenerationFailure, REASONING_EFFORT
 } from './generate-workout-draft.js';
 
 describe('rateLimitWaitMs', () => {
@@ -161,6 +161,8 @@ describe('strict json_schema', () => {
     expect(requests).toHaveLength(1);
     expect(requests[0].response_format).toEqual(responseFormatFor(false));
     expect(requests[0].temperature).toBe(TEMPERATURE_FULL);
+    expect(requests[0].reasoning_effort).toBe(REASONING_EFFORT);
+    expect(REASONING_EFFORT).toBe('low');
     expect(TEMPERATURE_FULL).toBe(0.4);
     expect(r).toEqual({
       status: 200,

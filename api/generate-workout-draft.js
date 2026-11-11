@@ -140,6 +140,15 @@ export const responseFormatFor = (isDay, strict = true) => (strict
 export const TEMPERATURE_FULL = 0.4;
 export const TEMPERATURE_REGENERATE_DAY = 0.7;
 
+// gpt-oss reasons before it answers, and those reasoning tokens come out of
+// the same completion budget. With the programming brief's limits (weekly
+// sets per muscle across 5 days × 6–7 exercises) the default ('medium')
+// effort could spend the whole budget thinking and return no JSON at all —
+// Groq 400 json_validate_failed with an empty failed_generation, on the
+// 2026-11-11 preview, for every 5-day Advanced draft. The arithmetic is done
+// in code (checkDraftDay, weeklySetWarnings), so the model needs little.
+export const REASONING_EFFORT = 'low';
+
 const catalogRules = (catalog) => (catalog.length === 0 ? '' : `
 EXERCISE LIBRARY (grouped by body area) — you may ONLY use exercises from this list, spelled exactly as written (copy each name character for character, including anything in brackets). Never invent, rename or combine names. If the ideal exercise isn't listed, pick the closest listed one for the same muscle.
 ${formatCatalogForPrompt(catalog)}
@@ -492,7 +501,8 @@ export default async function handler(req, res) {
         { role: 'user', content: user }
       ],
       response_format: responseFormatFor(isDay, useStrict),
-      temperature
+      temperature,
+      reasoning_effort: REASONING_EFFORT
     });
     let { resp, data, friendlyError } = await callGroq(apiKey, payload(strict), usage, budget);
     // A 400 json_validate_failed / json_generate_failed means THIS output

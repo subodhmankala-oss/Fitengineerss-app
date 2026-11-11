@@ -8,17 +8,23 @@
 // Uses Groq's free tier (GPT-OSS-120B) via raw REST (OpenAI-compatible chat
 // completions API, no SDK dependency — same pattern as every other external
 // call in this api/ folder) — no billing required, and unlike Gemini's free
-// tier this isn't subject to per-region quota=0 restrictions. Trade-off:
-// Groq's response_format only guarantees valid JSON syntax, not adherence to
-// a specific schema (Claude's tool_use / Gemini's responseSchema both
-// enforce shape) — the exact shape is spelled out in the system prompt
-// instead, and validateDraft() below checks the result before it ever
-// reaches the client, so a malformed response fails loudly rather than
-// silently breaking the editor.
+// tier this isn't subject to per-region quota=0 restrictions.
+//
+// Output shape (2026-11-11): Groq supports strict structured outputs for
+// gpt-oss-120b — response_format json_schema with strict: true constrains
+// decoding to DRAFT_SCHEMA / DAY_RESPONSE_SCHEMA below, so the JSON always has
+// every field with the right type and `type` is always one of the three
+// allowed values. Strict mode has no optional fields, so reps /
+// durationMinutes / notes are required-but-nullable (the client's converter
+// treats null exactly like a missing field). If Groq ever rejects the schema
+// (HTTP 400), the call is repeated once with plain json_object mode and that
+// fallback is logged. What a schema can't express is still checked here:
+// validateDraft() (non-empty days/names), repairDay() (library names, no
+// repeats) and the top-up loop (exactly N days, enough exercises per day).
 //
 // Library-only exercises (2026-10-23): the client sends its exercise catalog
 // (DB catalog + the coach's custom exercises + code library, see
-// src/utils/aiWorkoutCatalog.js) and the prompt lists it grouped by muscle.
+// src/utils/aiWorkoutCatalog.js) and the prompt lists it grouped by body area.
 // The model may only pick from it, and repairDay() below maps every name it
 // returns back onto a catalog record (or drops it) before the draft reaches
 // the coach — so every exercise arrives with its library spelling, Form Guide
@@ -44,13 +50,15 @@ const DRAFT_JSON_SHAPE = `{
           "type": "strength | cardio | timed",
           "setCount": 3,
           "reps": 10,
-          "durationMinutes": 20,
-          "notes": "optional short coaching cue"
+          "durationMinutes": null,
+          "notes": null
         }
       ]
     }
   ]
-}`;
+}
+
+"reps" is for strength exercises (null otherwise); "durationMinutes" is for cardio and timed holds (null otherwise, may be a decimal such as 0.5); "notes" is an optional short coaching cue or null.`;
 
 const DAY_JSON_SHAPE = `{
   "day": {
@@ -61,8 +69,65 @@ const DAY_JSON_SHAPE = `{
   }
 }`;
 
+// Strict JSON schemas for Groq structured outputs (see the header). Strict
+// mode requires every property in `required` and additionalProperties: false
+// on every object; optional values are type unions with null. Inlined rather
+// than $ref'd to keep to the most basic, documented subset.
+const EXERCISE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'type', 'setCount', 'reps', 'durationMinutes', 'notes'],
+  properties: {
+    name: { type: 'string' },
+    type: { type: 'string', enum: ['strength', 'cardio', 'timed'] },
+    setCount: { type: 'integer' },
+    reps: { type: ['integer', 'null'] },
+    durationMinutes: { type: ['number', 'null'] },
+    notes: { type: ['string', 'null'] }
+  }
+};
+
+const DAY_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['dayLabel', 'focus', 'planName', 'exercises'],
+  properties: {
+    dayLabel: { type: 'string' },
+    focus: { type: 'string' },
+    planName: { type: 'string' },
+    exercises: { type: 'array', items: EXERCISE_SCHEMA }
+  }
+};
+
+export const DRAFT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['programSummary', 'days'],
+  properties: {
+    programSummary: { type: 'string' },
+    days: { type: 'array', items: DAY_SCHEMA }
+  }
+};
+
+export const DAY_RESPONSE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['day'],
+  properties: { day: DAY_SCHEMA }
+};
+
+export const responseFormatFor = (isDay, strict = true) => (strict
+  ? { type: 'json_schema', json_schema: { name: isDay ? 'workout_day' : 'workout_draft', strict: true, schema: isDay ? DAY_RESPONSE_SCHEMA : DRAFT_SCHEMA } }
+  : { type: 'json_object' });
+
+// Per mode: a full draft (and each top-up day that completes one) should be
+// conventional and repeatable; "regenerate this day" exists to get something
+// different, so it keeps more variety.
+export const TEMPERATURE_FULL = 0.4;
+export const TEMPERATURE_REGENERATE_DAY = 0.7;
+
 const catalogRules = (catalog) => (catalog.length === 0 ? '' : `
-EXERCISE LIBRARY — you may ONLY use exercises from this list, spelled exactly as written (copy each name character for character, including anything in brackets). Never invent, rename or combine names. If the ideal exercise isn't listed, pick the closest listed one for the same muscle.
+EXERCISE LIBRARY (grouped by body area) — you may ONLY use exercises from this list, spelled exactly as written (copy each name character for character, including anything in brackets). Never invent, rename or combine names. If the ideal exercise isn't listed, pick the closest listed one for the same muscle.
 ${formatCatalogForPrompt(catalog)}
 `);
 
@@ -112,6 +177,7 @@ const buildUserPrompt = ({ client, instructions, options, day }) => {
       '=== Regenerate ONE day only ===',
       `Rewrite only this day of the existing program: ${day.dayLabel}${day.focus ? ` (${day.focus})` : ''}.`,
       `Keep the same focus so the week stays balanced, but use mostly DIFFERENT exercises from the current version of this day: ${(day.currentExercises || []).join(', ') || '(none)'}.`,
+      day.doNotUse?.length ? `DO NOT USE any of these exercises — your last version repeated too many of them: ${day.doNotUse.join(', ')}. Pick other exercises from the library for the same muscles.` : null,
       day.otherDays?.length ? `The rest of the week stays as it is — don't overload the muscles it already trains: ${day.otherDays.join(' | ')}` : null,
       'Return only that one day, in the "day" object.'
     ] : [])
@@ -119,9 +185,10 @@ const buildUserPrompt = ({ client, instructions, options, day }) => {
   return lines.join('\n');
 };
 
-// Groq/Llama gives no structural guarantee beyond "valid JSON" — check the
-// shape ourselves rather than trusting it, so a malformed response surfaces
-// as a clean retry prompt instead of breaking the editor client-side.
+// Backstop for what the strict schema can't express (non-empty days and
+// names) and for the json_object fallback, which guarantees nothing beyond
+// valid JSON — a malformed response surfaces as a clean retry prompt instead
+// of breaking the editor client-side.
 const MIN_EXERCISES_PER_DAY = 3;
 const VALID_TYPES = new Set(['strength', 'cardio', 'timed']);
 const validateDraft = (draft) => {
@@ -227,8 +294,11 @@ export const formatUsageLine = (u) => [
   ...(u.dailyLimitHit ? ['DAILY_LIMIT_HIT'] : [])
 ].join(' ');
 
-const callGroq = async (apiKey, payload, usage = null) => {
-  let waited = 0;
+// `budget` holds the rate-limit wait already spent; by default each call gets
+// its own MAX_RATE_LIMIT_WAIT_MS, but "regenerate one day" passes one budget
+// to its first call and its overlap retry so the retry never adds a second
+// round of waiting.
+const callGroq = async (apiKey, payload, usage = null, budget = { waitedMs: 0 }) => {
   for (let attempt = 0; ; attempt += 1) {
     const resp = await fetch(GROQ_URL, {
       method: 'POST',
@@ -249,7 +319,7 @@ const callGroq = async (apiKey, payload, usage = null) => {
       if (usage) usage.dailyLimitHit = true;
       console.warn(`generate-workout-draft: WARNING — Groq DAILY limit reached for ${GROQ_MODEL}. AI drafts will fail for every coach until it resets${wait ? ` (in about ${Math.round(wait / 60000)} min)` : ''}.`);
     }
-    if (daily || attempt >= MAX_RATE_LIMIT_RETRIES || wait == null || waited + wait > MAX_RATE_LIMIT_WAIT_MS) {
+    if (daily || attempt >= MAX_RATE_LIMIT_RETRIES || wait == null || budget.waitedMs + wait > MAX_RATE_LIMIT_WAIT_MS) {
       console.warn('generate-workout-draft: Groq rate limit, giving up:', message);
       return {
         resp,
@@ -260,7 +330,7 @@ const callGroq = async (apiKey, payload, usage = null) => {
       };
     }
     console.warn(`generate-workout-draft: Groq rate limit, retrying in ${wait}ms`);
-    waited += wait;
+    budget.waitedMs += wait;
     await sleep(wait);
   }
 };
@@ -276,10 +346,26 @@ export const describeShape = (parsed) => {
     + ` types=[${[...new Set(days.flatMap(d => (Array.isArray(d?.exercises) ? d.exercises.map(e => e?.type) : [])))].join(',')}]`;
 };
 
+// How many of a regenerated day's exercises were already in the day it
+// replaces (by library name key), and that as a share of the new day.
+export const countOverlap = (exercises, currentNames) => {
+  const current = new Set((currentNames || []).map(exerciseNameKey).filter(Boolean));
+  return (exercises || []).filter(e => current.has(exerciseNameKey(e?.name))).length;
+};
+export const overlapRatio = (exercises, currentNames) =>
+  ((exercises || []).length ? countOverlap(exercises, currentNames) / exercises.length : 0);
+
 const sanitizeCatalog = (raw) => (Array.isArray(raw) ? raw : [])
   .filter(e => e && typeof e.name === 'string' && e.name.trim())
   .slice(0, 1500)
-  .map(e => ({ name: e.name.trim().slice(0, 120), muscle: String(e.muscle || 'Other').slice(0, 60) }));
+  .map(e => ({
+    name: e.name.trim().slice(0, 120),
+    muscle: String(e.muscle || 'Other').slice(0, 60),
+    // Newer clients send the picker category (Chest, Back, Legs …) and the
+    // prompt groups by it; an older cached client sends none, and
+    // formatCatalogForPrompt falls back to grouping by muscle.
+    ...(typeof e.category === 'string' && e.category.trim() ? { category: e.category.trim().slice(0, 40) } : {})
+  }));
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -310,19 +396,30 @@ export default async function handler(req, res) {
   const wantDays = dayMode ? 1 : Math.min(7, Math.max(0, Math.round(Number(options?.trainingDays)) || 0));
   const isWeak = (d) => !d || d.exercises.length < MIN_EXERCISES_PER_DAY;
   const usage = newUsage(dayMode ? 'day' : 'full');
+  usage.format = 'json_schema';
+  // Strict schema until Groq rejects it once; then plain JSON mode for the
+  // rest of this request (every call here uses the same schemas).
+  let strict = true;
 
   // One model call, parsed + validated + repaired. Resolves to
   // { fatal } (don't retry), { failure } (retry) or { summary, days }.
-  const askModel = async (isDay, user) => {
-    const { resp, data, friendlyError } = await callGroq(apiKey, {
+  const askModel = async (isDay, user, { temperature = TEMPERATURE_FULL, budget } = {}) => {
+    const payload = (useStrict) => ({
       model: GROQ_MODEL,
       messages: [
         { role: 'system', content: buildSystemPrompt(catalog, isDay ? 'day' : 'full') },
         { role: 'user', content: user }
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.6
-    }, usage);
+      response_format: responseFormatFor(isDay, useStrict),
+      temperature
+    });
+    let { resp, data, friendlyError } = await callGroq(apiKey, payload(strict), usage, budget);
+    if (strict && resp.status === 400) {
+      strict = false;
+      usage.format = 'json_object_fallback';
+      console.warn(`generate-workout-draft: FALLBACK — Groq rejected the strict json_schema (400 ${data?.error?.code || ''} ${data?.error?.message || ''}); retrying with json_object for the rest of this request.`);
+      ({ resp, data, friendlyError } = await callGroq(apiKey, payload(false), usage, budget));
+    }
     if (!resp.ok) {
       // Status + Groq's own error text only: a failed_generation field can
       // carry model output that echoes the client profile.
@@ -353,13 +450,38 @@ export default async function handler(req, res) {
 
   try {
     if (dayMode) {
+      // "Regenerate this day" must come back different. A version that
+      // repeats more than half of the current exercises gets ONE retry with
+      // those names as a do-not-use list — never a further call after it —
+      // sharing one rate-limit wait budget with the first call. If the retry
+      // fails or still repeats more, the better of the two is returned
+      // rather than an error.
+      const opts = { temperature: TEMPERATURE_REGENERATE_DAY, budget: { waitedMs: 0 } };
+      const current = day.currentExercises || [];
+      const send = (d) => res.status(200).json({ day: { ...d, dayLabel: day.dayLabel } });
       let failure = null;
+      let repeated = null;
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        const r = await askModel(true, baseUser(day));
-        if (r.fatal) return res.status(r.fatal.status).json({ error: r.fatal.error });
-        if (r.failure) { failure = r.failure; continue; }
-        if (isWeak(r.days[0])) { failure = 'The AI picked too few exercises from your library for that day. Please try again.'; continue; }
-        return res.status(200).json({ day: { ...r.days[0], dayLabel: day.dayLabel } });
+        const r = await askModel(true, baseUser(repeated ? { ...day, doNotUse: current } : day), opts);
+        if (r.fatal) {
+          if (repeated) return send(repeated);
+          return res.status(r.fatal.status).json({ error: r.fatal.error });
+        }
+        const got = r.failure ? null : r.days[0];
+        if (!got || isWeak(got)) {
+          failure = r.failure || 'The AI picked too few exercises from your library for that day. Please try again.';
+          if (repeated) return send(repeated);
+          continue;
+        }
+        if (repeated) {
+          return send(overlapRatio(got.exercises, current) < overlapRatio(repeated.exercises, current) ? got : repeated);
+        }
+        if (overlapRatio(got.exercises, current) > 0.5 && attempt < 2) {
+          console.warn(`generate-workout-draft: regenerated day repeated ${countOverlap(got.exercises, current)}/${got.exercises.length} current exercises — retrying once with a do-not-use list.`);
+          repeated = got;
+          continue;
+        }
+        return send(got);
       }
       return res.status(502).json({ error: failure || 'Failed to generate workout draft.' });
     }

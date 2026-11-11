@@ -89,13 +89,14 @@ export function checkDraftDay(day, { brief, catalog = [], excluded = [], dayLabe
   const label = dayLabel || day.dayLabel || 'Day';
   const excludedByKey = new Map(excluded.map(e => [exerciseNameKey(e.name), e]));
   const warnings = [];
+  const dropped = []; // names not in the library (the caller logs them)
   const seen = new Set();
   const kept = [];
   for (const ex of day.exercises || []) {
     let name = ex.name;
     if (catalog.length) {
       const record = matchCatalogExercise(ex.name, catalog);
-      if (!record) continue; // not in the library (logged by the caller)
+      if (!record) { dropped.push(ex.name); continue; }
       name = record.name;
       const hit = excludedByKey.get(exerciseNameKey(name));
       if (hit) {
@@ -137,7 +138,16 @@ export function checkDraftDay(day, { brief, catalog = [], excluded = [], dayLabe
     exercises.filter(e => !getExerciseTags(e.name))
       .forEach(e => warnings.push(fill(BRIEF_WARNINGS.untaggedInDraft, { day: label, name: e.name })));
   }
-  return { day: exercises.length ? { ...day, exercises } : null, warnings };
+  // Short of the brief's range, or missing a required cardio finisher: a
+  // coach note, never another model call (the Groq per-minute limit).
+  const [min, max] = brief.exercisesPerDay;
+  if (exercises.length && exercises.length < min) {
+    warnings.push(fill(BRIEF_WARNINGS.shortDay, { day: label, count: exercises.length, s: exercises.length === 1 ? '' : 's', min, max }));
+  }
+  if (exercises.length && brief.cardio.required && brief.cardio.available !== false && !exercises.some(e => e.type === 'cardio')) {
+    warnings.push(fill(BRIEF_WARNINGS.noCardioInDay, { day: label, goal: brief.cardio.goal, min: brief.cardio.minutes[0], max: brief.cardio.minutes[1] }));
+  }
+  return { day: exercises.length ? { ...day, exercises } : null, warnings, dropped };
 }
 
 // Working sets per muscle across the week's days ({ exercises: [{ name,

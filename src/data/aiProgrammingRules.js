@@ -298,6 +298,8 @@ export const BRIEF_WARNINGS = {
   clamped: '{day}: sets/reps adjusted on {count} exercise{s} to fit the client\'s ranges.',
   overCap: '{muscle}: {sets} sets this week, above the {cap}-set cap for {aLevel} client. Consider trimming one {muscle} exercise.',
   untaggedInDraft: '{day}: {name} has no safety tags (custom or new exercise) — check it suits this client.',
+  shortDay: '{day}: only {count} exercise{s} (this client\'s range is {min} to {max}) — add one or regenerate this day.',
+  noCardioInDay: '{day}: no cardio finisher, though {goal} calls for {min} to {max} min every day — add one or regenerate this day.',
   equipmentHome: 'Equipment read as home kit: dumbbells, kettlebells, bands and bodyweight only.',
   noCardio: '{goal} calls for cardio every day, but no cardio exercise in your library fits this client\'s limits, so the draft has none. Add one by hand (e.g. a seated bike) if it suits them.'
 };

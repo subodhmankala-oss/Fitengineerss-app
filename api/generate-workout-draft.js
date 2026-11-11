@@ -475,6 +475,7 @@ export default async function handler(req, res) {
   const checkDay = (d, dayLabel) => {
     if (!brief) return { day: repairDay(d, catalog), warnings: [] };
     const r = checkDraftDay(d, { brief, catalog, excluded, dayLabel: dayLabel || d.dayLabel });
+    if (r.dropped.length) console.warn('generate-workout-draft: dropped non-library exercise(s):', r.dropped.join(', '));
     return { day: r.day, warnings: r.warnings };
   };
   // Adds the brief summary + warnings to a response body; leaves an older

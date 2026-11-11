@@ -110,3 +110,22 @@ describe('briefSummary', () => {
     expect(briefSummary(null)).toBeNull();
   });
 });
+
+describe('checkDraftDay: short days and missing cardio', () => {
+  it('notes a day below the brief range and a missing cardio finisher, and reports non-library names', () => {
+    const { brief, excluded } = make({ level: 'beginner', profile: { age: 34, heightCm: 165, weightKg: 87, sex: 'female', goal: 'Fat Loss' } });
+    const r = checkDraftDay({ dayLabel: 'Day 3', exercises: [s('Goblet Squat'), s('Chest Press (Machine)'), s('Seated Cable Row'), s('Made Up Move')] }, { brief, catalog: CATALOG, excluded });
+    expect(r.dropped).toEqual(['Made Up Move']);
+    expect(r.warnings).toContain("Day 3: only 3 exercises (this client's range is 4 to 5) — add one or regenerate this day.");
+    expect(r.warnings).toContain('Day 3: no cardio finisher, though Fat Loss calls for 10 to 15 min every day — add one or regenerate this day.');
+  });
+
+  it('is quiet for a full day with cardio, and when cardio is optional', () => {
+    const { brief, excluded } = make({ level: 'beginner', profile: { age: 34, heightCm: 165, weightKg: 70, goal: 'Fat Loss' } });
+    const day = { dayLabel: 'D', exercises: [s('Goblet Squat'), s('Chest Press (Machine)'), s('Seated Cable Row'), s('Lateral Raise'), { name: 'Cycling', type: 'cardio', setCount: 1, reps: null, durationMinutes: 12, notes: null }] };
+    expect(checkDraftDay(day, { brief, catalog: CATALOG, excluded }).warnings.join(' ')).not.toMatch(/only|cardio finisher/);
+    const mb = make({ level: 'beginner' });
+    const noCardio = { dayLabel: 'D', exercises: day.exercises.slice(0, 4) };
+    expect(checkDraftDay(noCardio, { brief: mb.brief, catalog: CATALOG, excluded: mb.excluded }).warnings.join(' ')).not.toMatch(/cardio finisher/);
+  });
+});

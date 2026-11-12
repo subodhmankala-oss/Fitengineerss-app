@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
+import { isFounderMessageFresh } from '../utils/founderMessage';
 import './CoachNoteBanner.css';
 import './FounderMessageCard.css';
 
@@ -35,7 +36,7 @@ export default function FounderMessageCard({ compact = false }) {
   useEffect(() => {
     let cancelled = false;
     databaseService.getMyFounderMessages().then((rows) => {
-      if (!cancelled) setMessages(rows || []);
+      if (!cancelled) setMessages((rows || []).filter((m) => isFounderMessageFresh(m)));
     });
     return () => { cancelled = true; };
   }, []);

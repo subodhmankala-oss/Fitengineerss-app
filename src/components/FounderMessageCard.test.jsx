@@ -13,6 +13,7 @@ vi.mock('../services/databaseService', () => ({ __esModule: true, default: db })
 vi.mock('../utils/pushNotify', () => notify);
 
 import FounderMessageCard from './FounderMessageCard';
+import { isFounderMessageFresh } from '../utils/founderMessage';
 
 const welcome = {
   id: 'm1', clientId: 'client-1', kind: 'welcome',
@@ -68,6 +69,23 @@ describe('FounderMessageCard', () => {
     fireEvent.click(await screen.findByLabelText('Dismiss message'));
     expect(screen.queryByText('Hi Rahul! I’m Subodh, founder of Fitengineers.')).toBeNull();
     expect(db.dismissFounderMessage).toHaveBeenCalledWith('m1');
+  });
+
+  it('hides a message once it is a week old', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    db.getMyFounderMessages.mockResolvedValue([
+      { ...personal, createdAt: new Date(Date.now() - 2 * day).toISOString() },
+      { ...welcome, createdAt: new Date(Date.now() - 8 * day).toISOString() }
+    ]);
+    render(<FounderMessageCard />);
+    expect(await screen.findByText('How is week one going?')).toBeTruthy();
+    expect(screen.queryByText('Hi Rahul! I’m Subodh, founder of Fitengineers.')).toBeNull();
+  });
+
+  it('isFounderMessageFresh: under 7 days shows, 7+ days hides', () => {
+    const now = Date.parse('2026-11-12T10:00:00Z');
+    expect(isFounderMessageFresh({ createdAt: '2026-11-06T10:00:01Z' }, now)).toBe(true);
+    expect(isFounderMessageFresh({ createdAt: '2026-11-05T10:00:00Z' }, now)).toBe(false);
   });
 
   it('renders nothing when there are no messages', async () => {

@@ -780,11 +780,19 @@ async function handleOwnerGym(req, res) {
     const gym = gyms[0];
     if (!gym) return res.status(200).json({ gym: null });
 
-    const members = await svcSelect(
+    const memberRows = await svcSelect(
       `users?gym_id=eq.${gym.id}&select=id,full_name,email,phone,role,coach_id,created_at,last_login,avatar_url,gym_self_guided`,
       'owner-gym members'
     );
-    const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
+    // A client's own number lives in clients.phone_number (signup wizard and
+    // the phone prompt save it there); users.phone is mostly empty for them.
+    const memberIds = memberRows.filter((m) => m.role === 'client').map((m) => m.id);
+    const phoneRows = memberIds.length
+      ? await svcSelect(`clients?user_id=in.(${memberIds.join(',')})&select=user_id,phone_number`, 'owner-gym client phones')
+      : [];
+    const phoneById = Object.fromEntries(phoneRows.map((c) => [c.user_id, c.phone_number]));
+    const members = memberRows.map((m) => ({ ...m, phone: phoneById[m.id] || m.phone || null }));
+    const clientIds = memberIds;
     const since = new Date(Date.now() - OWNER_ACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const logs = clientIds.length
       ? await svcSelectAll(

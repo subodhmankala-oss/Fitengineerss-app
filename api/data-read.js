@@ -786,13 +786,20 @@ async function handleOwnerGym(req, res) {
     );
     // A client's own number lives in clients.phone_number (signup wizard and
     // the phone prompt save it there); users.phone is mostly empty for them.
-    const memberIds = memberRows.filter((m) => m.role === 'client').map((m) => m.id);
-    const phoneRows = memberIds.length
-      ? await svcSelect(`clients?user_id=in.(${memberIds.join(',')})&select=user_id,phone_number`, 'owner-gym client phones')
+    const allClientIds = memberRows.filter((m) => m.role === 'client').map((m) => m.id);
+    const phoneRows = allClientIds.length
+      ? await svcSelect(`clients?user_id=in.(${allClientIds.join(',')})&select=user_id,phone_number,coach_id,paused_at`, 'owner-gym client phones')
       : [];
     const phoneById = Object.fromEntries(phoneRows.map((c) => [c.user_id, c.phone_number]));
-    const members = memberRows.map((m) => ({ ...m, phone: phoneById[m.id] || m.phone || null }));
-    const clientIds = memberIds;
+    const clientOf = Object.fromEntries(phoneRows.map((c) => [c.user_id, c]));
+    // Count only current members, as the Live board does: a paused client, or
+    // one whose package finished (disconnected from the coach), is not a member
+    // the trainer still has — counting them inflated "Members" and dragged
+    // "Still training" down.
+    const members = memberRows
+      .filter((m) => m.role !== 'client' || isCurrentMember(m, clientOf[m.id]))
+      .map((m) => ({ ...m, phone: phoneById[m.id] || m.phone || null }));
+    const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
     const since = new Date(Date.now() - OWNER_ACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const logs = clientIds.length
       ? await svcSelectAll(

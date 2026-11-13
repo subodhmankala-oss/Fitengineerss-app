@@ -77,6 +77,17 @@ describe('liveInProgress', () => {
     const heavy = liveInProgress([draft('u1', [], { exercises: [{ name: 'Push-up', sets: [{ reps: '20', weight: '0', isCompleted: true, completedAt: NOW - 600000 }] }] })], { u1: 100 }, NOW);
     expect(heavy[0].kcal).toBeGreaterThan(light[0].kcal);
   });
+
+  it("shows the phone's own kcal when the draft carries it, whatever weight the server has", () => {
+    const out = liveInProgress([draft('u1', [tick(NOW - 600000), tick(NOW - 300000)], { live_kcal: 123.4 })], { u1: 140 }, NOW);
+    expect(out[0].kcal).toBe(123.4);
+  });
+
+  it('adds a phone kcal and a trainer kcal for one member, and estimates a draft from an older app', () => {
+    const old = liveInProgress([draft('u1', [tick(NOW - 600000)])], {}, NOW)[0].kcal;
+    const out = liveInProgress([draft('u1', [tick(NOW - 600000)], { live_kcal: 50 }), draft('u1', [tick(NOW - 500000)], { source: 'coach' })], {}, NOW);
+    expect(out[0].kcal).toBeCloseTo(50 + old, 1);
+  });
 });
 
 describe('shared board payload', () => {

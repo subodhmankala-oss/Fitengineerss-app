@@ -2292,7 +2292,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       exercises: liveExercises,
       timerStatus: liveTimerStatus,
       timerStartedAt: liveTimerStartedAt,
-      pauseIntervals: livePauseIntervals
+      pauseIntervals: livePauseIntervals,
+      // What the coach sees for the ticked sets, so the gym Live board shows
+      // the same number (see WorkoutTracker's draft save).
+      liveKcal: liveCaloriesBase.totalKcal
     };
     if (saveLiveDraftNowRef.current) {
       saveLiveDraftNowRef.current = false;
@@ -2304,7 +2307,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     return () => {
       if (liveDraftSaveTimerRef.current) clearTimeout(liveDraftSaveTimerRef.current);
     };
-  }, [selectedClient, liveExercises, livePlanName, liveDate, liveTimerStatus, liveTimerStartedAt, livePauseIntervals, resolvedCoachId, sendPendingLiveDraft]);
+  }, [selectedClient, liveExercises, livePlanName, liveDate, liveTimerStatus, liveTimerStartedAt, livePauseIntervals, resolvedCoachId, sendPendingLiveDraft, liveCaloriesBase.totalKcal]);
 
   // Debounce-push the Plan Editor (Create/Edit Workout Plan) to localStorage
   // while it's open, so refreshing the page mid-build — reported 2026-09-11,

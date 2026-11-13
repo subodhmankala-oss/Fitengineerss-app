@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm, isJumpRopeExercise, splitNewTemplates } from './liveWorkoutTimer';
+import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm, isJumpRopeExercise, isIsolationLift, splitNewTemplates } from './liveWorkoutTimer';
 import { isBodyweightExercise } from '../data/exerciseLibrary';
 
 describe('computeRestSecondsRemaining', () => {
@@ -436,5 +436,84 @@ describe('splitNewTemplates', () => {
   it('matches logged plan names case- and space-insensitively', () => {
     const { newPlans } = splitNewTemplates([{ id: 'a', planName: ' Leg Day ' }], [{ planName: 'leg day', exercises: [] }]);
     expect(newPlans).toEqual([]);
+  });
+});
+
+// 2026-11-13: every weighted set was a flat 6.0 MET and every rest a flat
+// 3.5, so the lightest sessions read the highest per minute.
+describe('strength effort follows the load', () => {
+  const start = 1_000_000;
+  // One set per row, ticked evenly across the session clock.
+  const session = (rows, durationSec) => rows.map(([name, reps, weight], i) => ({
+    name,
+    sets: [{ isCompleted: true, completedAt: start + Math.round(durationSec * 1000 * (i + 1) / rows.length), reps: String(reps), weight: String(weight) }],
+  }));
+  const times = (n, row) => Array.from({ length: n }, () => row);
+  const one = (name, reps, weight, kg = 70) =>
+    computeLiveCalories([{ name, sets: [{ isCompleted: true, completedAt: 1, reps: String(reps), weight: String(weight) }] }], 1, [], kg).totalKcal;
+
+  it('classifies single-joint lifts', () => {
+    ['Wrist Curl', 'Lateral Raise (Dumbbell)', 'Pec Deck Fly', 'Triceps Rope Pushdown', 'Leg Extension', 'External Rotation (Cable)', 'Shrug (Dumbbell)', 'Face Pull']
+      .forEach(n => expect(isIsolationLift(n)).toBe(true));
+    ['Barbell Squat', 'Bench Press (Barbell)', 'Leg Press', 'Lat Pull Down', 'Seated Cable Row', 'Romanian Deadlift', 'Overhead Press (Dumbbell)']
+      .forEach(n => expect(isIsolationLift(n)).toBe(false));
+  });
+
+  it('prices a full working load as before (6.0 MET)', () => {
+    // half of bodyweight on a multi-joint lift, a fifth on a single-joint one
+    expect(one('Barbell Squat', 10, 60)).toBeCloseTo((6 * 130 - 70) * 3.5 / 200 * 0.5, 1);
+    expect(one('Triceps Pushdown', 10, 20)).toBeCloseTo((6 * 90 - 70) * 3.5 / 200 * 0.5, 1);
+  });
+
+  it('prices a near-empty bar as light lifting (about 3 MET)', () => {
+    // 2.5 kg wrist curl, 92.2 kg client: effort 2.5 / 18.44 -> 3.41 MET, was 8.3 kcal
+    expect(one('Wrist Curl', 20, 2.5, 92.2)).toBeCloseTo((3.407 * 94.7 - 92.2) * 3.5 / 200, 1);
+    expect(one('Barbell Squat', 15, 2.5, 92.2)).toBeLessThan(0.6 * (6 * 94.7 - 92.2) * 3.5 / 200 * 0.75);
+  });
+
+  it('gives less recovery after a light set than after a heavy one', () => {
+    const light = computeLiveCalories(session(times(2, ['Wrist Curl', 15, 2.5]), 240), start, [], 80);
+    const heavy = computeLiveCalories(session(times(2, ['Barbell Squat', 15, 60]), 240), start, [], 80);
+    // same 150 s of recovery in both: 2.2 MET after the curl, 3.5 after the squat
+    expect(heavy.restKcal).toBe(8.8); // 2.5 active MET x 80 kg x 3.5 / 200 x 2.5 min
+    expect(light.restKcal).toBe(4.3); // 1.234 active MET
+  });
+
+  it('reads the real 46-minute light session near light lifting, not 328.5 kcal', () => {
+    const rows = [
+      ...times(3, ['Glute Bridge', 12, 0]), ...times(2, ['Jumping Jack', 50, 0]), ...times(3, ['Wrist Curl', 20, 2.5]),
+      ...times(3, ['Barbell Squat', 15, 2.5]), ['Leg Extension', 20, 30], ['Leg Extension', 20, 35], ['Leg Extension', 20, 35], ['Leg Extension', 20, 30],
+      ['Leg Press', 12, 7.5], ['Leg Press', 14, 7.5], ['Leg Press', 14, 7.5], ['Leg Press', 20, 7.5],
+      ...times(6, ['External Rotation (Cable)', 15, 10]), ...times(2, ['External Rotation (Cable)', 10, 10]),
+      ...times(3, ['Lateral Raise', 15, 2.5]), ...times(3, ['Front Raise', 15, 2.5]),
+    ];
+    const total = computeLiveCalories(session(rows, 2739), start, [], 92.2).totalKcal;
+    // Compendium 3.5 MET over 45.65 min at 92.2 kg = 184 active kcal; 4.5 MET = 258.
+    expect(total).toBeGreaterThan(184);
+    expect(total).toBeLessThan(258);
+  });
+
+  it('keeps the real 80-minute heavy leg day close to its saved 450 kcal', () => {
+    const rows = [
+      ['Barbell Squat', 15, 0], ['Barbell Squat', 15, 20], ['Barbell Squat', 15, 40], ['Barbell Squat', 15, 50], ['Barbell Squat', 10, 60],
+      ['Step-up', 15, 10], ['Step-up', 10, 20],
+      ['Leg Press', 15, 40], ['Leg Press', 15, 70], ['Leg Press', 15, 110], ['Leg Press', 9, 125], ['Leg Press', 4, 110], ['Leg Press', 5, 70], ['Leg Press', 5, 40], ['Leg Press', 20, 20],
+      ['Seated Leg Curl  Machine', 15, 40], ['Seated Leg Curl  Machine', 15, 60], ['Seated Leg Curl  Machine', 12, 75],
+      ['Calf Raise (Machine)', 15, 20], ['Calf Raise (Machine)', 15, 30], ['Calf Raise (Machine)', 15, 45],
+    ];
+    const exercises = session(rows, 3886);
+    exercises.push({ name: 'Incline Walk', sets: [{ isCompleted: true, completedAt: start + 4786000, distanceKm: '1.13', time: '15:00' }] });
+    const total = computeLiveCalories(exercises, start, [], 86).totalKcal;
+    expect(total).toBeGreaterThan(450 * 0.9);
+    expect(total).toBeLessThan(450 * 1.02);
+  });
+});
+
+describe('Incline Walk with a mistyped time', () => {
+  it('caps the pace instead of pricing 30 seconds at hundreds of MET', () => {
+    // 5 km in "00:30" used to read ~380 kcal at 80 kg
+    expect(estimateCardioKcal('Incline Walk', '5', 30, 80)).toBeLessThan(6);
+    // a real 6 km/h incline walk is untouched: (3.5 + 10 + 9) / 3.5 = 6.43 MET
+    expect(estimateCardioKcal('Incline Walk', '3', 1800, 80)).toBeCloseTo(5.4286 * 80 * 3.5 / 200 * 30, 0);
   });
 });

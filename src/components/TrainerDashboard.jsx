@@ -34,6 +34,7 @@ import EditSavedWorkoutModal from './EditSavedWorkoutModal';
 import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { notifyEvent } from '../utils/pushNotify';
 import { getActivityStatus } from '../utils/activityStatus';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
@@ -3254,8 +3255,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         };
       }).filter(ex => ex.sets.length > 0);
 
+      // Same id for every save of this workout (see savedWorkoutGuard.js).
       const session = {
-        id: `coach-live-${Date.now()}`,
+        id: finishedSessionId('coach-live', effectiveLiveTimerStartedAt),
         clientName: selectedClient.userName,
         clientId: selectedClient.id,
         date: liveDate,
@@ -3270,6 +3272,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       };
 
       await databaseService.saveWorkoutSession(session);
+      rememberSavedWorkout(`coach:${selectedClient.id}`, effectiveLiveTimerStartedAt);
       // Leftovers done this time are cleared; this session's skipped ones are
       // queued if the coach left the tick box on. With nothing ticked, every
       // set was saved above, so nothing was skipped.
@@ -4127,7 +4130,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     const savedLiveSetTimers = readSavedSetTimers(LIVE_SET_TIMERS_KEY);
     setLiveSetTimers({});
     databaseService.getWorkoutDraft(client.id, 'coach').then(dbDraft => {
-      const canResume = dbDraft && dbDraft.source === 'coach' && dbDraft.coachId === resolvedCoachId
+      // Already saved, but its open copy outlived the save: close it rather
+      // than reopen it, or the next Save stores a second copy.
+      const alreadySaved = dbDraft && dbDraft.source === 'coach' && wasWorkoutSaved(`coach:${client.id}`, dbDraft.timerStartedAt);
+      if (alreadySaved) databaseService.deleteWorkoutDraft(client.id, 'coach').catch(() => {});
+      const canResume = !alreadySaved && dbDraft && dbDraft.source === 'coach' && dbDraft.coachId === resolvedCoachId
         && dbDraft.exercises && dbDraft.exercises.length > 0;
       if (canResume) {
         setLiveExercises(dbDraft.exercises);

@@ -72,6 +72,7 @@ function timedHoldMET(exerciseName) {
 // the 6.0 floor meant for 6.4. A brisk 6 km/h walk sat below every published
 // "brisk walking" range (2026-10-07).
 const INCLINE_WALK_ASSUMED_GRADE = 0.05;
+const MAX_INCLINE_WALK_KMH = 8.0;
 
 // Compendium walking, level firm surface: 2.0-5.0 mph.
 const WALK_CURVE = [[3.2, 2.8], [4.0, 3.0], [4.8, 3.5], [5.6, 4.3], [6.4, 5.0], [7.2, 7.0], [8.0, 8.3]];
@@ -114,8 +115,12 @@ function cardioMET(exerciseName, speedKmh) {
   // priced like a steep climb. The ACSM walking equation (VO2 = 3.5 + 0.1 x
   // m/min + 1.8 x m/min x grade) scales with speed instead. Incline isn't
   // logged, so it assumes a moderate 5% grade: 4.5 km/h -> ~5.1 MET.
+  // The equation has no ceiling, so a mistyped time (5 km in "00:30") priced
+  // 30 seconds at 500+ MET, ~380 kcal. Capped at 8 km/h, the fastest walk on
+  // the walking curve; every other activity's curve is already flat past its
+  // last point.
   if (/incline walk/.test(n)) {
-    const metersPerMin = speedKmh * 1000 / 60;
+    const metersPerMin = Math.min(speedKmh, MAX_INCLINE_WALK_KMH) * 1000 / 60;
     return (3.5 + 0.1 * metersPerMin + 1.8 * metersPerMin * INCLINE_WALK_ASSUMED_GRADE) / 3.5;
   }
   // Walking pace on anything but an explicit run/jog is a walk: a treadmill
@@ -247,10 +252,42 @@ function bodyweightMET(exerciseName) {
 // needs minutes, not reps) has something to work with.
 const BODYWEIGHT_SECONDS_PER_REP = 2.5;
 
-// MET for barbell/dumbbell/machine resistance training at a normal working
-// effort — Compendium of Physical Activities code 02054 ("resistance
-// (weight) training, multiple exercises, vigorous effort") lists 6.0 MET.
-const STRENGTH_MET = 6.0;
+// MET for the working part of a weighted set. Every lift used to get one flat
+// 6.0 MET (mislabelled as Compendium 02054, which is 3.5; 6.0 is 02050,
+// "power lifting or body building, vigorous effort"), so a 20-rep wrist curl
+// with 2.5 kg was priced as a minute of vigorous lifting. A 46-minute session
+// of 2.5 kg raises, wrist curls and cable rotations saved 328.5 kcal for a
+// 92 kg client (2026-11-11), a 5.4 MET session average, where the Compendium
+// gives light lifting 3.0-3.5. The MET now climbs with the load:
+// - from 3.0 (02130, "weight lifting, light or moderate effort") with almost
+//   nothing on the bar,
+// - to 6.0 (02050) at a full working load: half of bodyweight for a
+//   multi-joint lift (squat, press, row, pulldown, leg press, deadlift), a
+//   fifth of bodyweight for a single-joint / small-muscle lift (curls,
+//   raises, flyes, extensions, pushdowns, shrugs, rotations), where that is
+//   already heavy.
+// Sets at a full working load are priced exactly as before.
+const LIGHT_STRENGTH_MET = 3.0;
+const FULL_STRENGTH_MET = 6.0;
+const COMPOUND_FULL_LOAD_RATIO = 0.5;
+const ISOLATION_FULL_LOAD_RATIO = 0.2;
+const ISOLATION_LIFT_RE = /curl|raise|\bfl(?:y|ies|ye|yes)\b|pec deck|peck|crossover|around the world|svend|extension|push ?down|kick ?backs?|shrug|face pull|pull apart|rear delt|abduct|adduct|pull ?over|straight[\s\-‑]?arm|tricep|skullcrusher|wrist|rotator|rotation/i;
+
+export function isIsolationLift(exerciseName) {
+  return ISOLATION_LIFT_RE.test(exerciseName || '');
+}
+
+// 0 (nothing on the bar) to 1 (a full working load for that kind of lift).
+function strengthEffort(exerciseName, weightKg, bodyWeightKg) {
+  const fullRatio = isIsolationLift(exerciseName) ? ISOLATION_FULL_LOAD_RATIO : COMPOUND_FULL_LOAD_RATIO;
+  return bodyWeightKg > 0 ? Math.min(1, Math.max(0, weightKg) / (bodyWeightKg * fullRatio)) : 1;
+}
+
+function strengthMET(exerciseName, weightKg, bodyWeightKg) {
+  return LIGHT_STRENGTH_MET + (FULL_STRENGTH_MET - LIGHT_STRENGTH_MET) * strengthEffort(exerciseName, weightKg, bodyWeightKg);
+}
+// Loaded carries are whole-body work under load at any weight.
+const CARRY_MET = 6.0;
 // Loaded compound/isolation reps run slower than a brisk bodyweight
 // calisthenics rep (BODYWEIGHT_SECONDS_PER_REP above) — a controlled
 // eccentric under external load typically runs ~3s/rep tempo.
@@ -273,8 +310,24 @@ const STRENGTH_SECONDS_PER_REP = 3.0;
 // for heavy compound sets; anything longer is idle). No credit before the
 // first set or after the last. A first cut at 90 s / 3.0 MET still left that
 // 95-minute day at 261 kcal, well under the ~370 the Compendium gives it.
+//
+// That 3.5 is what follows a hard set. It used to follow every set, so three
+// minutes after a wrist curl or a bird dog earned the same as three minutes
+// after a heavy squat, and in a light session the rest out-earned the work
+// (about 240 of a 489 kcal mobility-and-dumbbell session, 2026-11-13).
+// Recovery now follows the effort of the set it comes after (0 to 1): 3.5 MET
+// after a full working load of any lift, a carry, or a vigorous bodyweight or
+// timed move; down to 2.0 (standing and moving about between sets) after a
+// lift with almost nothing on the bar. Light bodyweight moves and static
+// holds sit halfway.
 const RECOVERY_MET = 3.5;
+const LIGHT_RECOVERY_MET = 2.0;
 const MAX_RECOVERY_SECONDS_PER_SET = 180;
+const LIGHT_MOVE_EFFORT = 0.5;
+
+function recoveryMET(effort) {
+  return LIGHT_RECOVERY_MET + (RECOVERY_MET - LIGHT_RECOVERY_MET) * Math.min(1, Math.max(0, effort));
+}
 
 // Shared MET-based estimator for any reps-driven set that has no logged
 // duration of its own (bodyweight calisthenics AND regular weighted
@@ -329,9 +382,9 @@ function bodyweightKcal(exerciseName, reps, bodyWeightKg, addedWeightKg = 0) {
 // Regular weighted strength set (bench press, squat, curls, ...) — same
 // effective-mass MET model as bodyweightKcal above, just at the resistance-
 // training MET bracket instead of the calisthenics one.
-function strengthKcal(reps, weightKg, bodyWeightKg) {
+function strengthKcal(exerciseName, reps, weightKg, bodyWeightKg) {
   if (reps <= 0) return 0;
-  return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP);
+  return loadedRepsKcal(reps, bodyWeightKg, weightKg, strengthMET(exerciseName, weightKg, bodyWeightKg), STRENGTH_SECONDS_PER_REP);
 }
 
 // Loaded carries (Farmer Walk, suitcase carry, ...) and High Knees Walk log
@@ -373,7 +426,7 @@ function jumpRopeKcal(skips, addedWeightKg, bodyWeightKg) {
 function loadedCarryKcal(exerciseName, meters, loadKg, bodyWeightKg) {
   const isBodyweightDrill = isBodyweightExercise(exerciseName);
   const metersPerSecond = isBodyweightDrill ? HIGH_KNEES_WALK_METERS_PER_SECOND : CARRY_METERS_PER_SECOND;
-  const met = isBodyweightDrill ? BODYWEIGHT_MET : STRENGTH_MET;
+  const met = isBodyweightDrill ? BODYWEIGHT_MET : CARRY_MET;
   return loadedRepsKcal(meters, bodyWeightKg, loadKg, met, 1 / metersPerSecond, MAX_PLAUSIBLE_CARRY_METERS);
 }
 
@@ -543,15 +596,16 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
     ex.sets.forEach((set) => {
       if (!set.isCompleted || !set.completedAt) return;
       // Warm-up moves (Arm Circle, Leg Swing) count nothing themselves.
-      const { kcal, workSeconds, recovers } = isWarmup
+      const { kcal, workSeconds, recovers, effort } = isWarmup
         ? { kcal: 0, workSeconds: 0, recovers: false }
         : setWork(ex.name, set, bodyWeightKg);
       workKcal += kcal;
-      ticks.push({ at: set.completedAt, workSeconds, recovers });
+      ticks.push({ at: set.completedAt, workSeconds, recovers, effort });
     });
   });
 
   let recoverySeconds = 0;
+  let restMet = RECOVERY_MET;
   if (ticks.length > 1) {
     // Stable sort: sets ticked together keep their order on the page.
     ticks.sort((a, b) => a.at - b.at);
@@ -564,10 +618,15 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
     const workSeconds = ticks.reduce((sum, t) => sum + t.workSeconds, 0);
     const clockSeconds = activeSecondsBetween(start, last.at, pauseIntervals);
     // No credit after the last set, after cardio, or after a 0 kg set.
-    const recoveringSets = ticks.slice(0, -1).filter((t) => t.recovers).length;
-    recoverySeconds = Math.min(recoveringSets * MAX_RECOVERY_SECONDS_PER_SET, Math.max(0, clockSeconds - workSeconds));
+    const recoveringSets = ticks.slice(0, -1).filter((t) => t.recovers);
+    recoverySeconds = Math.min(recoveringSets.length * MAX_RECOVERY_SECONDS_PER_SET, Math.max(0, clockSeconds - workSeconds));
+    // The pooled recovery time is shared evenly between those sets, each at
+    // the rate its own effort earns (see recoveryMET).
+    if (recoveringSets.length > 0) {
+      restMet = recoveringSets.reduce((sum, t) => sum + recoveryMET(t.effort), 0) / recoveringSets.length;
+    }
   }
-  const restKcal = activeKcal(RECOVERY_MET, bodyWeightKg, bodyWeightKg, recoverySeconds / 60);
+  const restKcal = activeKcal(restMet, bodyWeightKg, bodyWeightKg, recoverySeconds / 60);
 
   return {
     totalKcal: Math.round((workKcal + restKcal) * 10) / 10,
@@ -599,14 +658,15 @@ export function estimateMissedSetsKcal(exercises, bodyWeightKg = DEFAULT_BODY_WE
 // saved workout moves the total by new − old of this, deleting by −old.
 export function estimateSetKcal(exerciseName, set, bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   if (isWarmupExercise(exerciseName)) return 0;
-  const { kcal, recovers } = setWork(exerciseName, set, bodyWeightKg);
-  const rest = recovers ? activeKcal(RECOVERY_MET, bodyWeightKg, bodyWeightKg, ASSUMED_REST_SECONDS / 60) : 0;
+  const { kcal, recovers, effort } = setWork(exerciseName, set, bodyWeightKg);
+  const rest = recovers ? activeKcal(recoveryMET(effort), bodyWeightKg, bodyWeightKg, ASSUMED_REST_SECONDS / 60) : 0;
   return Math.round((kcal + rest) * 10) / 10;
 }
 
 // One completed set's work: kcal, how many seconds of the clock the work
-// itself took, and whether a recovery gap follows it (cardio is continuous
-// effort already priced by its own pace, so it doesn't).
+// itself took, whether a recovery gap follows it (cardio is continuous
+// effort already priced by its own pace, so it doesn't), and its effort from
+// 0 to 1, which sets the recovery rate (see recoveryMET).
 function setWork(exerciseName, set, bodyWeightKg) {
   if (set.distanceKm !== undefined) {
     const seconds = parseTimeStringToSeconds(set.time);
@@ -618,7 +678,7 @@ function setWork(exerciseName, set, bodyWeightKg) {
   if (set.time !== undefined) {
     // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
     const seconds = parseTimeStringToSeconds(set.time) || 0;
-    return { kcal: timedHoldKcal(seconds, bodyWeightKg, exerciseName), workSeconds: seconds, recovers: seconds > 0 };
+    return { kcal: timedHoldKcal(seconds, bodyWeightKg, exerciseName), workSeconds: seconds, recovers: seconds > 0, effort: timedHoldMET(exerciseName) === VIGOROUS_TIMED_MET ? 1 : LIGHT_MOVE_EFFORT };
   }
   const reps = parseFloat(set.reps) || 0;
   const weight = parseFloat(set.weight) || 0;
@@ -628,6 +688,7 @@ function setWork(exerciseName, set, bodyWeightKg) {
       kcal: jumpRopeKcal(reps, weight, bodyWeightKg),
       workSeconds: Math.min(reps, MAX_PLAUSIBLE_SKIPS_PER_SET) * JUMP_ROPE_SECONDS_PER_SKIP,
       recovers: reps > 0,
+      effort: 1,
     };
   }
   if (isLoadedCarryExercise(exerciseName)) {
@@ -637,6 +698,7 @@ function setWork(exerciseName, set, bodyWeightKg) {
       kcal: loadedCarryKcal(exerciseName, reps, weight, bodyWeightKg),
       workSeconds: Math.min(reps, MAX_PLAUSIBLE_CARRY_METERS) / metersPerSecond,
       recovers: reps > 0,
+      effort: 1,
     };
   }
   if (isBodyweightExercise(exerciseName)) {
@@ -644,6 +706,7 @@ function setWork(exerciseName, set, bodyWeightKg) {
       kcal: bodyweightKcal(exerciseName, reps, bodyWeightKg, weight),
       workSeconds: Math.min(reps, MAX_PLAUSIBLE_REPS_PER_SET) * BODYWEIGHT_SECONDS_PER_REP,
       recovers: reps > 0,
+      effort: bodyweightMET(exerciseName) === BODYWEIGHT_MET ? 1 : LIGHT_MOVE_EFFORT,
     };
   }
   // A weighted move with no kg typed (curls, extensions, pulldowns left at 0)
@@ -652,9 +715,10 @@ function setWork(exerciseName, set, bodyWeightKg) {
   // so a session of untouched 0 kg boxes still showed a real-looking burn.
   if (weight <= 0) return { kcal: 0, workSeconds: 0, recovers: false };
   return {
-    kcal: strengthKcal(reps, weight, bodyWeightKg),
+    kcal: strengthKcal(exerciseName, reps, weight, bodyWeightKg),
     workSeconds: Math.min(reps, MAX_PLAUSIBLE_REPS_PER_SET) * STRENGTH_SECONDS_PER_REP,
     recovers: reps > 0,
+    effort: strengthEffort(exerciseName, weight, bodyWeightKg),
   };
 }
 

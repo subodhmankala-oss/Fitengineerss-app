@@ -9,6 +9,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -231,6 +232,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       const raw = localStorage.getItem(workoutDraftKey);
       if (!raw) return null;
       const draft = JSON.parse(raw);
+      // A workout already saved from this device is finished, not open.
+      if (draft && wasWorkoutSaved('self', draft.workoutTimerStartedAt)) return null;
       return draft && draft.isLoggingWorkout ? draft : null;
     } catch {
       return null;
@@ -969,6 +972,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         // would let both sides edit it concurrently and stomp each other's
         // saves (last debounced write wins, silently dropping sets).
         if (cancelled || !dbDraft || dbDraft.source === 'coach') return;
+        // This workout was already saved, but its open copy outlived the save
+        // (the app reloaded before the delete went out). Close it instead of
+        // reopening it, or the next Save stores a second copy.
+        if (wasWorkoutSaved('self', dbDraft.timerStartedAt)) {
+          databaseService.deleteWorkoutDraft(id, 'self').catch(() => {});
+          return;
+        }
         const dbTime = dbDraft.updatedAt ? new Date(dbDraft.updatedAt).getTime() : 0;
         const localTime = savedWorkoutDraft?.savedAt || 0;
         if (!savedWorkoutDraft || dbTime > localTime) {
@@ -2466,8 +2476,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const clientBodyWeightKg = parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG;
     const finalCalories = effectiveTimerStartedAt ? computeLiveCalories(activeExercises, effectiveTimerStartedAt, workoutPauseIntervals, clientBodyWeightKg).totalKcal : null;
 
+    // Same id for every save of this workout (see savedWorkoutGuard.js).
     const newSession = {
-      id: `session-${Date.now()}`,
+      id: finishedSessionId('session', effectiveTimerStartedAt),
       clientName: logClient,
       date: logDate,
       exercises: formattedExercises,
@@ -2499,7 +2510,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       ...(ownUserId ? { clientId: ownUserId } : {})
     };
 
-    const updated = [...sessions, newSession];
+    rememberSavedWorkout('self', effectiveTimerStartedAt);
+    // A repeat save of the same workout replaces its copy in the local list.
+    const updated = [...sessions.filter(s => s.id !== newSession.id), newSession];
     saveSessionsToLocal(updated);
     
     // Exercises done now are cleared from the carry-over list; fully skipped

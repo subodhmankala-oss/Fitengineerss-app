@@ -1591,7 +1591,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const skillLevel = (() => {
     const tiers = ['Beginner', 'Intermediate', 'Advanced', 'Elite'];
     if (clientSessions.length === 0) {
-      return { score: 0, tier: tiers[0], tierIndex: 0, withinTierPct: 0, decay: 0 };
+      return { score: 0, tier: tiers[0], tierIndex: 0, withinTierPct: 0, decay: 0, lostFrom: 0, lostTo: 0 };
     }
 
     const firstDate = new Date(`${clientSessions[0].date}T00:00:00`);
@@ -1631,10 +1631,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // 1 point off per full week with no workout logged (see
     // utils/trainingLevelDecay — the inactivity push warns on each drop).
     const decay = idleDecayPoints(clientSessions[clientSessions.length - 1].date);
-    const score = Math.max(0, consistencyPct * 50 + overloadPct * 50 - decay); // 0–100
-    const scoreTierIndex = Math.min(3, Math.floor(score / 25));
+    const earnedScore = Math.max(0, consistencyPct * 50 + overloadPct * 50); // 0–100, before the idle drop
+    const score = Math.max(0, earnedScore - decay);
     const tenureTierIndex = weeksActive >= 36 ? 3 : weeksActive >= 24 ? 2 : weeksActive >= 12 ? 1 : 0;
-    const tierIndex = Math.min(scoreTierIndex, tenureTierIndex);
     // Position within the active tier's own slice, for the marker — driven
     // by whichever of the two axes (score or tenure) is the actual
     // bottleneck holding them at this tier, not always the score one. A
@@ -1647,11 +1646,25 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // forward as calendar weeks pass, and a score-capped client (tenure
     // already qualifies them higher) still sees it driven by score.
     const TIER_WEEK_BOUNDS = [[0, 12], [12, 24], [24, 36], [36, Infinity]];
-    const [bandStart, bandEnd] = TIER_WEEK_BOUNDS[tierIndex];
-    const tenureWithinPct = bandEnd === Infinity ? 1 : Math.min(1, Math.max(0, (realWeeksActive - bandStart) / (bandEnd - bandStart)));
-    const scoreWithinPct = Math.min(1, Math.max(0, (score - tierIndex * 25) / 25));
-    const withinTierPct = Math.min(scoreWithinPct, tenureWithinPct);
-    return { score, tier: tiers[tierIndex], tierIndex, withinTierPct, decay };
+    const placeFor = (s) => {
+      const tierIndex = Math.min(Math.min(3, Math.floor(s / 25)), tenureTierIndex);
+      const [bandStart, bandEnd] = TIER_WEEK_BOUNDS[tierIndex];
+      const tenureWithinPct = bandEnd === Infinity ? 1 : Math.min(1, Math.max(0, (realWeeksActive - bandStart) / (bandEnd - bandStart)));
+      const scoreWithinPct = Math.min(1, Math.max(0, (s - tierIndex * 25) / 25));
+      return { tierIndex, withinTierPct: Math.min(scoreWithinPct, tenureWithinPct) };
+    };
+    // Positions in whole-bar segment units (2.4 = 40% into the 3rd segment).
+    // Every idle point pulls the marker back a point's width (1/25 of a
+    // segment) from where it would sit, even when tenure is what holds the
+    // marker (the first 12 weeks) and the score drop alone wouldn't move it.
+    // The bar shades the stretch between the two as points lost.
+    const before = placeFor(earnedScore);
+    const lostTo = before.tierIndex + before.withinTierPct;
+    const scorePlace = placeFor(score);
+    const lostFrom = Math.max(0, Math.min(scorePlace.tierIndex + scorePlace.withinTierPct, lostTo - decay / 25));
+    const tierIndex = Math.min(3, Math.floor(lostFrom));
+    const withinTierPct = lostFrom - tierIndex;
+    return { score, tier: tiers[tierIndex], tierIndex, withinTierPct, decay, lostFrom, lostTo: decay > 0 ? lostTo : lostFrom };
   })();
 
   const displayedSessions = timeframe === 'weekly'
@@ -3149,10 +3162,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 for self-guided clients. Now shown unconditionally. Best Lift
                 moved below the Strength Progression chart (see further
                 down). */}
-            <span className="skill-level-heading">🏆 Training Level</span>
+            <div className="skill-level-heading-row">
+              <span className="skill-level-heading">🏆 Training Level</span>
+              <span className={`skill-level-score ${skillLevel.decay > 0 ? 'is-dropping' : ''}`}>
+                {Math.round(skillLevel.score)}<small>/100</small>
+                {skillLevel.decay > 0 && <span className="skill-level-score-drop">−{skillLevel.decay}</span>}
+              </span>
+            </div>
             <div className="sessions-accounting-split">
               <div className="skill-level-bar" title={`${Math.round(skillLevel.score)}/100 — earned from consistency and progressive overload over your whole training history, not just recent activity`}>
-                <div className="skill-level-track">
+                <div className={`skill-level-track ${skillLevel.decay > 0 ? 'is-dropping' : ''}`}>
                   {['Beginner', 'Intermediate', 'Advanced', 'Elite'].map((tier, i) => (
                     <div key={tier} className={`skill-level-segment ${i < skillLevel.tierIndex ? 'filled' : ''}`}>
                       {/* Past tiers render fully solid. The CURRENT tier
@@ -3165,8 +3184,30 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       {i === skillLevel.tierIndex && (
                         <div className="skill-level-segment-fill" style={{ width: `${skillLevel.withinTierPct * 100}%` }} />
                       )}
+                      {/* Points lost to idle weeks: the stretch between the
+                          marker and where it sat before, striped amber. */}
+                      {skillLevel.lostTo > i && skillLevel.lostFrom < i + 1 && skillLevel.lostTo > skillLevel.lostFrom && (
+                        <div
+                          className="skill-level-lost"
+                          data-testid="skill-level-lost"
+                          style={{
+                            left: `${Math.max(0, skillLevel.lostFrom - i) * 100}%`,
+                            width: `${(Math.min(1, skillLevel.lostTo - i) - Math.max(0, skillLevel.lostFrom - i)) * 100}%`
+                          }}
+                        />
+                      )}
                       {i === skillLevel.tierIndex && (
-                        <div className="skill-level-marker" style={{ left: `${skillLevel.withinTierPct * 100}%` }} />
+                        <div className={`skill-level-marker ${skillLevel.decay > 0 ? 'is-dropping' : ''}`} style={{ left: `${skillLevel.withinTierPct * 100}%` }} />
+                      )}
+                      {i === skillLevel.tierIndex && skillLevel.decay > 0 && (
+                        <span
+                          className="skill-level-drop-tag"
+                          style={{ left: `clamp(16px, ${skillLevel.withinTierPct * 100}%, calc(100% - 16px))` }}
+                          aria-label={`Down ${skillLevel.decay} ${skillLevel.decay === 1 ? 'point' : 'points'}`}
+                        >
+                          <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+                          {skillLevel.decay}
+                        </span>
                       )}
                     </div>
                   ))}

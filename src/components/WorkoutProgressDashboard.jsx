@@ -13,6 +13,7 @@ import WorkoutStreakCard from './WorkoutStreakCard';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
+import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -45,6 +46,8 @@ const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
 const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null, openTestimonial = false, onTestimonialLinkUsed }) => {
   const [userId, setUserId] = useState(null);
+  // Experience level → which weekly set targets the muscle screens use.
+  const trainingLevel = useClientTrainingLevel(userId);
   // Read on the first render: seeding 'Warrior' and swapping in the saved
   // name from an effect flashed "Warrior" in the greeting for a frame.
   const [userName] = useState(() => localStorage.getItem('userName') || 'Warrior');
@@ -1297,6 +1300,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
       ) : showWelcomeBack ? (
         <WelcomeBackScreen
           userId={userId}
+          level={trainingLevel}
           userName={userName}
           logs={logs}
           weekDays={weekDays}
@@ -1704,6 +1708,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             <WeeklyMuscleAnalytics
               logs={liveRows.length > 0 ? [...logs, ...liveRows] : logs}
               liveNote={liveRows.length > 0}
+              level={trainingLevel}
               weekDays={weekDays}
               weekRangeLabel={weekRangeLabel}
               weeklyStats={weeklyStats}

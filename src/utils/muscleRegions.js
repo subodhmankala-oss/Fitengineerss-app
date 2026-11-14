@@ -12,7 +12,7 @@
 import { EXERCISE_SUBGROUPS } from '../data/exerciseSubgroups';
 import { EXERCISE_LIBRARY, GLUTE_MED_RE } from '../data/exerciseLibrary';
 import { getMuscleWeight } from './muscleGroups';
-import { isCountableSet, RECOMMENDED_EXERCISES, MUSCLE_TARGETS, classifyStatus, getHeatMapTier, getWeeklyMuscleStats } from './muscleAnalytics';
+import { isCountableSet, RECOMMENDED_EXERCISES, getMuscleTargets, classifyStatus, getHeatMapTier, getWeeklyMuscleStats } from './muscleAnalytics';
 import { getLocalDateString, shiftLocalDateString } from './dateUtils';
 
 // Every heat-map muscle that is really several muscles (or heads), split
@@ -129,9 +129,9 @@ function regionsOf(muscle, name) {
 // A region's weekly band is its share of the whole muscle's band, split
 // evenly across the regions (Back 12–20 over 5 regions → 2–4 sets each).
 // Hitting every region's band therefore lands the whole muscle in range.
-export function regionBand(muscle) {
+export function regionBand(muscle, level = null) {
   const regions = REGIONS_BY_MUSCLE[muscle]?.regions;
-  const band = MUSCLE_TARGETS[muscle];
+  const band = getMuscleTargets(level)[muscle];
   if (!regions || !band) return null;
   const n = regions.length;
   const min = Math.max(1, Math.round(band.min / n));
@@ -147,7 +147,7 @@ export function regionBand(muscle) {
  *   fraction (a set shared by two heads); `exercises[].sets` stays whole. `tier` is the heat map's Not Trained/Low/
  *   Optimal/High/Very High for the region against `band` (null for Other).
  */
-export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { weeks = 1 } = {}) {
+export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { weeks = 1, level = null } = {}) {
   const regions = REGIONS_BY_MUSCLE[muscle]?.regions;
   if (!regions) return [];
 
@@ -191,7 +191,7 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
     return out;
   };
 
-  const band = regionBand(muscle);
+  const band = regionBand(muscle, level);
   // weeks > 1 (month view): judge the weekly average against the weekly band.
   const tierFor = total => {
     const sets = total / weeks;
@@ -220,12 +220,12 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
  * far short. One suggested exercise each.
  * @returns {Array<{label, sets, min, suggestion}>}
  */
-export function getMuscleGaps(logs, today = getLocalDateString()) {
+export function getMuscleGaps(logs, today = getLocalDateString(), level = null) {
   const start = shiftLocalDateString(today, -6);
   const gaps = [];
-  getWeeklyMuscleStats(logs, start, today).forEach(stat => {
+  getWeeklyMuscleStats(logs, start, today, { level }).forEach(stat => {
     if (GAP_REGION_MUSCLES.has(stat.muscle)) {
-      getRegionBreakdownForMuscle(logs, stat.muscle, start, today).forEach(r => {
+      getRegionBreakdownForMuscle(logs, stat.muscle, start, today, { level }).forEach(r => {
         if (!r.band || r.sets >= r.band.min || !r.suggestions.length) return;
         gaps.push({ label: r.id, sets: r.sets, min: r.band.min, options: r.suggestions });
       });

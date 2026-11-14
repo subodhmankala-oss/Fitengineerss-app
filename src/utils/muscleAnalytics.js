@@ -28,15 +28,41 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightE
 // Exported so thresholds can be retuned later without touching the logic
 // below. `target` is the single reference number shown as "X / Target Sets"
 // and used for the completion % (midpoint of the optimal band).
-export const MUSCLE_TARGETS = MUSCLE_GROUPS.reduce((acc, muscle) => {
-  const large = LARGE_MUSCLES.has(muscle);
-  // Optional muscles (Tibialis) are accessory work: a lighter 4–10 band.
-  const optional = OPTIONAL_MUSCLES.has(muscle);
-  const min = large ? 12 : optional ? 4 : 8;
-  const max = large ? 20 : optional ? 10 : 15;
+// Weekly working-set bands per experience level. Intermediate is the original
+// band and the fallback when a client's level isn't known, so nobody's
+// numbers move until a level is saved. Beginners recover from and grow on
+// less volume; advanced lifters need more to keep progressing.
+// Optional muscles (Tibialis) are accessory work: a lighter band.
+export const TARGET_BANDS_BY_LEVEL = {
+  beginner: { large: [8, 12], small: [6, 10], optional: [3, 6] },
+  intermediate: { large: [12, 20], small: [8, 15], optional: [4, 10] },
+  advanced: { large: [15, 24], small: [10, 18], optional: [5, 12] },
+};
+export const DEFAULT_TARGET_LEVEL = 'intermediate';
+
+// 'Beginner', 'beginner ', 'Intermed.' → 'beginner' | 'intermediate' |
+// 'advanced'; anything else → the default level.
+export function normalizeTargetLevel(level) {
+  const v = String(level || '').trim().toLowerCase();
+  return Object.keys(TARGET_BANDS_BY_LEVEL).find(l => v === l || (v.length >= 5 && v.startsWith(l.slice(0, 5)))) || DEFAULT_TARGET_LEVEL;
+}
+
+const buildTargets = (level) => MUSCLE_GROUPS.reduce((acc, muscle) => {
+  const bands = TARGET_BANDS_BY_LEVEL[level];
+  const [min, max] = LARGE_MUSCLES.has(muscle) ? bands.large : OPTIONAL_MUSCLES.has(muscle) ? bands.optional : bands.small;
   acc[muscle] = { min, max, target: Math.round((min + max) / 2) };
   return acc;
 }, {});
+
+const TARGETS_BY_LEVEL = Object.fromEntries(Object.keys(TARGET_BANDS_BY_LEVEL).map(l => [l, buildTargets(l)]));
+
+/** Per-muscle {min, max, target} weekly sets for a client's experience level. */
+export function getMuscleTargets(level) {
+  return TARGETS_BY_LEVEL[normalizeTargetLevel(level)];
+}
+
+// The default (intermediate) targets — kept for callers that have no level.
+export const MUSCLE_TARGETS = getMuscleTargets(DEFAULT_TARGET_LEVEL);
 
 // A muscle with sets below `min * UNDERTRAINED_RATIO` is "Undertrained" (🟠)
 // rather than just "Slightly Low" (🟡) — i.e. meaningfully short, not a
@@ -130,13 +156,16 @@ const inRange = (dateStr, startStr, endStr) => dateStr >= startStr && dateStr <=
  * @param {Array} logs - raw workout_logs rows (log_date, exercise_name, weight_kg, reps, set_type, created_at)
  * @param {string} weekStartStr - YYYY-MM-DD (inclusive)
  * @param {string} weekEndStr - YYYY-MM-DD (inclusive)
- * @param {{includeUntrained?: boolean, weeks?: number}} [opts] - includeUntrained
+ * @param {{includeUntrained?: boolean, weeks?: number, level?: string|null}} [opts] - includeUntrained
  *   keeps OPTIONAL_MUSCLES rows that got 0 sets (the muscle detail screen needs
  *   a row to show). weeks > 1 (a month view) makes `sets` the average per week
  *   so it's still judged against the weekly target; `totalSets` keeps the raw sum.
+ *   level: the client's experience level (beginner/intermediate/advanced) —
+ *   picks the target band (see TARGET_BANDS_BY_LEVEL); unknown → intermediate.
  * @returns {Array<{muscle, sets, totalSets, volume, days, min, max, target, completionPercent, status}>}
  */
-export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUntrained = false, weeks = 1 } = {}) {
+export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUntrained = false, weeks = 1, level = null } = {}) {
+  const targets = getMuscleTargets(level);
   const bySets = {};
   const byVolume = {};
   const byDays = {};
@@ -164,7 +193,7 @@ export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUn
     const sets = weeks > 1 ? Math.round((bySets[muscle] / weeks) * 10) / 10 : totalSets;
     const days = byDays[muscle].size;
     const volume = Math.round(byVolume[muscle]);
-    const { min, max, target } = MUSCLE_TARGETS[muscle];
+    const { min, max, target } = targets[muscle];
     const status = classifyStatus(sets, { min, max });
     const completionPercent = Math.round((sets / target) * 100);
     return { muscle, sets, totalSets, volume, days, min, max, target, completionPercent, status };
@@ -614,14 +643,14 @@ export function getWeeklySetsTrendForMuscle(logs, muscle, weeksBack = 6, now = n
  * alongside the score so the UI can show what it's actually built from,
  * rather than presenting a bare number as pseudo-scientific fact.
  */
-export function getMuscleGrowthScore(logs, muscle, now = new Date()) {
+export function getMuscleGrowthScore(logs, muscle, now = new Date(), level = null) {
   const todayStr = getLocalDateString(now);
   const weekEnd = todayStr;
   const weekStart = shiftLocalDateString(todayStr, -6);
   const prevWeekEnd = shiftLocalDateString(weekStart, -1);
   const prevWeekStart = shiftLocalDateString(prevWeekEnd, -6);
 
-  const thisWeekStats = getWeeklyMuscleStats(logs, weekStart, weekEnd).find(m => m.muscle === muscle);
+  const thisWeekStats = getWeeklyMuscleStats(logs, weekStart, weekEnd, { level }).find(m => m.muscle === muscle);
   const volumeScore = thisWeekStats ? Math.min(100, thisWeekStats.completionPercent) : 0;
   const consistencyScore = thisWeekStats ? Math.min(100, Math.round((thisWeekStats.days / 3) * 100)) : 0;
 

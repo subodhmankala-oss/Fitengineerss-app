@@ -43,6 +43,7 @@ import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
+import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
@@ -245,6 +246,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // session, which is what survives being away from the app/device and is
   // what the Home tab's "Resume Workout" banner reads).
   const [ownUserId, setOwnUserId] = useState(null);
+  // Experience level → the weekly set targets the "behind this week" hint uses.
+  const trainingLevel = useClientTrainingLevel(ownUserId);
 
   // Custom on-screen number pad for the set-logging table's weight/reps/km/
   // time fields — see utils/setInputUtils.js for why this replaced the
@@ -4660,6 +4663,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 picked — chips add straight into this workout. */}
             <MuscleGapHint
               logs={muscleGapLogs}
+              level={trainingLevel}
               addedNames={logExercises.map(le => le.name)}
               onAdd={addExerciseToWorkout}
               onOpenMuscleMap={onOpenMuscleMap}

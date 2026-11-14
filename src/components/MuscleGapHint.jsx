@@ -16,8 +16,8 @@ const readCollapsed = () => {
   try { return localStorage.getItem(collapsedKey()) === '1'; } catch { return false; }
 };
 
-const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
-  const gaps = useMemo(() => getMuscleGaps(logs), [logs]);
+const MuscleGapHint = ({ logs, level = null, addedNames = [], onAdd, onOpenMuscleMap }) => {
+  const gaps = useMemo(() => getMuscleGaps(logs, undefined, level), [logs, level]);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const toggle = () => {
     setCollapsed(c => {

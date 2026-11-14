@@ -13,7 +13,7 @@ export default function FounderMessageComposer({ client, onClose }) {
   const templates = [
     { label: 'Get started', text: `${greeting} Here's how to use Fitengineers: 1) Open the Workout tab and pick a workout. 2) Log your weight and reps as you finish each set. 3) The app remembers your last numbers, so next time they're pre-filled. Stuck anywhere? Just reply here.` },
     { label: 'Form videos', text: `${greeting} Not sure how to do an exercise? Open its Form Guide in the Workout tab to watch a short video of the correct form before your set. Reply if you want help choosing exercises.` },
-    { label: 'Track progress', text: `${greeting} Your Home screen shows how you're doing, and the Profile tab holds your goals and body stats. Keep logging each workout and your progress builds up automatically. Reply with any questions.` }
+    { label: 'Track progress', text: `${greeting} Your Metrics tab shows how you're doing, and the Profile tab holds your goals and body stats. Keep logging each workout and your progress builds up automatically. Reply with any questions.` }
   ];
   const [text, setText] = useState(`${greeting} `);
   const [sending, setSending] = useState(false);

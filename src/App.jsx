@@ -24,7 +24,7 @@ import { useTour } from './context/useTour';
 import { useCoachTour } from './context/useCoachTour';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, flushPendingWorkoutDrafts, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
-import { takeInitialDeepLink, parseDeepLink, stashDeepLink, tabForDeepLink, rememberTestimonialLink, hasPendingTestimonialLink, clearTestimonialLink } from './utils/deepLink';
+import { CLIENT_TABS, takeInitialDeepLink, parseDeepLink, stashDeepLink, tabForDeepLink, rememberTestimonialLink, hasPendingTestimonialLink, clearTestimonialLink } from './utils/deepLink';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -454,7 +454,8 @@ function App() {
   const [initialDeepLink] = useState(takeInitialDeepLink);
   const [activeTab, setActiveTab] = useState(() => {
     if (initialDeepLink?.openTestimonial === '1') rememberTestimonialLink();
-    return tabForDeepLink(initialDeepLink) || (hasPendingTestimonialLink() ? 'home' : null) || localStorage.getItem('activeTab') || 'home';
+    const saved = localStorage.getItem('activeTab');
+    return tabForDeepLink(initialDeepLink) || (hasPendingTestimonialLink() ? 'muscles' : null) || (CLIENT_TABS.includes(saved) ? saved : 'muscles');
   });
   // ?openMeasurements=1 — measurement reminders (api/push.js). ClientProfile
   // reads it on mount to open straight on Measurements.
@@ -496,7 +497,7 @@ function App() {
   // loaded screen had even mounted on a slow phone.)
   useEffect(() => {
     if (activeTab !== 'profile') setDeepLinkOpenMeasurements(false);
-    if (activeTab !== 'home') {
+    if (activeTab !== 'muscles') {
       setDeepLinkOpenMuscleMap(false);
       setDeepLinkOpenTestimonial(false);
     }
@@ -646,19 +647,16 @@ function App() {
       coachTour.start();
     } else {
       // Clients get the interactive spotlight tour instead of the modal —
-      // it starts on the Home screen and follows real navigation into the
+      // it starts on the Muscles tab and follows real navigation into the
       // Workout tab (see the bottom-nav effect below and WorkoutTracker.jsx).
       clientTour.start();
     }
     demoTourCheckedRef.current = true;
   }, [userEmail, userRole, onboardingComplete, showClientWizard, pendingConfirmationEmail, showResetPasswordModal, clientTour, coachTour]);
 
-  // Spotlight step 1→2: the bottom-nav Workout button is highlighted from
-  // the Home screen; once the user actually navigates to the Workout tab
-  // (however they got there — bottom nav or a dashboard CTA), move on.
-  useEffect(() => {
-    if (activeTab === 'workouts') clientTour.advanceIfStep(1, 2);
-  }, [activeTab, clientTour]);
+  // The bottom-nav + asks WorkoutTracker to start an empty workout (it
+  // waits for its draft check, and resumes a running session instead).
+  const [workoutStartRequested, setWorkoutStartRequested] = useState(false);
 
   // Resume-refresh: if the app was backgrounded (tab hidden, phone locked, or
   // the PWA suspended) for more than 15 minutes, force a full reload the moment
@@ -1294,7 +1292,7 @@ function App() {
         
         setOnboardingComplete(false);
         setUserEmail('');
-        setActiveTab('home');
+        setActiveTab('muscles');
       }
     });
 
@@ -1758,7 +1756,7 @@ function App() {
     setOnboardingComplete(false);
     setShowClientWizard(false);
     setUserEmail('');
-    setActiveTab('home');
+    setActiveTab('muscles');
 
     // Perform hard reload immediately since all async operations are completed!
     window.location.reload();
@@ -1769,8 +1767,15 @@ function App() {
       <WorkoutProgressDashboard
         key={deepLinkNonce}
         handleLogout={handleLogout}
+        view={activeTab === 'metrics' ? 'metrics' : 'muscles'}
         onNavigateToWorkouts={() => setActiveTab('workouts')}
-        initialTimeframe={deepLinkOpenMuscleMap ? 'muscles' : null}
+        openedFromMuscleLink={deepLinkOpenMuscleMap}
+        // Passed in rather than imported so WorkoutTracker stays its own lazy chunk.
+        renderProgress={() => (
+          <Suspense fallback={<LazyScreenFallback />}>
+            <WorkoutTracker clientTab="progress" onClientTabChange={setActiveTab} />
+          </Suspense>
+        )}
         initialMuscleSection={deepLinkOpenMuscleMap ? deepLinkMuscleSection : null}
         openTestimonial={deepLinkOpenTestimonial}
         onTestimonialLinkUsed={onTestimonialLinkUsed}
@@ -1780,24 +1785,34 @@ function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'home': return renderHomeDashboard();
-      // A saved workout lands on Home → Muscles → Muscle Balance Overview,
-      // via the same section link a coach's muscle-map share uses.
-      case 'workouts': return (
+      // Muscles and Metrics are two views of one dashboard, so moving between
+      // them keeps its loaded logs.
+      case 'muscles':
+      case 'metrics': return renderHomeDashboard();
+      // Workout and Library are one WorkoutTracker for the same reason: picking
+      // a Library program hands its running session to the Workout tab.
+      // A saved workout lands on Muscles → Muscle Overview, via the same
+      // section link a coach's muscle-map share uses.
+      case 'workouts':
+      case 'library': return (
         <WorkoutTracker
+          clientTab={activeTab}
+          onClientTabChange={setActiveTab}
+          startRequested={workoutStartRequested}
+          onStartHandled={() => setWorkoutStartRequested(false)}
           onWorkoutSaved={() => {
             setDeepLinkOpenMuscleMap(true);
             setDeepLinkMuscleSection('balance');
             setDeepLinkNonce((n) => n + 1);
-            setActiveTab('home');
+            setActiveTab('muscles');
           }}
-          // Mid-workout is fine: the session is a saved draft and Home shows
-          // the Resume Workout banner.
+          // Mid-workout is fine: the session is a saved draft and Muscles
+          // shows the Resume Workout banner.
           onOpenMuscleMap={() => {
             setDeepLinkOpenMuscleMap(true);
             setDeepLinkMuscleSection('heatmap');
             setDeepLinkNonce((n) => n + 1);
-            setActiveTab('home');
+            setActiveTab('muscles');
           }}
         />
       );
@@ -1805,7 +1820,7 @@ function App() {
         <ClientProfile
           key={deepLinkNonce}
           handleLogout={handleLogout}
-          onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }}
+          onReplayDemoTour={() => { setActiveTab('muscles'); clientTour.restart(); }}
           initialSection={deepLinkOpenMeasurements ? 'measurements' : null}
           dotSections={new Set(unreadNotifications.filter(n => n.appTab === 'profile' && n.section).map(n => n.section))}
           onSectionOpen={(section) => markNotificationsSeen(n => n.appTab === 'profile' && n.section === section)}
@@ -2013,28 +2028,54 @@ function App() {
       
       {isNavVisible && (
         <nav className="bottom-nav">
-          <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+          <button className={`nav-item ${activeTab === 'muscles' ? 'active' : ''}`} onClick={() => setActiveTab('muscles')}>
             <span className="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
+                <path d="M12.409 13.017A5 5 0 0 1 22 15c0 3.866-4 7-9 7-4.077 0-8.153-.82-10.371-2.462-.426-.316-.631-.832-.62-1.362C2.118 12.723 2.627 2 10 2a3 3 0 0 1 3 3 2 2 0 0 1-2 2c-1.105 0-1.64-.444-2-1"/>
+                <path d="M15 14a5 5 0 0 0-7.584 2"/>
+                <path d="M9.964 6.825C8.019 7.977 9.5 13 8 15"/>
               </svg>
-              {hasNavDot('home') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
+              {hasNavDot('muscles') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
             </span>
-            <span>Home</span>
+            <span>Muscles</span>
           </button>
-          <button data-tour="nav-workout" className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
+          <button className={`nav-item ${activeTab === 'metrics' ? 'active' : ''}`} onClick={() => setActiveTab('metrics')}>
             <span className="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />
-                <path d="m2.5 21.5 1.4-1.4" />
-                <path d="m20.1 3.9 1.4-1.4" />
-                <path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" />
-                <path d="m9.6 14.4 4.8-4.8" />
+                <path d="M3 3v16a2 2 0 0 0 2 2h16"/>
+                <path d="M18 17V9"/>
+                <path d="M13 17V5"/>
+                <path d="M8 17v-3"/>
+              </svg>
+              {hasNavDot('metrics') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
+            </span>
+            <span>Metrics</span>
+          </button>
+          <button
+            data-tour="nav-workout"
+            className={`nav-item nav-plus ${activeTab === 'workouts' ? 'active' : ''}`}
+            aria-label="Start workout"
+            onClick={() => { setWorkoutStartRequested(true); setActiveTab('workouts'); }}
+          >
+            <span className="nav-plus-circle">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
               </svg>
               {hasNavDot('workouts') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
             </span>
-            <span>Workout</span>
+          </button>
+          <button data-tour="wt-tab-templates" className={`nav-item ${activeTab === 'library' ? 'active' : ''}`} onClick={() => setActiveTab('library')}>
+            <span className="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m16 6 4 14"/>
+                <path d="M12 6v14"/>
+                <path d="M8 8v12"/>
+                <path d="M4 4v16"/>
+              </svg>
+              {hasNavDot('library') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
+            </span>
+            <span>Library</span>
           </button>
           <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
             <span className="icon">

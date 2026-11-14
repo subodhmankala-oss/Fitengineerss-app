@@ -14,7 +14,7 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
 
   return (
     <div
-      className="muscle-card muscle-card-tappable"
+      className={`muscle-card muscle-card-tappable status-${status.color}`}
       style={{ animationDelay: `${Math.min(index * 45, 400)}ms` }}
       onClick={onClick}
       role="button"
@@ -22,31 +22,30 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
       onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}
       aria-label={`${muscle} details`}
     >
+      {/* Quiet tile: picture and % on top, name, status dot, thin bar,
+          sets and volume. */}
       <div className="muscle-card-top">
-        <span className={`status-${status.color}`}>
-          <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={40} />
-        </span>
-        <div className="muscle-card-title">
-          <strong>{muscle}</strong>
-          <span className={`muscle-status-pill status-${status.color}`}>
-            {status.emoji} {status.label}
-          </span>
-        </div>
-      </div>
-
-      <div className="muscle-card-stats">
-        <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'Avg Sets/Wk' : 'Target Sets'}</span>
+        <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={32} />
         <span className="muscle-completion">{completionPercent}%</span>
       </div>
 
-      <div className="muscle-progress-track">
-        <div
-          className={`muscle-progress-fill status-${status.color}`}
-          style={{ width: `${fillWidth}%` }}
-        />
+      <div className="muscle-card-title">
+        <strong>{muscle}</strong>
+        <span className="muscle-status-pill">
+          <span className="muscle-status-dot" aria-hidden="true" />
+          {status.label}
+        </span>
       </div>
 
-      <div className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg volume this {period}</div>
+      <div className="muscle-card-bottom">
+        <div className="muscle-progress-track">
+          <div className="muscle-progress-fill" style={{ width: `${fillWidth}%` }} />
+        </div>
+        <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'avg/wk' : 'sets'}</span>
+        {/* "this week/month" doesn't fit a third-width card; the Week/Month
+            chips above already say which. */}
+        <span className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg volume</span>
+      </div>
     </div>
   );
 };

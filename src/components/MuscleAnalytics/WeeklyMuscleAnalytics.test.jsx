@@ -22,7 +22,7 @@ const weekDays = Array.from({ length: 7 }, (_, i) => getLocalDateString(new Date
 const monthName = (offset) => new Date(today.getFullYear(), today.getMonth() + offset, 1)
   .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-const Harness = () => {
+const Harness = ({ show }) => {
   const [monthOffset, setMonthOffset] = useState(0);
   return (
     <WeeklyMuscleAnalytics
@@ -36,9 +36,32 @@ const Harness = () => {
       monthOffset={monthOffset}
       setMonthOffset={setMonthOffset}
       monthlyStats={{ totalVolume: 10, totalSets: 20, workoutsCount: 30, totalCalories: 40 }}
+      show={show}
     />
   );
 };
+
+describe('WeeklyMuscleAnalytics — show', () => {
+  afterEach(cleanup);
+
+  it('shows both halves by default (the coach view)', () => {
+    render(<Harness />);
+    expect(screen.getByText('Muscle Balance')).toBeTruthy();
+    expect(screen.getByText('Muscle Heat Map')).toBeTruthy();
+  });
+
+  it('shows one half for the client Muscles sub-tabs', () => {
+    render(<Harness show="overview" />);
+    expect(screen.getByText('Muscle Balance')).toBeTruthy();
+    expect(screen.getByText('Insights')).toBeTruthy();
+    expect(screen.queryByText('Muscle Heat Map')).toBeNull();
+    cleanup();
+    render(<Harness show="heatmap" />);
+    expect(screen.getByText('Muscle Heat Map')).toBeTruthy();
+    expect(screen.queryByText('Muscle Balance')).toBeNull();
+    expect(screen.queryByText('Insights')).toBeNull();
+  });
+});
 
 describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
   beforeEach(() => { try { localStorage.clear(); } catch { /* no storage */ } });
@@ -47,19 +70,19 @@ describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
   it('starts on the week and switches the cards to a per-week average for the month', () => {
     render(<Harness />);
     expect(screen.getByRole('tab', { name: 'Week' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getAllByText(/Target Sets/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/ \/ \d+ sets$/).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
     expect(screen.getByRole('tab', { name: 'Month' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByText(monthName(0))).toBeTruthy();
-    expect(screen.getAllByText(/Avg Sets\/Wk/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/kg volume this month/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/avg\/wk/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/kg volume$/).length).toBeGreaterThan(0);
 
     // Chest: 3 sets a day → 21 a week, whatever the month length so far
     // (fewer than 7 days counts as one week, so it can only be lower).
     const weeks = Math.max(1, days.length / 7);
     const avg = Math.round((days.length * 3 / weeks) * 10) / 10;
-    expect(screen.getByText(`${avg} / 16 Avg Sets/Wk`)).toBeTruthy();
+    expect(screen.getByText(`${avg} / 16 avg/wk`)).toBeTruthy();
 
     // Can step back a month, not forward past this one.
     expect(screen.getByTitle('Already on the current month').disabled).toBe(true);

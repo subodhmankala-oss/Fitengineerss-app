@@ -5660,3 +5660,37 @@ html.keyboard-open .rest-timer-floating-card {
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* Workout tab with nothing running (the + lives in the bottom nav). */
+.wt-plus-launch {
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.wt-plus-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.wt-plus-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.wt-plus-link {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--accent-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}

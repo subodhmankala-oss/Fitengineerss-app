@@ -1135,6 +1135,85 @@
   justify-content: space-between;
 }
 
+/* ── Idle drop (utils/trainingLevelDecay) ──
+   One point is ~4% of one segment, too thin to notice on its own, so a
+   dropping bar gets three cues: the lost stretch striped amber (never thinner
+   than a few px), an amber marker with a "↓ N" tag above it, and the score
+   with its −N next to the heading. */
+.skill-level-track.is-dropping {
+  margin-top: 22px;
+}
+
+.skill-level-lost {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  /* The marker (10px) covers the first 5px, so keep a clear 11px+ showing. */
+  min-width: 16px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.85) 0 3px, rgba(245, 158, 11, 0.3) 3px 6px);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.55);
+}
+
+.skill-level-marker.is-dropping {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25), 0 0 8px rgba(245, 158, 11, 0.6);
+  z-index: 1;
+}
+
+.skill-level-drop-tag {
+  position: absolute;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+}
+
+.skill-level-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.skill-level-heading-row .skill-level-heading {
+  margin-bottom: 0;
+}
+
+.skill-level-score {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.skill-level-score small {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.skill-level-score-drop {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+}
+
 .skill-level-decay {
   margin: 8px 0 0;
   font-size: 0.72rem;

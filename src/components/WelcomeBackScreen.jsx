@@ -114,6 +114,7 @@ function CheckInCard({ userId, onCheckIn }) {
 
 export default function WelcomeBackScreen({
   userId,
+  level = null,
   userName,
   logs,
   weekDays,
@@ -138,7 +139,7 @@ export default function WelcomeBackScreen({
   // when this week actually has classifiable data, so nothing is fabricated.
   const muscleTeaser = useMemo(() => {
     if (!weekDays || weekDays.length < 7) return null;
-    const stats = getWeeklyMuscleStats(logs || [], weekDays[0], weekDays[6]);
+    const stats = getWeeklyMuscleStats(logs || [], weekDays[0], weekDays[6], { level });
     const counts = {};
     stats.forEach(s => { counts[s.status.key] = (counts[s.status.key] || 0) + 1; });
     const anyTrained = stats.some(s => s.sets > 0);
@@ -151,7 +152,7 @@ export default function WelcomeBackScreen({
         return `${count} ${meta?.label || key}`;
       });
     return ranked.join(' · ');
-  }, [logs, weekDays]);
+  }, [logs, weekDays, level]);
 
   const hasConfiguredProgram = isLinkedToCoach && Number.isFinite(sessionsTotal) && sessionsTotal > 0;
   const percentComplete = hasConfiguredProgram

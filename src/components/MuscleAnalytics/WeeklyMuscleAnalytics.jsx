@@ -77,7 +77,7 @@ const PERIOD_KEY = 'muscleAnalyticsPeriod';
  * same weekly targets, so colours and statuses mean the same in both views.
  * Month navigation shares the parent's Monthly tab offset.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null, liveNote = false }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null, liveNote = false, level = null }) => {
   const canMonth = !!(setMonthOffset && monthlyStats);
   const [periodPref, setPeriodPref] = useState(() => {
     try { return localStorage.getItem(PERIOD_KEY) === 'month' ? 'month' : 'week'; } catch { return 'week'; }
@@ -187,9 +187,9 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const muscleStats = useMemo(
     () => {
       void catalogVersion; // recompute when the catalog mapping changes
-      return getWeeklyMuscleStats(logs, rangeStartStr, rangeEndStr, { weeks });
+      return getWeeklyMuscleStats(logs, rangeStartStr, rangeEndStr, { weeks, level });
     },
-    [logs, rangeStartStr, rangeEndStr, weeks, catalogVersion]
+    [logs, rangeStartStr, rangeEndStr, weeks, level, catalogVersion]
   );
 
   const neglectedCount = muscleStats.filter(m => m.status.key === 'neglected').length;
@@ -200,10 +200,10 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const regionSplit = useMemo(() => {
     void catalogVersion;
     return Object.fromEntries(MUSCLE_GROUPS.filter(hasRegions).map(m => {
-      const parts = getRegionBreakdownForMuscle(logs, m, rangeStartStr, rangeEndStr, { weeks }).filter(r => r.tier);
+      const parts = getRegionBreakdownForMuscle(logs, m, rangeStartStr, rangeEndStr, { weeks, level }).filter(r => r.tier);
       return [m, Object.fromEntries(parts.map(r => [r.id, r.tier]))];
     }));
-  }, [logs, rangeStartStr, rangeEndStr, weeks, catalogVersion]);
+  }, [logs, rangeStartStr, rangeEndStr, weeks, level, catalogVersion]);
 
   const pplc = useMemo(() => getPPLCDistribution(muscleStats), [muscleStats]);
   const insights = useMemo(() => generateWeeklyInsights(muscleStats, pplc, 5, period), [muscleStats, pplc, period]);
@@ -224,11 +224,11 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
 
   const balanceTrend = useMemo(() => {
     const prevWeeks = isMonth ? weeksInRange(prevStartStr, prevEndStr) : 1;
-    const prevMuscleStats = getWeeklyMuscleStats(logs, prevStartStr, prevEndStr, { weeks: prevWeeks });
+    const prevMuscleStats = getWeeklyMuscleStats(logs, prevStartStr, prevEndStr, { weeks: prevWeeks, level });
     const curr = getAverageCompletion(muscleStats);
     const prev = getAverageCompletion(prevMuscleStats);
     return { curr, prev, trend: classifyTrend(curr, prev), pctChange: prev === 0 ? null : Math.round(((curr - prev) / prev) * 100) };
-  }, [logs, muscleStats, isMonth, prevStartStr, prevEndStr]);
+  }, [logs, muscleStats, isMonth, prevStartStr, prevEndStr, level]);
 
   const heatMapLabel = isMonth
     ? (muscle) => {
@@ -430,7 +430,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={detailStart} weekEnd={detailEnd} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise ? trackAdd : null} onRemoveExercise={onRemoveExercise ? trackRemove : null} addedNames={addedNames} addedCount={picked.length} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
+        <MuscleDetailModal level={level} muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={detailStart} weekEnd={detailEnd} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise ? trackAdd : null} onRemoveExercise={onRemoveExercise ? trackRemove : null} addedNames={addedNames} addedCount={picked.length} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
       )}
     </div>
   );

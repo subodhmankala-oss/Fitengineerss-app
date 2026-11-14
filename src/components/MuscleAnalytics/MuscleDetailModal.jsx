@@ -43,7 +43,7 @@ const TrendSparkline = ({ weeks }) => {
  * already works (ExercisePickerModal, Form Guide sheet, payment modal).
  * Opened by tapping a Section 1 card or a Section 2 heat map region.
  */
-const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStart: browsedStart = null, weekEnd: browsedEnd = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
+const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStart: browsedStart = null, weekEnd: browsedEnd = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null, level = null }) => {
   const now = useMemo(() => new Date(), []);
   // The week the analytics page is showing (so a part colored on the heat map
   // for Sept 7–13 opens with Sept 7–13's numbers), else the last 7 days.
@@ -59,15 +59,15 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStar
 
   // getWeeklyMuscleStats is a generic range aggregator despite its name —
   // reused here with a 30-day window for "Monthly Sets" (see muscleAnalytics.js).
-  const weeklyStat = useMemo(() => getWeeklyMuscleStats(logs, weekStart, todayStr, { includeUntrained: true }).find(m => m.muscle === muscle), [logs, weekStart, todayStr, muscle]);
-  const monthlyStat = useMemo(() => getWeeklyMuscleStats(logs, monthStart, todayStr, { includeUntrained: true }).find(m => m.muscle === muscle), [logs, monthStart, todayStr, muscle]);
+  const weeklyStat = useMemo(() => getWeeklyMuscleStats(logs, weekStart, todayStr, { includeUntrained: true, level }).find(m => m.muscle === muscle), [logs, weekStart, todayStr, muscle, level]);
+  const monthlyStat = useMemo(() => getWeeklyMuscleStats(logs, monthStart, todayStr, { includeUntrained: true, level }).find(m => m.muscle === muscle), [logs, monthStart, todayStr, muscle, level]);
   const breakdown = useMemo(() => getExerciseBreakdownForMuscle(logs, muscle, weekStart, todayStr), [logs, muscle, weekStart, todayStr]);
   const bestLift = useMemo(() => getBestLiftForMuscle(logs, muscle), [logs, muscle]);
   const personalRecords = useMemo(() => getPersonalRecordsForMuscle(logs, muscle, 3), [logs, muscle]);
   const trend = useMemo(() => getWeeklySetsTrendForMuscle(logs, muscle, 6, weekEndDate), [logs, muscle, weekEndDate]);
-  const growth = useMemo(() => getMuscleGrowthScore(logs, muscle, weekEndDate), [logs, muscle, weekEndDate]);
+  const growth = useMemo(() => getMuscleGrowthScore(logs, muscle, weekEndDate, level), [logs, muscle, weekEndDate, level]);
   const recovery = useMemo(() => getMuscleRecovery(logs, muscle, now), [logs, muscle, now]);
-  const regions = useMemo(() => getRegionBreakdownForMuscle(logs, muscle, weekStart, todayStr), [logs, muscle, weekStart, todayStr]);
+  const regions = useMemo(() => getRegionBreakdownForMuscle(logs, muscle, weekStart, todayStr, { level }), [logs, muscle, weekStart, todayStr, level]);
 
   // Closing is animated: the sheet slides back down and the backdrop fades
   // out BEFORE the parent unmounts this component (the parent just does

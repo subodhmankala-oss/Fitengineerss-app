@@ -81,6 +81,7 @@ import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 import MuscleGapHint from './MuscleGapHint';
+import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
 import PhoneGate from './PhoneGate';
 import CoachFirstClientCard from './CoachFirstClientCard';
 import { hasValidPhone } from '../utils/coachPhone';
@@ -750,6 +751,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
+  // The selected client's experience level → their weekly muscle set targets.
+  const selectedClientLevel = useClientTrainingLevel(selectedClient?.id || null);
   const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
 
   // Keep the screen from auto-locking/dimming only while the coach is
@@ -9185,6 +9188,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           <WeeklyMuscleAnalytics
                             logs={liveTickedRows.length > 0 ? [...rawWorkoutLogs, ...liveTickedRows] : rawWorkoutLogs}
                             liveNote={liveTickedRows.length > 0}
+                            level={selectedClientLevel}
                             weekDays={weekDays}
                             weekRangeLabel={weekRangeLabel}
                             weeklyStats={muscleAnalyticsWeeklyStats}
@@ -9922,6 +9926,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             plan can cover it — chips add to the plan. */}
                         <MuscleGapHint
                           logs={rawWorkoutLogs}
+                          level={selectedClientLevel}
                           addedNames={editorExercises.map(le => le.name)}
                           onAdd={handleAddExerciseToEditor}
                           onOpenMuscleMap={openClientMuscleMap}
@@ -10909,6 +10914,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       their own logger; chips add straight into the live log. */}
                   <MuscleGapHint
                     logs={liveGapLogs}
+                    level={selectedClientLevel}
                     addedNames={liveExercises.map(le => le.name)}
                     onAdd={handleLiveAddExercise}
                     onOpenMuscleMap={openClientMuscleMap}

@@ -41,6 +41,10 @@ export default function Avatar({ email, name, avatarUrl, size = 36, className = 
         src={src}
         alt={name || email || 'User avatar'}
         className={className}
+        // Google's photo host can refuse requests that carry a referrer, and a
+        // long roster would otherwise fetch every photo at once.
+        referrerPolicy="no-referrer"
+        loading="lazy"
         style={{ ...circleStyle, objectFit: 'cover' }}
         onError={() => setFailedSrc(src)}
       />

@@ -248,6 +248,8 @@ export function isCardioExercise(name) {
 export function isTimedExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
+  // Plank push-ups, up-downs, toe taps and twists are rep-based moves, not holds.
+  if (/plank\s*(to\s*)?(push|up[\s-]?down|toe\s*tap|twist)|push[\s-]?up.*plank|toe\s*taps?.*plank|twist.*plank/.test(n)) return false;
   return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|ski ?erg|battle rope|side hops?|foot fires?|\bhundred\b/.test(n);
 }
 

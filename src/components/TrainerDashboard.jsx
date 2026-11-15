@@ -33,7 +33,7 @@ import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
 import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, remapSetTimersForSetInsert, remapSetTimersForSetMove, moveItem, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { notifyEvent } from '../utils/pushNotify';
 import { getActivityStatus } from '../utils/activityStatus';
@@ -79,6 +79,8 @@ import MonthlyReportComposer from './MonthlyReportComposer';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
+import { useSetLiftDrop } from '../hooks/useSetLiftDrop';
+import SetLiftOverlay, { SetDropZone, SetLiftHint } from './SetLiftOverlay';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 import MuscleGapHint from './MuscleGapHint';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
@@ -2876,6 +2878,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       return { ...ex, sets: ex.sets.filter((_, si) => si !== setIdx) };
     }));
   };
+
+  // Lift and drop on Live Log set rows — same as the client logger
+  // (see hooks/useSetLiftDrop.js).
+  const liveLiftDrop = useSetLiftDrop({
+    canRemove: (exIdx) => (liveExercises[exIdx]?.sets.length || 0) > 1,
+    onRemove: (exIdx, setIdx) => {
+      const removed = liveExercises[exIdx]?.sets[setIdx];
+      if (!removed) return null;
+      handleLiveRemoveSet(exIdx, setIdx);
+      return () => {
+        setLiveSetTimers(prev => remapSetTimersForSetInsert(exIdx, setIdx, prev));
+        setLiveExercises(prev => prev.map((ex, idx) => {
+          if (idx !== exIdx) return ex;
+          const sets = ex.sets.slice();
+          sets.splice(Math.min(setIdx, sets.length), 0, removed);
+          return { ...ex, sets };
+        }));
+      };
+    },
+    onMove: (exIdx, fromIdx, toIdx) => {
+      setLiveSetTimers(prev => remapSetTimersForSetMove(exIdx, fromIdx, toIdx, prev));
+      setLiveExercises(prev => prev.map((ex, idx) => (idx === exIdx ? { ...ex, sets: moveItem(ex.sets, fromIdx, toIdx) } : ex)));
+    },
+  });
 
   const handleLiveChangeSetType = (exIdx, setIdx, type) => {
     if (type === 'remove') {
@@ -10492,6 +10518,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       edges, matching the app's standard flush logging layout. */}
                   <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} />
 
+                  <SetLiftOverlay undo={liveLiftDrop.undo} onUndo={liveLiftDrop.runUndo} />
                   <div className="live-logger-exercise-list">
                     {liveExercises.length === 0 && (
                       <div className="wt-empty-state">No exercises yet. Tap ➕ Add Exercise below to start.</div>
@@ -10568,6 +10595,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           {cardMenu}
                         </div>
 
+                        {exIdx === 0 && <SetLiftHint storageKey="setLiftHintShows:coach" hide={liveLiftDrop.hasLifted} />}
                         {/* Sets Table */}
                         <div className="hevy-sets-table">
                           <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
@@ -10688,7 +10716,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                 );
                               };
                               return (
-                              <div key={setIdx} className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isLiveExitingSet(exIdx, setIdx) ? 'set-row-exit' : ''}`} onAnimationEnd={(e) => { if (e.target === e.currentTarget) handleLiveExitAnimationEnd(exIdx, setIdx); }} ref={(node) => registerLiveRow(exIdx, setIdx, node)}>
+                              <div key={setIdx} className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isLiveExitingSet(exIdx, setIdx) ? 'set-row-exit' : ''}`} onAnimationEnd={(e) => { if (e.target === e.currentTarget) handleLiveExitAnimationEnd(exIdx, setIdx); }} ref={(node) => registerLiveRow(exIdx, setIdx, node)} {...liveLiftDrop.liftRowProps(exIdx, setIdx)}>
                                 <span className="col-set set-type-menu-wrapper">
                                   <span
                                     className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''} ${set.setType === 'superset' ? 'superset' : ''}`}
@@ -10929,16 +10957,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   >
                                     {set.isCompleted ? '✓' : ''}
                                   </button>
-                                  {ex.sets.length > 1 && (
-                                    <button
-                                      type="button"
-                                      className="btn-hevy-row-delete"
-                                      onClick={() => beginLiveExit(exIdx, setIdx, () => handleLiveRemoveSet(exIdx, setIdx))}
-                                      title="Delete Set"
-                                    >
-                                      <TrashIcon size={16} />
-                                    </button>
-                                  )}
                                 </div>
                               </div>
                               );
@@ -10946,6 +10964,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           </div>
                         </div>
 
+                        <SetDropZone exIdx={exIdx} liftDrop={liveLiftDrop}>
                         <div className="ex-card-actions">
                           <button
                             onClick={(e) => { handleLiveAddSet(exIdx); animateNewSetRow(e.currentTarget); }}
@@ -10958,6 +10977,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             title="Start a 60s rest timer"
                           >⏱️ Start Rest</button>
                         </div>
+                        </SetDropZone>
                       </div>
                       )}
                       </div>

@@ -82,9 +82,12 @@ describe('Coach Live Log delete set', { timeout: 30000 }, () => {
   it('deleting the top set removes only that one — the row that takes its place stays fully visible and clickable', async () => {
     renderLiveLog();
     expect(await screen.findByRole('button', { name: '40' }, SLOW)).toBeTruthy();
-    expect(screen.getAllByTitle('Delete Set').length).toBe(3);
+    expect(screen.getAllByTitle('Change set type').length).toBe(3);
 
-    fireEvent.click(screen.getAllByTitle('Delete Set')[0]);
+    // The row bin is gone (rows lift and drop now); the set-type menu's
+    // Remove Set is the tap path to the same removal.
+    fireEvent.click(screen.getAllByTitle('Change set type')[0]);
+    fireEvent.click(await screen.findByText('Remove Set'));
 
     // jsdom never fires animationend for a real CSS animation, so removal
     // here falls back to useExitingSetRow's safety timer (900ms) — a
@@ -94,7 +97,7 @@ describe('Coach Live Log delete set', { timeout: 30000 }, () => {
 
     expect(screen.getByRole('button', { name: '42.5' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '45' })).toBeTruthy();
-    expect(screen.getAllByTitle('Delete Set').length).toBe(2);
+    expect(screen.getAllByTitle('Change set type').length).toBe(2);
     // The row that shifted into the top slot isn't stuck wearing the OLD
     // top row's exit styling — see WorkoutTracker.deleteSet.test.jsx for
     // the full "ghost row" explanation.

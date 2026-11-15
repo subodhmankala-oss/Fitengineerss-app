@@ -7,9 +7,10 @@ import './SetMuscleRing.css';
 
 // Ring beside a set's tick: how far this week's sets for the exercise's main
 // muscle have got toward its weekly target (see utils/setMuscleRing.js).
-// The week's count sits inside the ring ("11/12"), in the heat map's own
-// colours: blue = Low, green = Optimal, orange = High, red = Very High;
-// slate = not ticked yet, dashed = ticked but not counted (no kg / no reps). Tap for the muscle's name. Rows with no ring keep an empty slot of the same
+// The week's count sits inside the ring ("11/12"), in the Muscle Balance
+// card's status colours: orange = Undertrained, yellow = Slightly Low,
+// green = Optimal, blue = High Volume; slate = not ticked yet, dashed =
+// ticked but not counted (no kg / no reps). Tap for the muscle's name. Rows with no ring keep an empty slot of the same
 // width so the ticks stay lined up.
 const SIZE = 34;
 const MID = SIZE / 2;
@@ -64,7 +65,7 @@ export default function SetMuscleRing({ ring }) {
 
 // Header over the ring column: a small drawing of the exercise's main muscle
 // (the same heat-map artwork as the Muscle Balance cards), coloured like the
-// rings below it (the heat map's tier colours; slate until a set is ticked).
+// rings below it (the Muscle Balance status colours; slate until a set is ticked).
 // It takes the colour of the exercise's last counted set. An empty slot when the
 // exercise maps to no muscle, so "✓ all" stays over the ticks either way.
 export function SetRingHeaderMuscle({ exerciseName, rings, exIdx }) {

@@ -7,12 +7,23 @@
 // can't disagree. "Full" is the target band's low end, the point where the
 // heat map turns the muscle green (Optimal).
 
-import { getWeeklyMuscleStats, getMuscleTargets, isCountableSet, classifyStatus, getHeatMapTier } from './muscleAnalytics.js';
+import { getWeeklyMuscleStats, getMuscleTargets, isCountableSet, classifyStatus } from './muscleAnalytics.js';
 import { getMuscleGroupsForExercise, getMuscleWeight } from './muscleGroups.js';
 import { parseLocalDateString, shiftLocalDateString } from './dateUtils.js';
 
-// The heat map's "Not Trained" slate, for unticked and uncounted sets.
+// Slate for unticked and uncounted sets.
 export const NOT_TRAINED = '#64748b';
+
+// The Muscle Balance cards' status colours (WeeklyMuscleAnalytics.css
+// .status-*): red Neglected, orange Undertrained, yellow Slightly Low,
+// green Optimal, blue High Volume.
+const STATUS_COLORS = {
+  neglected: '#ef4444',
+  undertrained: '#f97316',
+  slightly_low: '#eab308',
+  optimal: '#10b981',
+  high_volume: '#3b82f6',
+};
 
 const isWarmupSet = (set) => !!set.isWarmup || set.setType === 'warmup';
 
@@ -75,9 +86,8 @@ export function getSetRingStates(savedLogs, exercises, logDate, level) {
         muscle: main,
         sets,
         target,
-        // The heat map's own colour for this many sets: blue Low, green
-        // Optimal, orange High, red Very High (getHeatMapTier).
-        color: getHeatMapTier({ status: classifyStatus(sets, band), completionPercent: Math.round((sets / band.target) * 100) }).color,
+        // Same colour as the Muscle Balance card's status for this many sets.
+        color: STATUS_COLORS[classifyStatus(sets, band).key] || NOT_TRAINED,
       };
     });
   });

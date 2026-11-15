@@ -22,13 +22,18 @@ describe('getSetRingStates', () => {
     expect(r['0-2'].state).toBe('done');
   });
 
-  it('uses the heat map colours: blue under target, green at target, orange over the band', () => {
+  it('uses the Muscle Balance status colours: yellow slightly low, green optimal, blue high volume', () => {
     const many = Array.from({ length: 12 }, () => saved[0]);
     const r = getSetRingStates(saved, [press([done(5, 10), done(5, 10)])], '2026-11-15', 'beginner');
-    expect(r['0-0'].color).toBe('#3b82f6');
+    expect(r['0-0'].color).toBe('#eab308');
     expect(r['0-1'].color).toBe('#10b981');
     const over = getSetRingStates(many, [press([done(5, 10)])], '2026-11-15', 'beginner');
-    expect(over['0-0'].color).toBe('#f97316');
+    expect(over['0-0'].color).toBe('#3b82f6');
+  });
+
+  it('is orange (undertrained) well under target', () => {
+    const r = getSetRingStates([], [press([done(5, 10)])], '2026-11-15', 'beginner');
+    expect(r['0-0'].color).toBe('#f97316');
   });
 
   it('ignores last week\'s sets', () => {

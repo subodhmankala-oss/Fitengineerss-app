@@ -1200,15 +1200,14 @@
 }
 
 .live-timer-btn {
-  /* Same whole tinted box as the client bar's Pause (.btn-timer-toggle). */
+  /* Bare amber icon like the client bar's Pause (.btn-timer-toggle). */
   width: 54px;
   min-height: 46px;
   align-self: stretch;
   padding: 0;
   flex-shrink: 0;
-  background: rgba(245, 158, 11, 0.14);
+  background: transparent;
   border: none;
-  border-left: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0;
   color: var(--tint-amber);
   font-size: 0.75rem;
@@ -1220,7 +1219,7 @@
 }
 
 .live-timer-btn:hover {
-  background: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.1);
 }
 
 /* Session card top (design A): client photo, name, date, calendar button. */

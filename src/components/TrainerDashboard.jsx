@@ -26,6 +26,8 @@ import useFullBleed from '../utils/useFullBleed';
 import { getSetRingStates } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import StatsStrip from './StatsStrip';
+import CoachDetailTabs from './CoachDetailTabs';
+import { tabStatuses } from '../utils/coachTabStatus';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
 import { BodySexContext } from './MuscleAnalytics/bodySex';
@@ -137,15 +139,6 @@ const readSavedCoachView = () => {
 // as SIGNUP_ALERT_TYPES in api/_adminAlert.js (server-only module, so not
 // imported here).
 const SIGNUP_ALERT_TYPES = new Set(['new_client_signup', 'signup_incomplete', 'new_coach_signup', 'founder_reply']);
-
-// A client-detail tab's emoji icon, with the blue unread dot on its corner
-// when a notification points at that tab.
-const TabIcon = ({ icon, dot }) => (
-  <span style={{ position: 'relative' }}>
-    {icon}
-    {dot && <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -8 }} aria-label="New update" />}
-  </span>
-);
 
 // Rounded tinted tile + line icon, the leading mark on every Payments card
 // (line icons, not emoji — same treatment as the summary tiles further down).
@@ -8533,96 +8526,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               </div>
 
               <div className="client-detail-main">
-              {/* Tab Navigation */}
-              <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px', flexWrap: 'wrap' }}>
-                <button
-                  data-tour="tc-tab-plans"
-                  className={`trainer-tab-btn ${detailTab === 'plans' ? 'active' : ''}`}
-                  style={{
-                    flex: 1,
-                    minWidth: '80px',
-                    padding: '10px 6px',
-                    textAlign: 'center',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px',
-                    borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
-                    color: detailTab === 'plans' ? 'var(--accent-text)' : 'var(--text-muted)'
-                  }}
-                  onClick={() => { handleTabChange('plans'); coachTour.advanceIfStep(2, 3); }}
-                >
-                  <TabIcon icon="📋" dot={hasClientDot(selectedClient?.id, 'plans')} />
-                  <span>Send plan</span>
-                </button>
-                <button
-                  data-tour="tc-tab-livelog"
-                  className={`trainer-tab-btn ${detailTab === 'livelog' ? 'active' : ''}`}
-                  style={{
-                    flex: 1,
-                    minWidth: '80px',
-                    padding: '10px 6px',
-                    textAlign: 'center',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px',
-                    borderBottom: detailTab === 'livelog' ? '2px solid #f59e0b' : 'none',
-                    color: detailTab === 'livelog' ? '#f59e0b' : 'var(--text-muted)'
-                  }}
-                  onClick={() => { handleTabChange('livelog'); coachTour.advanceIfStep(3, 4); }}
-                >
-                  <TabIcon icon="🎯" dot={hasClientDot(selectedClient?.id, 'livelog')} />
-                  <span>Live Log</span>
-                </button>
-                <button
-                  data-tour="tc-tab-workout"
-                  className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
-                  style={{
-                    flex: 1,
-                    minWidth: '80px',
-                    padding: '10px 6px',
-                    textAlign: 'center',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px',
-                    borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
-                    color: detailTab === 'workout' ? 'var(--accent-text)' : 'var(--text-muted)'
-                  }}
-                  onClick={() => handleTabChange('workout')}
-                >
-                  <TabIcon icon="🏋️" dot={hasClientDot(selectedClient?.id, 'workout')} />
-                  <span>History</span>
-                </button>
-                <button
-                  className={`trainer-tab-btn ${detailTab === 'measurements' ? 'active' : ''}`}
-                  style={{
-                    flex: 1,
-                    minWidth: '80px',
-                    padding: '10px 6px',
-                    textAlign: 'center',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px',
-                    borderBottom: detailTab === 'measurements' ? '2px solid #38bdf8' : 'none',
-                    color: detailTab === 'measurements' ? '#38bdf8' : 'var(--text-muted)'
-                  }}
-                  onClick={() => handleTabChange('measurements')}
-                >
-                  <TabIcon icon="📏" dot={hasClientDot(selectedClient?.id, 'measurements')} />
-                  <span>Measurements</span>
-                </button>
-              </div>
+              {/* Tab Navigation — status tabs (CoachDetailTabs) */}
+              {(() => {
+                const ms = clientMeasurements;
+                const statuses = tabStatuses({
+                  coachPlanCount: clientPlans.filter(p => p.createdBy === 'coach').length,
+                  liveStatus: liveTimerStatus,
+                  liveElapsedSeconds,
+                  liveExerciseCount: liveExercises.length,
+                  lastWorkoutDate: workoutLogs[0]?.date || null,
+                  latestWeight: ms[0]?.measurements?.weight ?? selectedClient?.userWeight ?? null,
+                  previousWeight: ms[1]?.measurements?.weight ?? null,
+                });
+                return (
+                  <CoachDetailTabs
+                    active={detailTab}
+                    statuses={statuses}
+                    liveRunning={liveTimerStatus === 'running'}
+                    hasDot={(key) => hasClientDot(selectedClient?.id, key)}
+                    onSelect={(key) => {
+                      handleTabChange(key);
+                      if (key === 'plans') coachTour.advanceIfStep(2, 3);
+                      if (key === 'livelog') coachTour.advanceIfStep(3, 4);
+                    }}
+                  />
+                );
+              })()}
 
               {/* Coach note composer — send a one-off note to this client
                   (push + stored fallback). Shown above every tab so the coach

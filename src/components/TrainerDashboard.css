@@ -1783,7 +1783,7 @@
     max-width: 640px;
   }
 
-  body.admin-wide-frame .trainer-tab-btn {
+  body.admin-wide-frame .trainer-tab-btn:not(.coach-tab) {
     flex-direction: row;
     flex: 0 1 auto;
     gap: 6px;

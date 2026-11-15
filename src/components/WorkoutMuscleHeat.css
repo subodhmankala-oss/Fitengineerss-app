@@ -6,14 +6,14 @@
 }
 
 .wmh-toggle {
-  /* One dark tile: front + back sit flush and the chevron is inside, so the
-     whole thing reads (and taps) as a single control. */
+  /* One control: front + back sit flush. No
+     background of its own — the bodies sit straight on the bar. */
   display: flex;
   align-items: center;
   gap: 0;
   /* Full bleed: touches the bar's top and bottom edges. */
-  padding: 0 6px 0 4px;
-  background: #0b1120;
+  padding: 0 10px;
+  background: transparent;
   border: none;
   border-radius: 0;
   color: var(--tint-amber);
@@ -24,16 +24,7 @@
 
 .wmh-toggle:hover,
 .wmh-toggle.is-open {
-  background: #141c2e;
-}
-
-.wmh-chev {
-  margin-left: 2px;
-  transition: transform 0.2s ease;
-}
-
-.wmh-toggle.is-open .wmh-chev {
-  transform: rotate(180deg);
+  background: rgba(var(--fg-rgb), 0.05);
 }
 
 /* Figures in the bar tile: no frame of their own. */

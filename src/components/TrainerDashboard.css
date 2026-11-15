@@ -1138,18 +1138,6 @@
   flex-wrap: wrap;
 }
 
-/* Stopwatch shortcut: neutral in the Live Log, so Pause is the one accent. */
-.live-timer-bar .btn-timer-stopwatch {
-  background: transparent;
-  border-left: 1px solid var(--border-color);
-  color: var(--text-muted);
-}
-
-.live-timer-bar .btn-timer-stopwatch:hover {
-  background: rgba(var(--fg-rgb), 0.05);
-  color: var(--text-main);
-}
-
 /* Heat tile + Pause, flush together at the bar's right end. */
 .live-timer-end {
   flex: 0 0 auto;
@@ -1172,7 +1160,7 @@
 .live-timer-value {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 1.4rem;
+  font-size: 1.15rem;
   line-height: 1.1;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -1212,15 +1200,14 @@
 }
 
 .live-timer-btn {
-  /* Same whole tinted box as the client bar's Pause (.btn-timer-toggle). */
+  /* Bare amber icon like the client bar's Pause (.btn-timer-toggle). */
   width: 54px;
   min-height: 46px;
   align-self: stretch;
   padding: 0;
   flex-shrink: 0;
-  background: rgba(245, 158, 11, 0.14);
+  background: transparent;
   border: none;
-  border-left: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0;
   color: var(--tint-amber);
   font-size: 0.75rem;
@@ -1232,7 +1219,7 @@
 }
 
 .live-timer-btn:hover {
-  background: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.1);
 }
 
 /* Session card top (design A): client photo, name, date, calendar button. */

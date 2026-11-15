@@ -1915,19 +1915,18 @@
      "Finish" gone the content is small enough to never need wrapping; the timer
      group shrinks before anything is pushed to a new line. */
   flex-wrap: nowrap;
-  /* Opaque base under the amber tint so scrolled content doesn't show through
-     while the bar is pinned. */
-  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), var(--bg-card);
+  /* Plain opaque card surface, same as the coach Live Log bar (design A,
+     #529): colour is kept for the Pause block only. */
+  background: var(--bg-card);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  border: 1px solid var(--border-color);
   /* No top/right/bottom padding: the heat tile and Pause box bleed to the
      bar's edges. The time/kcal stack carries its own vertical padding. */
   padding: 0 0 0 14px;
   border-radius: var(--radius-md);
   margin-bottom: 8px;
   gap: 10px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 .timer-display {
@@ -1966,18 +1965,15 @@
 /* Compact inline clock — no stacked "Active Tracker" badge; icon, time, kcal and
    Pause all sit on one row. */
 .stopwatch-time {
-  /* Same look as the coach Live Log bar (.live-timer-value). */
-  font-size: 1rem;
-  color: var(--tint-amber);
-  font-family: 'Courier New', Courier, monospace;
-  font-weight: 800;
+  /* Same look as the coach Live Log bar (.live-timer-value, design A). */
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
   white-space: nowrap;
-}
-
-/* Leading ⏱ like the coach bar — drawn by CSS so the clock text stays the bare time. */
-.timer-stack .stopwatch-time::before {
-  content: '⏱';
-  margin-right: 8px;
 }
 
 .stopwatch-time.is-paused {
@@ -1985,17 +1981,26 @@
 }
 
 .live-kcal-badge {
-  /* Plain bold line, like the coach Live Log bar (.live-timer-kcal). */
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-main);
+  /* Flame line icon + muted kcal, like the coach Live Log bar (.live-timer-kcal). */
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
   white-space: nowrap;
 }
+
+.live-kcal-badge svg {
+  color: #ea7a3c;
+  flex-shrink: 0;
+}
+
 
 .live-timer-idle-hint {
   font-size: 0.78rem;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .timer-controls {
@@ -2025,9 +2030,9 @@
 /* Pause/Resume is the bar's main control: a whole tinted block filling the
    bar's right end (full bleed, rounded only where the bar is). */
 .btn-timer-toggle {
-  background: rgba(245, 158, 11, 0.14);
+  /* Bare amber icon (no background); full-height tap area at the bar's edge. */
+  background: transparent;
   border: none;
-  border-left: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0;
   color: var(--tint-amber);
   width: 54px;
@@ -2042,11 +2047,11 @@
 }
 
 .btn-timer-toggle:hover {
-  background: rgba(245, 158, 11, 0.24);
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .btn-timer-toggle:active {
-  background: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.18);
 }
 
 /* Icon-only, no button chrome — matches the coach-side discard control. */
@@ -2072,11 +2077,10 @@
 }
 
 .btn-timer-stopwatch {
-  /* Full-height tinted block like Pause, in the stopwatch's own blue —
+  /* Bare blue icon on the bar (no background), full-height tap area —
      client bar and coach Live Log bar. */
-  background: rgba(59, 130, 246, 0.1);
+  background: transparent;
   border: none;
-  border-left: 1px solid rgba(59, 130, 246, 0.3);
   color: #3b82f6;
   width: 54px;
   min-height: 46px;
@@ -2092,21 +2096,17 @@
 }
 
 .btn-timer-stopwatch:hover {
-  background: rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .btn-timer-stopwatch:active {
-  background: rgba(59, 130, 246, 0.26);
+  background: rgba(59, 130, 246, 0.18);
 }
 
 @media (max-width: 390px) {
   .hevy-stopwatch-banner {
     padding: 0 0 0 10px;
     gap: 6px;
-  }
-
-  .stopwatch-time {
-    font-size: 0.95rem;
   }
 
 

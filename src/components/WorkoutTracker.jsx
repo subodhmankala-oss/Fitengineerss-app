@@ -4020,13 +4020,19 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   <strong className={`stopwatch-time ${workoutTimerStatus === 'paused' ? 'is-paused' : ''}`}>
                     {formatStopwatchTime(workoutActiveSeconds)}
                   </strong>
-                  <span className="live-kcal-badge">🔥 {liveOwnWorkoutKcal} kcal</span>
+                  <span className="live-kcal-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 21c-3.9 0-7-2.8-7-6.6 0-3.1 2.1-5.3 3.6-7 .5 1.7 1.5 2.9 2.6 3.4C11 7.6 12.6 4.6 15 3c-.4 2.9.7 4.7 2 6.3 1.2 1.5 2 3 2 5.1C19 18.2 15.9 21 12 21Z" />
+                    </svg>
+                    {liveOwnWorkoutKcal} kcal{workoutTimerStatus === 'paused' ? ' · Paused' : ''}
+                  </span>
                 </div>
               )}
             </div>
             <div className="timer-controls">
               {workoutTimerStatus !== 'idle' && (
                 <>
+                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} />
                   <button
                     type="button"
                     className="btn-timer-stopwatch"
@@ -4035,7 +4041,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   >
                     <StopwatchIcon size={22} />
                   </button>
-                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} />
                   <button
                     type="button"
                     className="btn-timer-toggle"

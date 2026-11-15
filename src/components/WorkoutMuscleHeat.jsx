@@ -54,7 +54,6 @@ export default function WorkoutMuscleHeat({ rows, logDate }) {
       >
         <HeatBodyFigure view="front" height={46} colorFor={colorFor} pulseKey={pulseKey} />
         <HeatBodyFigure view="back" height={46} colorFor={colorFor} pulseKey={pulseKey} />
-        <svg className="wmh-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>
 
       {open && (

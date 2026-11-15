@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getMuscleTargets, MUSCLE_TARGETS, normalizeTargetLevel, getWeeklyMuscleStats } from './muscleAnalytics';
 import { regionBand, getMuscleGaps } from './muscleRegions';
-import { resolveClientTrainingLevel } from './clientTrainingLevel';
+import { resolveClientTrainingLevel, levelFromHistory } from './clientTrainingLevel';
 
 const benchSets = (n, date = '2026-07-20') => Array.from({ length: n }, (_, i) => ({
   log_date: date, exercise_name: 'Bench Press', weight_kg: 40, reps: 10, set_type: null,
@@ -69,5 +69,24 @@ describe('resolveClientTrainingLevel', () => {
   it('returns null when nothing is saved', () => {
     expect(resolveClientTrainingLevel(null, null, now)).toBeNull();
     expect(resolveClientTrainingLevel({ experienceLevel: '' }, { level: null }, now)).toBeNull();
+  });
+});
+
+describe('levelFromHistory (no level saved)', () => {
+  const now = new Date('2026-11-15T12:00:00').getTime();
+
+  it('a client who started 3 weeks ago (or has no workouts yet) is a beginner', () => {
+    expect(levelFromHistory([{ log_date: '2026-10-25' }, { log_date: '2026-11-14' }], now)).toBe('beginner');
+    expect(levelFromHistory([], now)).toBe('beginner');
+    expect(levelFromHistory(null, now)).toBe('beginner');
+  });
+
+  it('steps up at 12 and 24 weeks from the first workout, per-set rows or sessions', () => {
+    expect(levelFromHistory([{ log_date: '2026-08-01' }, { log_date: '2026-11-10' }], now)).toBe('intermediate');
+    expect(levelFromHistory([{ date: '2026-04-01' }], now)).toBe('advanced');
+  });
+
+  it('beginner targets for that client: chest 10, not the intermediate 16', () => {
+    expect(getMuscleTargets(levelFromHistory([{ log_date: '2026-11-09' }], now)).Chest.target).toBe(10);
   });
 });

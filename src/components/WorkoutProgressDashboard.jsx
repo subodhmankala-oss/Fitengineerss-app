@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
@@ -14,6 +14,7 @@ import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
+import { levelFromHistory } from '../utils/clientTrainingLevel';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -47,7 +48,7 @@ const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null, openTestimonial = false, onTestimonialLinkUsed }) => {
   const [userId, setUserId] = useState(null);
   // Experience level → which weekly set targets the muscle screens use.
-  const trainingLevel = useClientTrainingLevel(userId);
+  const savedTrainingLevel = useClientTrainingLevel(userId);
   // Read on the first render: seeding 'Warrior' and swapping in the saved
   // name from an effect flashed "Warrior" in the greeting for a frame.
   const [userName] = useState(() => localStorage.getItem('userName') || 'Warrior');
@@ -74,6 +75,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // Workouts tab (see utils/pendingWorkoutAdds.js).
   const [queuedAdds, setQueuedAdds] = useState(() => getPendingWorkoutAdds());
   const [logs, setLogs] = useState([]);
+  // Saved level, else the one their training time puts them at.
+  const trainingLevel = useMemo(() => savedTrainingLevel || levelFromHistory(logs), [savedTrainingLevel, logs]);
   // Ticked sets of a workout still open in the logger — Muscle Balance
   // counts them too (see utils/liveSessionStore.js). Set once userId is known.
   const [liveRows, setLiveRows] = useState([]);

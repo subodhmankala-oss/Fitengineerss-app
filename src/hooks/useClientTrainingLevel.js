@@ -3,9 +3,9 @@ import databaseService from '../services/databaseService';
 import { resolveClientTrainingLevel } from '../utils/clientTrainingLevel';
 
 /**
- * The experience level a client's muscle targets follow (see
+ * The SAVED experience level a client's muscle targets follow (see
  * utils/clientTrainingLevel). null until loaded, or when the client has no
- * level saved anywhere — the muscle screens then use the intermediate band.
+ * level saved anywhere — callers then fall back to levelFromHistory(logs).
  * @param {string|null} userId - public.users.id of the client
  */
 export default function useClientTrainingLevel(userId) {

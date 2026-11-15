@@ -95,7 +95,7 @@ function completedProgramNames(programs, sessions) {
 // The level the client's tenure alone puts them at — see WEEKS_PER_LEVEL
 // above. `now` is a real Date/timestamp in production, injected in tests
 // for determinism.
-function tenureLevel(sessions, now) {
+export function tenureLevel(sessions, now) {
   const dates = (sessions || []).map(s => s.date).filter(Boolean).sort();
   if (dates.length === 0) return 'beginner';
   const firstDate = new Date(`${dates[0]}T00:00:00`);

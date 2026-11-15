@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import useFullBleed from '../utils/useFullBleed';
 import './CoachDetailTabs.css';
 
 // Coach client-detail tab bar ("status tabs"): each tab shows its name plus a
@@ -29,6 +30,10 @@ export default function CoachDetailTabs({ active, onSelect, statuses, liveRunnin
   // pill can't be placed by arithmetic — it's laid over the active tab's own
   // box, re-measured when the tab, its text or the bar's width changes.
   const trackRef = useRef(null);
+  // Phones: the bar's background runs edge to edge (useFullBleed) while the
+  // tabs are padded back in line with the cards above.
+  const bleedRef = useFullBleed();
+  const setTrack = useCallback((node) => { trackRef.current = node; bleedRef(node); }, [bleedRef]);
   const pillRef = useRef(null);
   // The pill only slides once a tab is tapped, not into place on first paint.
   const [slid, setSlid] = useState(false);
@@ -51,7 +56,7 @@ export default function CoachDetailTabs({ active, onSelect, statuses, liveRunnin
   }, [idx, statusKey]);
   return (
     <div className="trainer-tabs coach-tabs">
-      <div ref={trackRef} className="coach-tabs-track" role="tablist">
+      <div ref={setTrack} className="coach-tabs-track" role="tablist">
         <span ref={pillRef} className={`coach-tabs-pill tone-${TABS[idx].key}${slid ? ' is-sliding' : ''}`} aria-hidden="true" />
         {TABS.map(({ key, label, short, icon, tour }) => {
           const on = key === active;

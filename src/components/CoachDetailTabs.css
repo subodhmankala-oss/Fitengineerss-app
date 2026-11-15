@@ -141,3 +141,17 @@
   .coach-tabs-pill.is-sliding { transition: none; }
   .coach-tab-live { animation: none; }
 }
+
+/* Phones: a full-width band like a tab bar — useFullBleed stretches the track
+   to the screen edges (adds .is-full-bleed + --bleed-left/right). Side
+   borders and rounded ends go, top and bottom lines stay, and the tabs are
+   padded back in by exactly the stretch so they line up with the cards. */
+.coach-tabs-track.is-full-bleed {
+  border-left: none;
+  border-right: none;
+  border-top: 1.5px solid var(--border-strong);
+  border-bottom: 1.5px solid var(--border-strong);
+  border-radius: 0;
+  padding-left: var(--bleed-left, 8px);
+  padding-right: var(--bleed-right, 8px);
+}

@@ -2,7 +2,6 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, act } from '@testing-library/react';
-import { TourProvider } from '../context/TourContext';
 
 // Mirrors the existing WorkoutTracker.draft.test.jsx mocking approach: a
 // neutral databaseService so the component can mount from a localStorage
@@ -60,7 +59,7 @@ describe('Exercise name click (post-reorder scroll-reset regression)', () => {
     localStorage.setItem('userId', 'u1');
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
 
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await screen.findByText("🏋️ Today's Workout");
 
     const nameEl = await waitFor(() => {
@@ -84,7 +83,7 @@ describe('Exercise name click (post-reorder scroll-reset regression)', () => {
     localStorage.setItem('userId', 'u1');
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
 
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await screen.findByText("🏋️ Today's Workout");
 
     const nameEl = await waitFor(() => {

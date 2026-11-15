@@ -46,7 +46,7 @@ function SettingsRow({ icon, label, value, onTap, last, dot }) {
 // dotSections / onSectionOpen: sections an unread push notification points
 // at (e.g. a measurement reminder → 'measurements') get a blue dot on their
 // row, and opening the section tells App.jsx it's been seen.
-export default function ClientProfile({ handleLogout, onReplayDemoTour, initialSection = null, dotSections = new Set(), onSectionOpen }) {
+export default function ClientProfile({ handleLogout, initialSection = null, dotSections = new Set(), onSectionOpen }) {
   // Lets App.jsx jump straight to a sub-section (e.g. Measurements, from the
   // measurement-reminder push notification's deep link) instead of landing
   // on the plain settings list and leaving the user to find it themselves.
@@ -795,16 +795,6 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
       <div className="cp-section-card">
         <SettingsRow icon="✨" label="What's New" onTap={() => setActiveSection('whatsnew')} last />
       </div>
-
-      {/* Help section */}
-      {onReplayDemoTour && (
-        <>
-          <div className="cp-section-label">Help</div>
-          <div className="cp-section-card">
-            <SettingsRow icon="🎬" label="App Tutorial" onTap={onReplayDemoTour} last />
-          </div>
-        </>
-      )}
 
       {/* Log out */}
       <button className="cp-logout-btn" onClick={handleLogout}>Log Out</button>

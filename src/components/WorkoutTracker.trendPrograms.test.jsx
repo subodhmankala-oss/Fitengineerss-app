@@ -23,7 +23,6 @@ vi.mock('../services/databaseService', () => {
 vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 
 import WorkoutTracker from './WorkoutTracker';
-import { TourProvider } from '../context/TourContext';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import databaseService from '../services/databaseService';
 
@@ -46,7 +45,7 @@ describe('Library program with a cardio move (Incline Walk 12-3-30)', () => {
         { name: 'Plank', sets: 3, reps: '30s' },
       ],
     });
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
 
     const card = (await screen.findAllByText('Incline Walk'))
       .map(el => el.closest('.hevy-exercise-card'))
@@ -63,7 +62,7 @@ describe('Library program with a cardio move (Incline Walk 12-3-30)', () => {
       name: 'Hyrox Half Race Sim',
       exercises: [{ name: 'Running', sets: 8, reps: '500 m' }, { name: 'SkiErg', sets: 2, reps: '4 min' }],
     });
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     const card = (await screen.findAllByText('SkiErg'))
       .map(el => el.closest('.hevy-exercise-card'))
       .find(Boolean);
@@ -99,7 +98,7 @@ describe('Workout Library screen', () => {
   it('has Gym / Home / Hyrox chips and a level dropdown, and no search box', async () => {
     openLibrary();
     mockLibrary();
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await screen.findByText('Beginner Incline Walk 12-3-30');
     expect(Array.from(document.querySelectorAll('.wt-category-btn')).map(b => b.textContent)).toEqual(['Gym', 'Home', 'Hyrox']);
     expect(screen.queryByLabelText('Search programs')).toBeNull();
@@ -109,7 +108,7 @@ describe('Workout Library screen', () => {
   it('Hyrox chip loads the Hyrox programs, newest first', async () => {
     openLibrary();
     mockLibrary();
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await screen.findByText('Beginner Incline Walk 12-3-30');
     fireEvent.click(screen.getByText('Hyrox'));
     expect(await screen.findByText('Hyrox Run & Row')).toBeTruthy();
@@ -121,7 +120,7 @@ describe('Workout Library screen', () => {
   it('the level dropdown switches level; every program is an equal row with a muscle map, newest first', async () => {
     openLibrary();
     mockLibrary();
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await screen.findByText('Beginner Incline Walk 12-3-30');
     expect(document.querySelector('.wt-level-popover')).toBeNull();
     fireEvent.click(screen.getByLabelText('Difficulty level: beginner'));

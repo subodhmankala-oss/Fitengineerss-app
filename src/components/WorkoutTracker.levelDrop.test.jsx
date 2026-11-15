@@ -20,7 +20,6 @@ vi.mock('../services/databaseService', () => {
 });
 
 import WorkoutTracker from './WorkoutTracker';
-import { TourProvider } from '../context/TourContext';
 
 Element.prototype.scrollTo = vi.fn();
 
@@ -41,7 +40,7 @@ const seedSessions = (lastDaysAgo) => {
   localStorage.setItem('workoutSessions', JSON.stringify(sessions));
 };
 
-const renderTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
+const renderTracker = () => render(<WorkoutTracker />);
 
 describe('Training Level bar — idle drop is visible', () => {
   beforeEach(() => {

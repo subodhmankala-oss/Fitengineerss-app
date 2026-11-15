@@ -28,9 +28,8 @@ vi.mock('../utils/alarmSound', () => ({ playAlarmBeeps: vi.fn(), unlockAudio: vi
 import databaseService from '../services/databaseService';
 import { playAlarmBeeps } from '../utils/alarmSound';
 import WorkoutTracker from './WorkoutTracker';
-import { TourProvider } from '../context/TourContext';
 
-const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
+const renderWorkoutTracker = () => render(<WorkoutTracker />);
 
 // No jest-dom in this project — plain className check instead of toHaveClass.
 const hasClass = (el, cls) => el.className.split(/\s+/).includes(cls);

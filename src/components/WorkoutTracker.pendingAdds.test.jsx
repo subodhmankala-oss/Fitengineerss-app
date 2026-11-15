@@ -2,7 +2,6 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
-import { TourProvider } from '../context/TourContext';
 
 // Same neutral databaseService as WorkoutTracker.exerciseNameClick.test.jsx.
 vi.mock('../services/databaseService', () => {
@@ -41,7 +40,7 @@ describe('Exercises queued from the muscle detail screen', () => {
     expect(queueWorkoutAdd('Back Extension')).toBe(true);
     expect(queueWorkoutAdd('back extension')).toBe(false); // de-duped
 
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await screen.findByText("🏋️ Today's Workout");
     await waitFor(() => expect(exerciseNames()).toContain('Back Extension'));
     expect(getPendingWorkoutAdds()).toEqual([]);
@@ -59,7 +58,7 @@ describe('Exercises queued from the muscle detail screen', () => {
     }));
     queueWorkoutAdd('External Rotation (Cable)');
 
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await waitFor(() => expect(exerciseNames()).toEqual(['Biceps Curls', 'External Rotation (Cable)']));
     // Never done before: an empty kg box (faint "kg"), not a made-up weight.
     const added = Array.from(document.querySelectorAll('h5')).find(h => h.textContent.trim() === 'External Rotation (Cable)').closest('.hevy-exercise-card');

@@ -24,7 +24,6 @@ vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 
 import WorkoutTracker from './WorkoutTracker';
 import databaseService from '../services/databaseService';
-import { TourProvider } from '../context/TourContext';
 
 Element.prototype.scrollTo = vi.fn();
 
@@ -61,7 +60,7 @@ describe('Beginner inline form video after the server draft is restored', () => 
 
   it('keeps the video for the same session', async () => {
     seed();
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     expect((await screen.findAllByText('Goblet Squat')).length).toBeGreaterThan(0);
     await waitFor(() => expect(databaseService.getWorkoutDraft).toHaveBeenCalled());
     await waitFor(() => expect(document.querySelector('.beginner-ex-video')).not.toBeNull());
@@ -69,7 +68,7 @@ describe('Beginner inline form video after the server draft is restored', () => 
 
   it('drops the level when the server copy is a different session', async () => {
     seed(Date.now() - 3600000);
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     expect((await screen.findAllByText('Goblet Squat')).length).toBeGreaterThan(0);
     await waitFor(() => expect(databaseService.getWorkoutDraft).toHaveBeenCalled());
     await waitFor(() => expect(document.querySelector('.beginner-ex-video')).toBeNull());

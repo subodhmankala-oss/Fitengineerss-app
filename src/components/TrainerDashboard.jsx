@@ -10362,9 +10362,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           </span>
                           <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
                         </div>
-                        <div style={{ marginLeft: 'auto', display: 'flex', alignSelf: 'stretch' }}>
-                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
-                        </div>
                         <button
                           type="button"
                           onClick={() => setShowClockTimer(true)}
@@ -10373,11 +10370,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         >
                           <StopwatchIcon size={22} />
                         </button>
-                        {liveTimerStatus === 'running' ? (
-                          <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer} title="Pause"><PauseIcon size={20} /></button>
-                        ) : (
-                          <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
-                        )}
+                        {/* Heat tile fills the rest of the bar, flush against Pause. */}
+                        <div className="live-timer-end">
+                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
+                          {liveTimerStatus === 'running' ? (
+                            <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer} title="Pause"><PauseIcon size={20} /></button>
+                          ) : (
+                            <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

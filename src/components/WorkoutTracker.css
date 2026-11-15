@@ -1997,11 +1997,13 @@
 
 .timer-controls {
   display: flex;
-  /* Heat tile + Pause box run the bar's full height. */
+  /* Stopwatch, then the heat tile filling the rest of the bar, then Pause —
+     tile and Pause run the bar's full height, edge to edge. */
   align-self: stretch;
   align-items: stretch;
-  gap: 8px;
-  flex: 0 0 auto;
+  gap: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Pause/Resume is the bar's main control: a whole tinted block filling the
@@ -2057,7 +2059,7 @@
   background: transparent;
   border: none;
   color: #3b82f6;
-  padding: 4px 6px;
+  padding: 4px 10px;
   font-size: 1.2rem;
   cursor: pointer;
   transition: transform var(--transition-fast);

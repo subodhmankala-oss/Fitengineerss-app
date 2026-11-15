@@ -109,17 +109,21 @@ export default function SwipeToHide({ onHide, hintKey, hideLabel = 'Hide this su
         onBlur={() => { if (!drag.current) setOffset(0); }}
         // Spans the whole card, so however far it's dragged the uncovered
         // area is all Hide — no gap between the card and the action. The
-        // icon + label stay pinned in the right-hand ACTION_W strip.
+        // icon + label sit in a box as wide as the uncovered area, so they
+        // stay centred in it as the card slides further.
         style={{
           position: 'absolute', inset: 0, padding: 0,
           display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end',
-          background: 'rgba(239, 68, 68, 0.16)', color: '#f87171', border: 'none', cursor: 'pointer',
-          fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 700
+          // Red only while uncovered: at rest it would tint the card's
+          // anti-aliased rounded edge.
+          background: offset < 0 ? '#ef4444' : 'transparent', color: '#ffffff', border: 'none', cursor: 'pointer',
+          fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700
         }}
       >
         <span style={{
-          width: `${ACTION_W}px`, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: '3px'
+          width: `${Math.max(ACTION_W, -offset)}px`, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: '3px',
+          transition: dragging ? 'none' : 'width 0.22s ease'
         }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" />

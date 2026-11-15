@@ -11,19 +11,20 @@
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 2px 6px 2px 4px;
+  /* Full bleed: touches the bar's top and bottom edges. */
+  padding: 0 6px 0 4px;
   background: #0b1120;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: 10px;
+  border: none;
+  border-radius: 0;
   color: var(--tint-amber);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .wmh-toggle:hover,
 .wmh-toggle.is-open {
-  border-color: rgba(245, 158, 11, 0.75);
+  background: #141c2e;
 }
 
 .wmh-chev {

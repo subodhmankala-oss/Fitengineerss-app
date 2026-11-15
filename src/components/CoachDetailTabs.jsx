@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import useFullBleed from '../utils/useFullBleed';
 import './CoachDetailTabs.css';
 
@@ -26,10 +27,13 @@ const TABS = [
 export default function CoachDetailTabs({ active, onSelect, statuses, liveRunning, hasDot }) {
   const idx = Math.max(0, TABS.findIndex(t => t.key === active));
   const trackRef = useFullBleed();
+  // The pill only slides once a tab is tapped — not while the bar is first
+  // measured and padded on load (it would visibly drift into place).
+  const [slid, setSlid] = useState(false);
   return (
     <div className="trainer-tabs coach-tabs">
       <div ref={trackRef} className="coach-tabs-track" role="tablist" style={{ '--tab-idx': idx }}>
-        <span className={`coach-tabs-pill tone-${TABS[idx].key}`} aria-hidden="true" />
+        <span className={`coach-tabs-pill tone-${TABS[idx].key}${slid ? ' is-sliding' : ''}`} aria-hidden="true" />
         {TABS.map(({ key, label, short, icon, tour }) => {
           const on = key === active;
           return (
@@ -40,7 +44,7 @@ export default function CoachDetailTabs({ active, onSelect, statuses, liveRunnin
               aria-selected={on}
               data-tour={tour}
               className={`trainer-tab-btn coach-tab tone-${key} ${on ? 'active' : ''}`}
-              onClick={() => onSelect(key)}
+              onClick={() => { setSlid(true); onSelect(key); }}
             >
               <span className="coach-tab-head">
                 {icon}

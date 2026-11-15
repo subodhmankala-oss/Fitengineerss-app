@@ -31,8 +31,10 @@
   border-radius: 13px;
   background: color-mix(in srgb, var(--tone) 11%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 40%, transparent);
-  transition: left 0.45s cubic-bezier(0.34, 1.3, 0.5, 1), background 0.3s, box-shadow 0.3s;
   pointer-events: none;
+}
+.coach-tabs-pill.is-sliding {
+  transition: left 0.45s cubic-bezier(0.34, 1.3, 0.5, 1), background 0.3s, box-shadow 0.3s;
 }
 
 .tone-plans { --tone: var(--tone-plans); }
@@ -120,23 +122,29 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .coach-tabs-pill { transition: none; }
+  .coach-tabs-pill,
+  .coach-tabs-pill.is-sliding { transition: none; }
   .coach-tab-live { animation: none; }
 }
 
 /* Phones: edge to edge, like the Live Log timer bar — useFullBleed stretches
    the track to the scroll area's edges and adds .is-full-bleed (phone widths
-   only), so the side borders and rounded ends go; the top and bottom lines stay, in the stronger border colour. */
+   only), so the side borders and rounded ends go; the top and bottom lines stay, in the stronger border colour.
+   The track is padded back in by exactly how far it was stretched
+   (--bleed-left/right from the hook), so the tabs and pill line up with the
+   cards above instead of starting near the screen edge. */
 .coach-tabs-track.is-full-bleed {
   border-left: none;
   border-right: none;
   border-top: 1.5px solid var(--border-strong);
   border-bottom: 1.5px solid var(--border-strong);
   border-radius: 0;
-  padding-left: 8px;
-  padding-right: 8px;
+  --pad-l: var(--bleed-left, 8px);
+  --pad-r: var(--bleed-right, 8px);
+  padding-left: var(--pad-l);
+  padding-right: var(--pad-r);
 }
 .coach-tabs-track.is-full-bleed .coach-tabs-pill {
-  left: calc(8px + var(--tab-idx) * (100% - 16px) / 4);
-  width: calc((100% - 16px) / 4);
+  left: calc(var(--pad-l) + var(--tab-idx) * (100% - var(--pad-l) - var(--pad-r)) / 4);
+  width: calc((100% - var(--pad-l) - var(--pad-r)) / 4);
 }

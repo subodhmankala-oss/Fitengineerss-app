@@ -18,7 +18,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 5px;
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-strong);
   border-radius: 18px;
 }
 
@@ -126,10 +126,12 @@
 
 /* Phones: edge to edge, like the Live Log timer bar — useFullBleed stretches
    the track to the scroll area's edges and adds .is-full-bleed (phone widths
-   only), so the side borders and rounded ends go. */
+   only), so the side borders and rounded ends go; the top and bottom lines stay, in the stronger border colour. */
 .coach-tabs-track.is-full-bleed {
   border-left: none;
   border-right: none;
+  border-top: 1.5px solid var(--border-strong);
+  border-bottom: 1.5px solid var(--border-strong);
   border-radius: 0;
   padding-left: 8px;
   padding-right: 8px;

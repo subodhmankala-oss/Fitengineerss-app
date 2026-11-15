@@ -10304,22 +10304,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     }}>{liveToast}</div>
                   )}
 
-                  {/* Small "Logging for" line — replaces the old LIVE SESSION
-                      badge and client identity card. The Live Log tab itself
-                      already says what mode this is, so this just needs to
-                      answer "who, and which day" in one small line. */}
-                  <div className="live-logging-for-line">
-                    Logging for: <strong>{selectedClient?.userName}</strong>
-                    <span className="live-logging-for-sep">·</span>
-                    <span className="live-logging-for-date-label">📅 {liveDate === getLocalDateString() ? 'Today' : 'Session date'}</span>
-                    <input
-                      type="date"
-                      value={liveDate}
-                      onChange={e => setLiveDate(e.target.value)}
-                      className="live-logging-for-date-input"
-                    />
-                  </div>
-
                   {/* Wrong-client warning — see utils/liveLogClientCheck.js. */}
                   {showWrongClientWarning && (
                     <div className="live-wrong-client-warning" role="alert">
@@ -10354,6 +10338,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     </div>
                   )}
 
+                  {/* Session card, top: who this is for and which day. The
+                      calendar button is a real date input laid invisibly over
+                      the icon, so tapping it opens the phone's date picker. */}
+                  <div className="live-session-who">
+                    <Avatar
+                      email={selectedClient?.email}
+                      name={selectedClient?.userName || 'Client'}
+                      avatarUrl={selectedClient?.avatarUrl}
+                      size={34}
+                    />
+                    <div className="live-session-who-text">
+                      <div className="live-session-who-name">{selectedClient?.userName}</div>
+                      <div className="live-session-who-date">
+                        {liveDate === getLocalDateString() ? 'Today · ' : ''}
+                        {parseLocalDateString(liveDate).toLocaleDateString(undefined, { weekday: liveDate === getLocalDateString() ? undefined : 'short', day: 'numeric', month: 'short' })}
+                      </div>
+                    </div>
+                    <label className="live-session-date-btn" title="Change session date">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect x="3.5" y="5" width="17" height="15" rx="2" />
+                        <path d="M3.5 10h17M8 3v4M16 3v4" />
+                      </svg>
+                      <input
+                        type="date"
+                        value={liveDate}
+                        onChange={e => e.target.value && setLiveDate(e.target.value)}
+                        aria-label="Session date"
+                      />
+                    </label>
+                  </div>
+
                   {/* Live Timer + Calorie readout — starts automatically the
                       first time a set is marked done, so it reflects real
                       working time rather than setup time. Elapsed/calories
@@ -10363,14 +10378,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       distracted or leaving this tab open never causes drift. */}
                   <div className="live-timer-bar" ref={liveTimerBarRef}>
                     {liveTimerStatus === 'idle' ? (
-                      <span className="live-timer-idle-hint">⏱ Timer starts when you log your first set</span>
+                      <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
                     ) : (
                       <>
                         <div className="timer-stack">
                           <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
-                            ⏱ {formatDuration(liveElapsedSeconds)}
+                            {formatDuration(liveElapsedSeconds)}
                           </span>
-                          <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                          <span className="live-timer-kcal">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M12 21c-3.9 0-7-2.8-7-6.6 0-3.1 2.1-5.3 3.6-7 .5 1.7 1.5 2.9 2.6 3.4C11 7.6 12.6 4.6 15 3c-.4 2.9.7 4.7 2 6.3 1.2 1.5 2 3 2 5.1C19 18.2 15.9 21 12 21Z" />
+                            </svg>
+                            {liveCalories.totalKcal} kcal{liveTimerStatus === 'paused' ? ' · Paused' : ''}
+                          </span>
                         </div>
                         <button
                           type="button"
@@ -10396,11 +10416,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
                   {/* Plan/Routine configuration — always visible, no toggle */}
                   <div className="live-workout-config-panel">
-                      <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan / Routine Name:</label>
+                      <div className="live-plan-name-field">
                         <input
                           type="text"
-                          placeholder="e.g. Upper Body, Leg Day"
+                          aria-label="Plan name"
+                          placeholder="Plan name"
                           value={livePlanName}
                           onChange={e => setLivePlanName(e.target.value)}
                           // BUG FIX 2026-08-18: removed the custom
@@ -10411,26 +10431,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           // logic at all), which is the smooth, glitch-free
                           // reference behavior the coach explicitly compared this
                           // against.
-                          style={{
-                            padding: '8px 12px',
-                            background: 'rgba(var(--fg-rgb), 0.04)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: 'var(--radius-sm)',
-                            color: 'var(--text-main)',
-                            // Must stay >= 16px: iOS Safari auto-zooms the whole
-                            // page on focus for any input with a smaller
-                            // font-size, and does not zoom back out on blur --
-                            // so tapping this field to type a routine name left
-                            // the coach zoomed into a shifted layout. Same rule
-                            // already applied to the Edit Total Sessions input.
-                            fontSize: '16px',
-                            outline: 'none'
-                          }}
+                          // Font size must stay >= 16px (iOS focus zoom) — see
+                          // .live-plan-name-field input in TrainerDashboard.css.
                         />
                       </div>
-                        <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Load from Existing Plan:</label>
+                        <div className="live-template-field">
+                          <svg className="live-template-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <rect x="4" y="4" width="16" height="16" rx="2" />
+                            <path d="M4 10h16M10 10v10" />
+                          </svg>
                           <select
+                            aria-label="Load a template"
                             defaultValue=""
                             onChange={e => {
                               const plan = [...CORE_PPL_TEMPLATES, ...clientPlans, ...recentWorkoutPlans]
@@ -10482,17 +10493,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               }
                               e.target.value = '';
                             }}
-                            style={{
-                              padding: '8px 12px',
-                              background: 'rgba(var(--fg-rgb), 0.04)',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: 'var(--radius-sm)',
-                              color: 'var(--text-main)',
-                              fontSize: '0.78rem',
-                              outline: 'none'
-                            }}
                           >
-                            <option value="" disabled>Select template</option>
+                            <option value="" disabled>Template</option>
                             {/* "Saved plans" (bottom group) is only the latest week's
                                 plans, newest first — see splitNewTemplates. */}
                             {/* Plans never logged yet (e.g. an AI draft's days

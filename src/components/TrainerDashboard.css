@@ -1123,7 +1123,9 @@
   padding: 0 0 0 14px;
   /* Opaque base under the amber tint so scrolled content doesn't show
      through while the bar is pinned. */
-  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), var(--bg-card);
+  /* Plain card surface (design A, 2026-11-15) — colour is kept for the
+     Pause block only, so the eye goes to the live control. */
+  background: var(--bg-card);
   /* No backdrop-filter here (unlike other blurred panels in this app) —
      `backdrop-filter` on a `position: sticky` element itself is a known
      mobile Safari/Chrome compositing bug: the browser can freeze the sticky
@@ -1131,9 +1133,21 @@
      ("floats" mid-page) even though the CSS position/top is correct. The
      background above is already fully opaque (var(--bg-card) base), so the blur
      was purely decorative and safe to drop. */
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   flex-wrap: wrap;
+}
+
+/* Stopwatch shortcut: neutral in the Live Log, so Pause is the one accent. */
+.live-timer-bar .btn-timer-stopwatch {
+  background: transparent;
+  border-left: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+.live-timer-bar .btn-timer-stopwatch:hover {
+  background: rgba(var(--fg-rgb), 0.05);
+  color: var(--text-main);
 }
 
 /* Heat tile + Pause, flush together at the bar's right end. */
@@ -1152,14 +1166,17 @@
 .live-timer-idle-hint {
   font-size: 0.78rem;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .live-timer-value {
-  font-family: 'Courier New', monospace;
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--tint-amber);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1181,9 +1198,17 @@
 }
 
 .live-timer-kcal {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.live-timer-kcal svg {
+  color: #ea7a3c;
+  flex-shrink: 0;
 }
 
 .live-timer-btn {
@@ -1210,38 +1235,72 @@
   background: rgba(245, 158, 11, 0.25);
 }
 
-/* Small "Logging for: <name> · <date>" line — sits directly under the Live
-   Log tab, replacing the old LIVE SESSION badge + client identity card. */
-.live-logging-for-line {
+/* Session card top (design A): client photo, name, date, calendar button. */
+.live-session-who {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  gap: 10px;
+  min-width: 0;
+}
+
+.live-session-who-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.live-session-who-name {
+  font-size: 0.95rem;
   font-weight: 600;
-}
-
-.live-logging-for-line strong {
-  color: #f59e0b;
-}
-
-.live-logging-for-sep {
-  opacity: 0.5;
-}
-
-.live-logging-for-date-label {
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.live-logging-for-date-input {
-  padding: 3px 8px;
-  background: rgba(var(--fg-rgb), 0.04);
+.live-session-who-date {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Calendar icon button; the real <input type="date"> sits invisibly on top
+   so a tap opens the native picker on every phone. */
+.live-session-date-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.live-session-date-btn:hover {
   color: var(--text-main);
-  font-size: 0.75rem;
-  outline: none;
+  background: rgba(var(--fg-rgb), 0.04);
+}
+
+.live-session-date-btn input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+
+.live-session-date-btn input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
 }
 
 /* "Is this <client>'s workout?" — the client is logging on their own phone
@@ -1309,15 +1368,66 @@
   color: #b45309;
 }
 
-/* Plan/Routine configuration panel — always visible */
+/* Plan name + template picker on one row — always visible, no labels
+   (the placeholders say what each is). */
 .live-workout-config-panel {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: rgba(var(--fg-rgb), 0.02);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.live-plan-name-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.live-plan-name-field input,
+.live-template-field select {
+  height: 40px;
+  background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid var(--border-color);
-  padding: 12px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  outline: none;
+}
+
+.live-plan-name-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus for smaller
+     inputs and doesn't zoom back out on blur. */
+  font-size: 16px;
+}
+
+.live-plan-name-field input:focus,
+.live-template-field select:focus {
+  border-color: rgba(var(--fg-rgb), 0.3);
+}
+
+.live-template-field {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+}
+
+.live-template-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.live-template-field select {
+  padding: 0 10px 0 32px;
+  max-width: 132px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 .live-timer-discard-btn {

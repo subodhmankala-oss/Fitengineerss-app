@@ -219,11 +219,17 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       aria-label={`Start ${program.name}${session.focus.length ? ` — ${session.focus.join(', ')}` : ''}`}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToProgram(); } }}
       style={{
-        display: 'flex', alignItems: 'center', gap: '12px',
+        position: 'relative', display: 'flex', alignItems: 'center', gap: '10px',
         background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-        borderRadius: '12px', padding: '10px 12px', marginBottom: '4px', cursor: 'pointer'
+        // Right padding leaves the corner free for the ✕ above the play button.
+        borderRadius: '12px', padding: '10px 30px 10px 12px', marginBottom: '4px', cursor: 'pointer'
       }}
     >
+      <CloseButton
+        inline
+        title="Close — I don’t want this suggestion now"
+        onClick={(e) => { e.stopPropagation(); dismissBanner(program.name); }}
+      />
       {session.muscles.length > 0 && (
         // --status-color tints the thumbnail's backdrop (.muscle-thumb).
         <div style={{ '--status-color': 'var(--primary-accent)', flexShrink: 0, display: 'flex' }}>
@@ -254,13 +260,6 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
           ) : (
             <span>{reason === 'rotation' ? 'Next up' : 'Start here'}</span>
           )}
-          {/* Sits in this top line, not its own column, so the stats below
-              keep a single line on a phone. */}
-          <CloseButton
-            inline
-            title="Close — I don’t want this suggestion now"
-            onClick={(e) => { e.stopPropagation(); dismissBanner(program.name); }}
-          />
         </div>
         <div style={{
           fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px',
@@ -288,8 +287,9 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
 const HEAT_MAIN = '#ef4444';
 const HEAT_ALSO = '#f59e0b';
 
-// ✕ on a banner card: top-right corner, or `inline` at the end of the slim
-// next-workout row (smaller, no ring, so the play button stays the focus).
+// ✕ in the top-right corner of a banner card; `inline` is the smaller,
+// ring-less one for the slim next-workout row, so the play button stays the
+// focus.
 function CloseButton({ title, onClick, inline = false }) {
   return (
     <button
@@ -300,7 +300,7 @@ function CloseButton({ title, onClick, inline = false }) {
       aria-label="Close"
       title={title}
       style={inline ? {
-        flexShrink: 0, width: '22px', height: '22px', margin: '-4px -4px -4px auto',
+        position: 'absolute', top: '4px', right: '4px', width: '22px', height: '22px',
         background: 'transparent', border: 'none', borderRadius: '50%', padding: 0,
         color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1, cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'

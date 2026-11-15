@@ -54,7 +54,7 @@ const PLAN = { id: 'p1', planName: 'Leg Day', exercises: [
 ] };
 
 const loadPlan = async () => {
-  const planSelect = (await screen.findByText('Load from Existing Plan:', {}, SLOW)).parentElement.querySelector('select');
+  const planSelect = await screen.findByLabelText('Load a template', {}, SLOW);
   fireEvent.change(planSelect, { target: { value: PLAN.id } });
   await waitFor(() => expect(screen.getAllByTitle('Mark complete').length).toBeGreaterThan(0));
 };
@@ -125,7 +125,7 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
       { name: 'Leg Curl', sets: [set] },
     ] }]);
     renderLiveLog();
-    const planSelect = (await screen.findByText('Load from Existing Plan:', {}, SLOW)).parentElement.querySelector('select');
+    const planSelect = await screen.findByLabelText('Load a template', {}, SLOW);
     fireEvent.change(planSelect, { target: { value: 'p2' } });
     await waitFor(() => expect(screen.getAllByTitle('Mark complete').length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);

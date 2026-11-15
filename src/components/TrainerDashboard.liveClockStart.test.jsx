@@ -40,7 +40,7 @@ const renderLiveLog = () => render(
 
 // TrainerDashboard's first render can take several seconds on a busy runner.
 const SLOW = { timeout: 15000 };
-const IDLE_HINT = '⏱ Timer starts when you log your first set';
+const IDLE_HINT = 'Timer starts when you log your first set';
 
 const PLAN = { id: 'p1', planName: 'Leg Day', exercises: [{ name: 'Squat', sets: [{ reps: 10, weight: 20 }, { reps: 10, weight: 20 }] }] };
 
@@ -66,7 +66,7 @@ describe('Coach Live Log workout clock', { timeout: 30000 }, () => {
     renderLiveLog();
     expect(await screen.findByText(IDLE_HINT, {}, SLOW)).toBeTruthy();
 
-    const planSelect = (await screen.findByText('Load from Existing Plan:', {}, SLOW)).parentElement.querySelector('select');
+    const planSelect = await screen.findByLabelText('Load a template', {}, SLOW);
     fireEvent.change(planSelect, { target: { value: PLAN.id } });
 
     await waitFor(() => expect(screen.queryByText(IDLE_HINT)).toBeNull());

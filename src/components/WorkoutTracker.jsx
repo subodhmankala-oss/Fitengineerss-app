@@ -41,6 +41,7 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
+import useFullBleed from '../utils/useFullBleed';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
@@ -1281,6 +1282,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // (see utils/liveSessionStore.js). Cleared once the workout is finished
   // or discarded, when the saved rows take over.
   const liveTickedRows = useMemo(() => tickedSetRows(logExercises, logDate), [logExercises, logDate]);
+  // Timer bar spans the screen edge to edge, past the form's padding.
+  const timerBarRef = useFullBleed();
   useEffect(() => {
     const userId = ownUserId || localStorage.getItem('userId');
     publishLiveRows(userId, isLoggingWorkout ? liveTickedRows : []);
@@ -3995,7 +3998,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           {/* Hevy Stopwatch Header — same idle/running/paused bar as the coach's
               Live Log: stays idle (no clock, no Pause button) until the first
               set is marked done, then ticks and shows live calories. */}
-          <div className="hevy-stopwatch-banner">
+          <div className="hevy-stopwatch-banner" ref={timerBarRef}>
             <div className="timer-display">
               {workoutTimerStatus === 'idle' ? (
                 <span className="live-timer-idle-hint">Timer starts when you log your first set</span>

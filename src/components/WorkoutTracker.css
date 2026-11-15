@@ -1997,13 +1997,26 @@
 
 .timer-controls {
   display: flex;
-  /* Stopwatch, then the heat tile filling the rest of the bar, then Pause —
-     tile and Pause run the bar's full height, edge to edge. */
+  /* Stopwatch, heat tile, Pause at the right end — tile and Pause run the
+     bar's full height, flush together. */
   align-self: stretch;
   align-items: stretch;
   gap: 0;
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
+}
+
+/* Timer bars stretched to the screen edges (useFullBleed): square ends, no
+   side borders — client bar and coach Live Log bar. */
+.hevy-stopwatch-banner.is-full-bleed,
+.live-timer-bar.is-full-bleed {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+.hevy-stopwatch-banner.is-full-bleed .btn-timer-toggle,
+.live-timer-bar.is-full-bleed .live-timer-btn {
+  border-radius: 0;
 }
 
 /* Pause/Resume is the bar's main control: a whole tinted block filling the

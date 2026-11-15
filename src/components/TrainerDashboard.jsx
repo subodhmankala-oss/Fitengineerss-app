@@ -22,6 +22,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
+import useFullBleed from '../utils/useFullBleed';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -1896,6 +1897,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Muscles tab counts them before the session is saved (same as the
   // client's own logger — see utils/liveSessionStore.js).
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
+  // Live Log timer bar spans the screen edge to edge.
+  const liveTimerBarRef = useFullBleed();
   const [livePlanName, setLivePlanName] = useState('Live Routine');
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
@@ -10351,7 +10354,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       start + pause windows + each set's completion time),
                       never from an incrementing counter, so getting
                       distracted or leaving this tab open never causes drift. */}
-                  <div className="live-timer-bar">
+                  <div className="live-timer-bar" ref={liveTimerBarRef}>
                     {liveTimerStatus === 'idle' ? (
                       <span className="live-timer-idle-hint">⏱ Timer starts when you log your first set</span>
                     ) : (
@@ -10366,11 +10369,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           type="button"
                           onClick={() => setShowClockTimer(true)}
                           title="Timer / Stopwatch"
-                          style={{ background: 'transparent', border: 'none', color: '#3b82f6', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                          style={{ background: 'transparent', border: 'none', color: '#3b82f6', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: 'auto' }}
                         >
                           <StopwatchIcon size={22} />
                         </button>
-                        {/* Heat tile fills the rest of the bar, flush against Pause. */}
+                        {/* Heat tile flush against Pause, both full height. */}
                         <div className="live-timer-end">
                           <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
                           {liveTimerStatus === 'running' ? (

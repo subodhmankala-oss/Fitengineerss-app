@@ -1136,9 +1136,9 @@
   flex-wrap: wrap;
 }
 
-/* Heat tile + Pause: take the rest of the bar, edge to edge. */
+/* Heat tile + Pause, flush together at the bar's right end. */
 .live-timer-end {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   display: flex;
   align-self: stretch;
   min-width: 0;

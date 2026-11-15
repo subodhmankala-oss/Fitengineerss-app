@@ -1,19 +1,15 @@
 /* Live muscle heat map in the logger's timer bar (WorkoutMuscleHeat.jsx). */
 .wmh {
-  /* Fills whatever width the bar has left (client and coach bars). */
   display: flex;
   align-items: stretch;
-  flex: 1 1 auto;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .wmh-toggle {
   /* One dark tile: front + back sit flush and the chevron is inside, so the
      whole thing reads (and taps) as a single control. */
   display: flex;
-  flex: 1 1 auto;
   align-items: center;
-  justify-content: center;
   gap: 0;
   /* Full bleed: touches the bar's top and bottom edges. */
   padding: 0 6px 0 4px;

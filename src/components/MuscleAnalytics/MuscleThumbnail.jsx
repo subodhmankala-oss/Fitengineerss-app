@@ -187,8 +187,12 @@ function unionMuscleCrop(muscles) {
  * covers more of `trainedMuscles` (see getPlanCardMeta's view logic in
  * WorkoutTracker.jsx) rather than defaulting to front — a Pull or Legs day
  * is mostly back-visible muscles and would render almost empty on front.
+ *
+ * `colorFor` (optional): muscle → color, to tint by something other than
+ * Push/Pull/Legs/Core — the home screen's next-workout card uses it for a
+ * heat map (main target red, also-worked amber).
  */
-export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 64 }) => {
+export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 64, colorFor }) => {
   const sex = useBodySex();
   const isFront = view !== 'back';
   const trainedSet = new Set(trainedMuscles);
@@ -221,7 +225,7 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 
               <div
                 key={`${muscle}-${i}`}
                 className="muscle-thumb-layer"
-                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || 'var(--primary-accent-light)', false) }}
+                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, colorFor?.(muscle) || FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || 'var(--primary-accent-light)', false) }}
               />
             ))
           )}

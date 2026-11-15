@@ -3,9 +3,14 @@ import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
+import SwipeToHide from './SwipeToHide';
 import { buildWarmupExercises } from '../utils/warmupBlocks';
 import { applyWeeklySwaps, countPriorRuns } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
+import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
+import { getPlanCardMeta } from '../utils/planCardMeta';
+import { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
+import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
 // "new client nudge"), but that no longer fits a genuine ~3-month-per-level
@@ -65,10 +70,10 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     setPickerDismissed(false);
     try { sessionStorage.removeItem(dismissKey); } catch { /* storage blocked */ }
   };
-  // The ✕ on the suggestion card hides it for the program it suggests
-  // (stored by name, per client): once they log a session and the
-  // suggestion moves on, the next one shows. A slim row stays in its place
-  // to bring it back, same as the picker above.
+  // Hiding the suggestion card (swipe → Hide) hides it for the program it
+  // suggests (stored by name, per client): once they log a session and the
+  // suggestion moves on, the next one shows. A slim "Show next workout" row
+  // stays in its place to bring it back.
   const bannerDismissKey = `nextWorkoutBannerDismissed_${userId}`;
   const [bannerDismissedFor, setBannerDismissedFor] = useState(() => {
     try { return localStorage.getItem(bannerDismissKey) || ''; } catch { return ''; }
@@ -81,11 +86,6 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     setBannerDismissedFor('');
     try { localStorage.removeItem(bannerDismissKey); } catch { /* storage blocked */ }
   };
-  // The row left after closing the suggestion is "Choose your level": it opens
-  // the same Gym/Home + Beginner/Intermediate/Advanced picker as a new client's,
-  // so the client can pick their own level instead of the suggested one.
-  const [chooserOpen, setChooserOpen] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     Promise.all(
@@ -167,113 +167,99 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     );
   }
 
-  const { category, level, program, reason, lastProgram } = guidance;
-
-  const categoryLabel = category === 'home' ? 'Home' : 'Gym';
+  const { category, level, program, reason } = guidance;
   const levelLabel = level.charAt(0).toUpperCase() + level.slice(1);
 
-  const title = reason === 'leveled-up'
-    ? `🎉 ${levelLabel} unlocked!`
-    : reason === 'rotation'
-      ? '🌱 Keep going — next up'
-      : '🌱 New here? Start with this';
-
-  // "3 months as a Gym Beginner" only for a client who actually did that
-  // level's programs — the clock counts weeks since the first log, so a
-  // client on coach plans (or who logged once, months ago) reaches it too.
-  const body = reason === 'leveled-up'
-    ? didPreviousLevel(library, category, level, sessions)
-      ? `You've put in your 3 months as a ${categoryLabel} ${lastProgramLevelLabel(level)}! Time to level up — try ${program.name}.`
-      : `You've been training for 3 months — time to level up! Try ${program.name}.`
-    : reason === 'rotation'
-      ? `Nice work on ${lastProgram.name}! Next up: ${program.name}.`
-      : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
-
   const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, logs);
+  // A hidden card leaves a quiet row that brings the same card back — never
+  // the level picker, which is only for a first-timer (2026-11-15: a client
+  // who already trains kept landing back on first-time setup). Level changes
+  // live in the Library tab.
   if (bannerDismissedFor === program.name) {
-    if (!chooserOpen) {
-      return <ReopenRow title="Choose your level" subtitle="Gym or Home · Beginner, Intermediate or Advanced" onClick={() => setChooserOpen(true)} />;
-    }
-    return (
-      <div
-        style={{
-          position: 'relative',
-          background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
-          borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
-        }}
-      >
-        <CloseButton title="Close" onClick={() => setChooserOpen(false)} />
-        <FirstWorkoutPicker
-          library={library}
-          onStart={(c, l, p) => startProgram(userId, onNavigateToWorkouts, c, l, p, pref, logs)}
-        />
-        <button
-          type="button"
-          onClick={() => { setChooserOpen(false); reopenBanner(); }}
-          style={{
-            display: 'block', margin: '10px auto 0', background: 'transparent', border: 'none',
-            color: 'var(--accent-text)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
-          }}
-        >
-          Show the suggested workout again
-        </button>
-      </div>
-    );
+    return <ReopenRow title="Show next workout" subtitle={program.name} onClick={reopenBanner} />;
   }
-  const focus = todaysFocus(program, level, category, logs);
+  const session = todaysSession(program, level, category, logs);
+  const position = programPosition(library, category, level, program);
 
+  // Slim card (2026-11-15): body heat map of today's muscles · day / name /
+  // stats · pulsing play. The whole card is the tap target; swipe it left
+  // to hide it (no ✕ — see SwipeToHide).
   return (
+    <SwipeToHide
+      onHide={() => dismissBanner(program.name)}
+      hintKey={`nextWorkoutSwipeHintSeen_${userId}`}
+      style={{ marginBottom: '4px' }}
+    >
     <div
+      className="next-workout-card"
       onClick={goToProgram}
       role="button"
       tabIndex={0}
+      aria-label={`Start ${program.name}${session.focus.length ? ` — ${session.focus.join(', ')}` : ''}`}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToProgram(); } }}
       style={{
-        display: 'flex', flexDirection: 'column', gap: '10px',
-        background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
-        position: 'relative',
-        borderRadius: 0, padding: '18px 16px', marginBottom: '4px', cursor: 'pointer'
+        display: 'flex', alignItems: 'center', gap: '10px',
+        background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+        borderRadius: '12px', padding: '10px 12px', cursor: 'pointer'
       }}
     >
-      <CloseButton
-        title="Close — I don’t want this suggestion now"
-        onClick={(e) => { e.stopPropagation(); dismissBanner(program.name); }}
-      />
-      <div style={{ minWidth: 0, paddingRight: '36px' }}>
-        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</div>
-        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4 }}>{body}</div>
-      </div>
-      {focus.length > 0 && (
-        <div className="next-workout-focus" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          {focus.map(part => (
-            <span
-              key={part}
-              className="next-workout-focus-pill"
-              style={{
-                fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-text)',
-                background: 'rgba(var(--accent-rgb), 0.12)', border: '1px solid rgba(var(--accent-rgb), 0.25)',
-                borderRadius: '999px', padding: '4px 10px'
-              }}
-            >
-              {part}
-            </span>
-          ))}
+      {session.muscles.length > 0 && (
+        // --status-color tints the thumbnail's backdrop (.muscle-thumb).
+        <div style={{ '--status-color': 'var(--primary-accent)', flexShrink: 0, display: 'flex' }}>
+          <FullBodyThumbnail
+            trainedMuscles={session.muscles}
+            view={session.view}
+            size={52}
+            colorFor={(m) => (session.main.has(m) ? HEAT_MAIN : HEAT_ALSO)}
+          />
         </div>
       )}
-      {/* The whole card is the tap target; this is what it looks like. */}
-      <span
-        aria-hidden="true"
-        style={{
-          display: 'block', textAlign: 'center', fontSize: '0.95rem', fontWeight: 800,
-          color: '#fff', background: 'var(--primary-accent, rgb(var(--accent-rgb)))',
-          borderRadius: 'var(--radius-sm)', padding: '11px 14px'
-        }}
-      >
-        Start workout →
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+          {reason === 'leveled-up' ? (
+            <span style={{ color: '#22c55e', fontWeight: 700 }}>{levelLabel} unlocked</span>
+          ) : reason === 'rotation' && position ? (
+            <>
+              <span aria-hidden="true" style={{ display: 'flex', gap: '3px' }}>
+                {Array.from({ length: position.total }, (_, i) => (
+                  <span key={i} style={{
+                    width: '14px', height: '4px', borderRadius: '2px',
+                    background: i < position.index ? '#22c55e' : i === position.index ? 'var(--primary-accent)' : 'var(--border-strong)'
+                  }} />
+                ))}
+              </span>
+              <span>Day {position.index + 1} of {position.total}</span>
+            </>
+          ) : (
+            <span>{reason === 'rotation' ? 'Next up' : 'Start here'}</span>
+          )}
+        </div>
+        <div style={{
+          fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+        }}>
+          {program.name}
+        </div>
+        <div className="next-workout-stats" style={{
+          fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+        }}>
+          {session.minutes} min · {session.exerciseCount} exercise{session.exerciseCount === 1 ? '' : 's'} · {session.setCount} sets
+        </div>
+      </div>
+      {/* What the tap target looks like; the card itself handles the tap. */}
+      <span className="next-workout-play" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11-6.86a1 1 0 0 0 0-1.7l-11-6.86A1 1 0 0 0 8 5.14z" /></svg>
       </span>
     </div>
+    </SwipeToHide>
   );
 }
+
+// Heat-map tints for the card's body figure: the muscles today's exercises
+// mainly target, and the ones they also work.
+const HEAT_MAIN = '#ef4444';
+const HEAT_ALSO = '#f59e0b';
 
 // ✕ in the top-right corner of a banner card.
 function CloseButton({ title, onClick }) {
@@ -330,42 +316,55 @@ function ReopenRow({ title, subtitle, onClick }) {
   );
 }
 
-// "Today's focus" line: what this program will look like when it opens —
-// the same warm-up / exercise swaps / neglected-muscle finisher the logger
-// builds (handleStartFromTemplate), so the banner never promises something
-// the session doesn't have. Pills, e.g. ["🔥 Warm-up", "🔄 2 new exercises",
-// "🎯 Core finisher (15 days)"]. No swap pill the first time a program is
-// done (see countPriorRuns).
-function todaysFocus(program, level, category, logs) {
+// Today's session as the logger will build it (handleStartFromTemplate):
+// the same exercise swaps, warm-up and neglected-muscle finisher, so the
+// card's numbers and heat map never promise something the session doesn't
+// have. Returns
+//   focus: ["Warm-up", "2 new exercises", "Core finisher (15 days)"] — read
+//          out by screen readers; no swap the first time a program is done
+//          (see countPriorRuns)
+//   exerciseCount / setCount: warm-up + main + finisher
+//   minutes: ~2.5 min per working set (getPlanCardMeta's estimate) + 5 for
+//            the warm-up
+//   muscles / main / view: for the heat map — `main` are the muscles an
+//          exercise targets first; the rest are only worked along the way.
+function todaysSession(program, level, category, logs) {
   const priorRuns = countPriorRuns(logs, program.name);
-  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category, priorRuns });
+  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises || [], level, category, priorRuns });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
   const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
+  const working = finisher ? [...exercises, finisher] : exercises;
+  const setsOf = (ex) => (Array.isArray(ex.sets) ? ex.sets.length : Number(ex.sets) || 0);
+  const workingSets = working.reduce((n, ex) => n + setsOf(ex), 0);
+
   const swaps = exercises.filter(ex => ex.swappedFrom).length;
-  const parts = [];
-  if (warmups.length) parts.push('🔥 Warm-up');
-  if (swaps) parts.push(`🔄 ${swaps} new exercise${swaps === 1 ? '' : 's'}`);
+  const focus = [];
+  if (warmups.length) focus.push('Warm-up');
+  if (swaps) focus.push(`${swaps} new exercise${swaps === 1 ? '' : 's'}`);
   if (finisher) {
     const { muscle, daysSince } = finisher.finisherFor;
-    parts.push(`🎯 ${muscle} finisher${daysSince == null ? '' : ` (${daysSince} days)`}`);
+    focus.push(`${muscle} finisher${daysSince == null ? '' : ` (${daysSince} days)`}`);
   }
-  return parts;
+
+  const main = new Set();
+  working.forEach(ex => { const first = getMuscleGroupsForExercise(ex.name)[0]; if (first) main.add(first); });
+  const { muscles, view } = getPlanCardMeta({ exercises: working });
+
+  return {
+    focus,
+    exerciseCount: warmups.length + working.length,
+    setCount: warmups.reduce((n, ex) => n + setsOf(ex), 0) + workingSets,
+    minutes: Math.max(15, Math.round((workingSets * 2.5) / 5) * 5 + (warmups.length ? 5 : 0)),
+    muscles,
+    main,
+    view
+  };
 }
 
-// Whether the client logged any program from the level below `currentLevel`
-// in this category (same name matching as utils/beginnerGuidance).
-function didPreviousLevel(library, category, currentLevel, sessions) {
-  const idx = LEVELS.indexOf(currentLevel);
-  if (idx <= 0) return false;
-  const squash = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const names = new Set((library?.[category]?.[LEVELS[idx - 1]] || []).map(p => squash(p.name)));
-  return sessions.some(s => names.has(squash(s.planName)));
-}
-
-// The level just cleared, for the 'leveled-up' message ("completed every
-// ___ program") — one below whichever level the client is now on.
-function lastProgramLevelLabel(currentLevel) {
-  const idx = LEVELS.indexOf(currentLevel);
-  const previous = idx > 0 ? LEVELS[idx - 1] : currentLevel;
-  return previous.charAt(0).toUpperCase() + previous.slice(1);
+// Where `program` sits in its level's rotation ("Day 2 of 3"), or null if
+// it isn't in the list.
+function programPosition(library, category, level, program) {
+  const list = library?.[category]?.[level] || [];
+  const index = list.findIndex(p => p.name === program.name);
+  return index < 0 || list.length < 2 ? null : { index, total: list.length };
 }

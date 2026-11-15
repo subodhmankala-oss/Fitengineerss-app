@@ -14,8 +14,14 @@ const isScroller = (el) => {
  * can't cancel them. Re-measures when the element's parent or its scroller
  * resizes. Adds `is-full-bleed` so CSS can drop the side borders/corners.
  *
+ * Phone widths only (< FULL_BLEED_MAX_WIDTH): on desktop the scroller is the
+ * whole page, so stretching would run the bar under side columns (coach
+ * Manage Client view, reported 2026-11-15) — there it stays a normal card.
+ *
  * Returns a callback ref (the bar may mount later than the screen does).
  */
+export const FULL_BLEED_MAX_WIDTH = 768;
+
 export default function useFullBleed() {
   // The node lives in a ref (it's written to below); `mounted` re-runs the
   // effect when the bar appears or is swapped for a new node.
@@ -32,7 +38,18 @@ export default function useFullBleed() {
     while (scroller && scroller !== document.body && !isScroller(scroller)) scroller = scroller.parentElement;
     if (scroller === document.body) scroller = null;
 
+    const reset = () => {
+      el.classList.remove('is-full-bleed');
+      el.style.marginLeft = '';
+      el.style.marginRight = '';
+    };
+
     const measure = () => {
+      if (document.documentElement.clientWidth >= FULL_BLEED_MAX_WIDTH) {
+        reset();
+        return;
+      }
+      el.classList.add('is-full-bleed');
       const ps = getComputedStyle(parent);
       const p = parent.getBoundingClientRect();
       const contentLeft = p.left + parent.clientLeft + parseFloat(ps.paddingLeft);
@@ -48,7 +65,6 @@ export default function useFullBleed() {
       el.style.marginRight = `${Math.min(0, contentRight - edgeRight)}px`;
     };
 
-    el.classList.add('is-full-bleed');
     measure();
     // jsdom (tests) has no ResizeObserver — window resize still covers it.
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
@@ -58,9 +74,7 @@ export default function useFullBleed() {
     return () => {
       ro?.disconnect();
       window.removeEventListener('resize', measure);
-      el.classList.remove('is-full-bleed');
-      el.style.marginLeft = '';
-      el.style.marginRight = '';
+      reset();
     };
   }, [mounted]);
 

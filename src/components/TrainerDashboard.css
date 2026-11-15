@@ -1172,10 +1172,14 @@
 }
 
 .live-timer-btn {
-  padding: 6px 14px;
-  background: rgba(245, 158, 11, 0.15);
+  /* Same whole tinted box as the client bar's Pause (.btn-timer-toggle). */
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  flex-shrink: 0;
+  background: rgba(245, 158, 11, 0.14);
   border: 1px solid rgba(245, 158, 11, 0.4);
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   color: var(--tint-amber);
   font-size: 0.75rem;
   font-weight: 700;

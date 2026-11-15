@@ -4000,12 +4000,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               {workoutTimerStatus === 'idle' ? (
                 <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
               ) : (
-                <>
+                <div className="timer-stack">
                   <strong className={`stopwatch-time ${workoutTimerStatus === 'paused' ? 'is-paused' : ''}`}>
                     {formatStopwatchTime(workoutActiveSeconds)}
                   </strong>
                   <span className="live-kcal-badge">🔥 {liveOwnWorkoutKcal} kcal</span>
-                </>
+                </div>
               )}
             </div>
             <div className="timer-controls">

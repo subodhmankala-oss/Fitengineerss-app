@@ -1940,6 +1940,15 @@
   gap: 8px;
 }
 
+/* Time on top, calories underneath (client bar and coach Live Log bar). */
+.timer-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
 .stopwatch-icon {
   font-size: 1.2rem;
   animation: pulseStopwatch 1.5s infinite ease-in-out;
@@ -1985,25 +1994,35 @@
 
 .timer-controls {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex: 0 0 auto;
 }
 
-/* Icon-only, no button chrome — matches the discard/stopwatch controls. */
+/* Pause/Resume is the bar's main control: a whole tinted box at the right
+   end, not a bare icon, so it's a big, easy tap mid-set. */
 .btn-timer-toggle {
-  background: transparent;
-  border: none;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
   color: var(--tint-amber);
-  padding: 4px 6px;
+  width: 46px;
+  height: 46px;
+  padding: 0;
   cursor: pointer;
-  transition: transform var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .btn-timer-toggle:hover {
-  transform: scale(1.1);
+  background: rgba(245, 158, 11, 0.24);
+}
+
+.btn-timer-toggle:active {
+  transform: scale(0.95);
 }
 
 /* Icon-only, no button chrome — matches the coach-side discard control. */

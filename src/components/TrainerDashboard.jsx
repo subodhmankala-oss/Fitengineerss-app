@@ -10356,10 +10356,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       <span className="live-timer-idle-hint">⏱ Timer starts when you log your first set</span>
                     ) : (
                       <>
-                        <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
-                          ⏱ {formatDuration(liveElapsedSeconds)}
-                        </span>
-                        <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                        <div className="timer-stack">
+                          <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                            ⏱ {formatDuration(liveElapsedSeconds)}
+                          </span>
+                          <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                        </div>
                         <div style={{ marginLeft: 'auto' }}>
                           <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
                         </div>

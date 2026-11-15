@@ -6,28 +6,40 @@
 }
 
 .wmh-toggle {
+  /* One dark tile: front + back sit flush and the chevron is inside, so the
+     whole thing reads (and taps) as a single control. */
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 0;
   padding: 2px 4px 2px 2px;
-  background: transparent;
-  border: none;
+  background: #0b1120;
+  border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: 10px;
   color: var(--tint-amber);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease;
 }
 
-.wmh-toggle:hover {
-  background: rgba(245, 158, 11, 0.1);
+.wmh-toggle:hover,
+.wmh-toggle.is-open {
+  border-color: rgba(245, 158, 11, 0.75);
 }
 
 .wmh-chev {
+  margin-left: 2px;
   transition: transform 0.2s ease;
 }
 
 .wmh-toggle.is-open .wmh-chev {
   transform: rotate(180deg);
+}
+
+/* Figures in the bar tile: no frame of their own. */
+.wmh-toggle .heat-body.muscle-thumb {
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .heat-body.muscle-thumb {

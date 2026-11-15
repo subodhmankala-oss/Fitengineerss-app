@@ -1921,7 +1921,8 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(245, 158, 11, 0.25);
-  padding: 12px 14px;
+  /* Tight right/top/bottom so the heat tile and Pause box fill the bar. */
+  padding: 8px 8px 8px 14px;
   border-radius: var(--radius-md);
   margin-bottom: 8px;
   gap: 10px;
@@ -1994,7 +1995,9 @@
 
 .timer-controls {
   display: flex;
-  align-items: center;
+  /* Heat tile + Pause box run the bar's full height. */
+  align-self: stretch;
+  align-items: stretch;
   gap: 8px;
   flex: 0 0 auto;
 }
@@ -2006,8 +2009,8 @@
   border: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 12px;
   color: var(--tint-amber);
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  min-height: 46px;
   padding: 0;
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
@@ -2066,7 +2069,7 @@
 
 @media (max-width: 390px) {
   .hevy-stopwatch-banner {
-    padding: 10px 10px;
+    padding: 8px 8px 8px 10px;
     gap: 6px;
   }
 

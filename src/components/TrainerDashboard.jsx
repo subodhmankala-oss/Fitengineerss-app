@@ -10362,7 +10362,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           </span>
                           <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
                         </div>
-                        <div style={{ marginLeft: 'auto' }}>
+                        <div style={{ marginLeft: 'auto', display: 'flex', alignSelf: 'stretch' }}>
                           <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
                         </div>
                         <button

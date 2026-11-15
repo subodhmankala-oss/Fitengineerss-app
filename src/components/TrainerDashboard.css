@@ -1118,7 +1118,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px 14px;
+  /* Tight right/top/bottom so the heat tile and Pause box fill the bar. */
+  padding: 8px 8px 8px 14px;
   /* Opaque base under the amber tint so scrolled content doesn't show
      through while the bar is pinned. */
   background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), var(--bg-card);
@@ -1173,8 +1174,9 @@
 
 .live-timer-btn {
   /* Same whole tinted box as the client bar's Pause (.btn-timer-toggle). */
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  min-height: 46px;
+  align-self: stretch;
   padding: 0;
   flex-shrink: 0;
   background: rgba(245, 158, 11, 0.14);

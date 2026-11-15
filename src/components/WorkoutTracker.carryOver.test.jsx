@@ -30,10 +30,9 @@ vi.mock('../utils/alarmSound', () => ({ playAlarmBeeps: vi.fn(), unlockAudio: vi
 
 import databaseService from '../services/databaseService';
 import WorkoutTracker from './WorkoutTracker';
-import { TourProvider } from '../context/TourContext';
 import { getWorkoutLeftovers } from '../utils/workoutLeftovers';
 
-const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
+const renderWorkoutTracker = () => render(<WorkoutTracker />);
 
 const today = () => {
   const d = new Date();

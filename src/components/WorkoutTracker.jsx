@@ -19,7 +19,6 @@ import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC, MUSCLE_BODY_VIEW } from '..
 import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
-import { useTour } from '../context/useTour';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
@@ -302,17 +301,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView, isLoggingWorkout]);
 
-  // First-login spotlight tour — advance the shared step whenever the real
-  // navigation state it's watching for actually changes. See TourOverlay.jsx
-  // for what each step highlights.
-  const tour = useTour();
-  useEffect(() => {
-    if (activeView === 'templates') tour.advanceIfStep(2, 3);
-    if (activeView === 'log') tour.advanceIfStep(4, 5);
-  }, [activeView, tour]);
-  useEffect(() => {
-    if (isLoggingWorkout) tour.advanceIfStep(5, 6);
-  }, [isLoggingWorkout, tour]);
   const [clientPlans, setClientPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [saveAsTemplate, setSaveAsTemplate] = useState(savedWorkoutDraft?.saveAsTemplate ?? false);
@@ -3108,14 +3096,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           📈 Progress
         </button>
         <button
-          data-tour="wt-tab-log"
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
           onClick={() => selectView('log')}
         >
           📝 Log Sets
         </button>
         <button
-          data-tour="wt-tab-templates"
           className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
           onClick={() => selectView('templates')}
         >
@@ -3581,7 +3567,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 ))}
               </div>
 
-              <div className="wt-level-menu" data-tour="wt-level-tabs" ref={levelMenuRef}>
+              <div className="wt-level-menu" ref={levelMenuRef}>
                 <button
                   type="button"
                   className={`wt-level-chip wt-level-chip--${genericLevel}`}
@@ -3607,7 +3593,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         role="option"
                         aria-selected={genericLevel === level}
                         className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
-                        onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); setLevelMenuOpen(false); tour.advanceIfStep(3, 4); }}
+                        onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); setLevelMenuOpen(false); }}
                       >
                         <span className={`wt-program-dot wt-program-dot--${level}`} />
                         {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -3729,7 +3715,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
             <button
               type="button"
-              data-tour="wt-start-empty-card"
               className="wt-start-empty-card"
               onClick={() => {
                 setLogClient(selectedClient);
@@ -4087,7 +4072,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       menu={cardMenu}
                     />
                   ) : (
-                  <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
+                  <div className="form-exercise-card hevy-exercise-card">
                     <div className="ex-card-header">
                       <div className="ex-card-title-stack">
                       <div className="ex-card-title-group">
@@ -4717,7 +4702,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="live-add-ex-box">
               <button
                 type="button"
-                data-tour="wt-add-exercise-btn"
                 className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
                 onClick={() => setShowExerciseDbModal(true)}
               >
@@ -4758,7 +4742,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               >
                 <TrashIcon size={28} />
               </button>
-              <button type="submit" data-tour="wt-save-workout-btn" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
+              <button type="submit" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
                 💾 Save Workout Session
               </button>
             </div>

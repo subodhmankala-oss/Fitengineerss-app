@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import Onboarding from './components/Onboarding';
-import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
 import SexRequiredPrompt from './components/SexRequiredPrompt';
 import PhoneGate from './components/PhoneGate';
@@ -20,7 +19,6 @@ const TrainerDashboard = lazy(() => import('./components/TrainerDashboard'));
 const WorkoutProgressDashboard = lazy(() => import('./components/WorkoutProgressDashboard'));
 const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const AuthConfirm = lazy(() => import('./components/AuthConfirm'));
-import { useTour } from './context/useTour';
 import { useCoachTour } from './context/useCoachTour';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, flushPendingWorkoutDrafts, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
@@ -226,7 +224,7 @@ const clearLocalStoragePreservingChats = () => {
     // function's — the one caller that wipes because the session really is
     // dead removes them explicitly right after calling this.
     const isAuthSessionKey = key && ((key.startsWith('sb-') && key.endsWith('-auth-token')) || key === 'fe_auth_session_backup');
-    if (key && (isAuthSessionKey || key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount' || key === 'coachPlanEditorDraft')) {
+    if (key && (isAuthSessionKey || key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'coachTourSeen' || key === 'savedLoginAccount' || key === 'coachPlanEditorDraft')) {
       preserved[key] = localStorage.getItem(key);
     }
   }
@@ -533,7 +531,6 @@ function App() {
   }, []);
   // First-login spotlight walkthrough — shown once per role, replayable via a help button.
   const demoTourCheckedRef = useRef(false);
-  const clientTour = useTour();
   const coachTour = useCoachTour();
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
   // The auth listener below is subscribed once for the whole session, so it
@@ -640,25 +637,13 @@ function App() {
     if (admin) { demoTourCheckedRef.current = true; return; }
 
     if (coach) {
-      // Coaches get the same interactive spotlight tour as clients — it
+      // Coaches get an interactive spotlight tour — it
       // opens a sample "Demo Client" row and walks through Manage → Send
       // plan → Live Log → History (see CoachTourOverlay.jsx).
       coachTour.start();
-    } else {
-      // Clients get the interactive spotlight tour instead of the modal —
-      // it starts on the Home screen and follows real navigation into the
-      // Workout tab (see the bottom-nav effect below and WorkoutTracker.jsx).
-      clientTour.start();
     }
     demoTourCheckedRef.current = true;
-  }, [userEmail, userRole, onboardingComplete, showClientWizard, pendingConfirmationEmail, showResetPasswordModal, clientTour, coachTour]);
-
-  // Spotlight step 1→2: the bottom-nav Workout button is highlighted from
-  // the Home screen; once the user actually navigates to the Workout tab
-  // (however they got there — bottom nav or a dashboard CTA), move on.
-  useEffect(() => {
-    if (activeTab === 'workouts') clientTour.advanceIfStep(1, 2);
-  }, [activeTab, clientTour]);
+  }, [userEmail, userRole, onboardingComplete, showClientWizard, pendingConfirmationEmail, showResetPasswordModal, coachTour]);
 
   // Resume-refresh: if the app was backgrounded (tab hidden, phone locked, or
   // the PWA suspended) for more than 15 minutes, force a full reload the moment
@@ -1621,7 +1606,7 @@ function App() {
               'clientLinkedToCoach', 'userSessionsLimit', 'userCoachName',
               // Tour "already seen" flag — otherwise the walkthrough restarts
               // on every login.
-              'clientTourSeen', 'coachTourSeen'
+              'coachTourSeen'
             ];
             const tempStorage = {};
             keysToKeep.forEach(k => {
@@ -1702,7 +1687,6 @@ function App() {
     // with everything else. That reset the spotlight tour to step 1 on every
     // single login after any logout, forever, on this device. Preserve them
     // the same way last_logged_in_email/lastAuthUserType already are below.
-    const clientTourSeen = localStorage.getItem('clientTourSeen');
     const coachTourSeen = localStorage.getItem('coachTourSeen');
     // The quick-login "Welcome back" account (see saveQuickLoginAccount above)
     // is meant to survive a Log Out — that's the whole point, so the next
@@ -1723,7 +1707,6 @@ function App() {
     if (activeEmail) {
       localStorage.setItem('last_logged_in_email', activeEmail);
     }
-    if (clientTourSeen) localStorage.setItem('clientTourSeen', clientTourSeen);
     if (coachTourSeen) localStorage.setItem('coachTourSeen', coachTourSeen);
     if (savedLoginAccount) localStorage.setItem('savedLoginAccount', savedLoginAccount);
     // Remember which tab (coach vs client) they were using, so the login
@@ -1805,7 +1788,6 @@ function App() {
         <ClientProfile
           key={deepLinkNonce}
           handleLogout={handleLogout}
-          onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }}
           initialSection={deepLinkOpenMeasurements ? 'measurements' : null}
           dotSections={new Set(unreadNotifications.filter(n => n.appTab === 'profile' && n.section).map(n => n.section))}
           onSectionOpen={(section) => markNotificationsSeen(n => n.appTab === 'profile' && n.section === section)}
@@ -2000,7 +1982,6 @@ function App() {
 
   return (
     <div className="app-container">
-      <TourOverlay />
       {/* Clients who onboarded before sex was asked must pick one first. */}
       <SexRequiredPrompt />
       {/* Clients who signed up before the wizard required a phone must add
@@ -2023,7 +2004,7 @@ function App() {
             </span>
             <span>Home</span>
           </button>
-          <button data-tour="nav-workout" className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
+          <button className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
             <span className="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />

@@ -29,12 +29,8 @@ vi.mock('../services/databaseService', () => {
 });
 
 import WorkoutTracker from './WorkoutTracker';
-import { TourProvider } from '../context/TourContext';
 
-// WorkoutTracker calls useTour() (spotlight walkthrough state), which throws
-// outside a TourProvider — render through this helper instead of the bare
-// component everywhere below.
-const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
+const renderWorkoutTracker = () => render(<WorkoutTracker />);
 
 const DRAFT_KEY = 'workoutDraft_u1';
 

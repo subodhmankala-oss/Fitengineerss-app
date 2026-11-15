@@ -6,7 +6,6 @@ import InstallBanner from './components/InstallBanner.jsx'
 import IOSInstallBanner from './components/IOSInstallBanner.jsx'
 import UpdateBanner from './components/UpdateBanner.jsx'
 import PullToRefresh from './components/PullToRefresh.jsx'
-import { TourProvider } from './context/TourContext.jsx'
 import { CoachTourProvider } from './context/CoachTourContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
@@ -14,11 +13,9 @@ import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
-      <TourProvider>
-        <CoachTourProvider>
-          <App />
-        </CoachTourProvider>
-      </TourProvider>
+      <CoachTourProvider>
+        <App />
+      </CoachTourProvider>
       <InstallBanner />
       <IOSInstallBanner />
       <UpdateBanner />

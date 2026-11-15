@@ -25,7 +25,6 @@ vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 
 import WorkoutTracker from './WorkoutTracker';
 import databaseService from '../services/databaseService';
-import { TourProvider } from '../context/TourContext';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 
 Element.prototype.scrollTo = vi.fn();
@@ -47,13 +46,13 @@ describe('Beginner series: Home card → logger → leave and come back', () => 
 
   it('shows the videos when started from the Home card', async () => {
     startLibraryProgram('u1', 'gym', 'beginner', program);
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await waitFor(() => expect(videos()).toBeGreaterThan(0));
   });
 
   it('still shows them after switching tabs and back (server copy of this session is newer)', async () => {
     startLibraryProgram('u1', 'gym', 'beginner', program);
-    const first = render(<TourProvider><WorkoutTracker /></TourProvider>);
+    const first = render(<WorkoutTracker />);
     await waitFor(() => expect(videos()).toBeGreaterThan(0));
     // The server copy of the open session, saved a moment after the local one.
     await act(async () => { await new Promise(r => setTimeout(r, 1500)); });
@@ -62,7 +61,7 @@ describe('Beginner series: Home card → logger → leave and come back', () => 
     databaseService.getWorkoutDraft.mockResolvedValue({ ...saved, updatedAt: new Date(Date.now() + 5000).toISOString() });
     first.unmount();
 
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     expect((await screen.findAllByText('Push-up')).length).toBeGreaterThan(0);
     await waitFor(() => expect(databaseService.getWorkoutDraft).toHaveBeenCalled());
     await act(async () => { await new Promise(r => setTimeout(r, 50)); });
@@ -78,7 +77,7 @@ describe('Beginner series: Home card → logger → leave and come back', () => 
       templateName: 'Beginner Full Body A', activeTemplateName: '', loggingLevel: null, saveAsTemplate: false,
       workoutTimerStatus: 'running', workoutTimerStartedAt: Date.now() - 60000, workoutPauseIntervals: [], savedAt: Date.now()
     }));
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     await waitFor(() => expect(videos()).toBeGreaterThan(0));
   });
 
@@ -91,7 +90,7 @@ describe('Beginner series: Home card → logger → leave and come back', () => 
       templateName: 'My Push Day', activeTemplateName: '', loggingLevel: null, saveAsTemplate: false,
       workoutTimerStatus: 'running', workoutTimerStartedAt: Date.now() - 60000, workoutPauseIntervals: [], savedAt: Date.now()
     }));
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     expect((await screen.findAllByText('Push-up')).length).toBeGreaterThan(0);
     await waitFor(() => expect(databaseService.getLibraryProgramLevel).toHaveBeenCalledWith('My Push Day'));
     await act(async () => { await new Promise(r => setTimeout(r, 50)); });
@@ -100,7 +99,7 @@ describe('Beginner series: Home card → logger → leave and come back', () => 
 
   it('still shows them when the session is reopened from the server copy only (local copy gone)', async () => {
     startLibraryProgram('u1', 'gym', 'beginner', program);
-    const first = render(<TourProvider><WorkoutTracker /></TourProvider>);
+    const first = render(<WorkoutTracker />);
     await waitFor(() => expect(videos()).toBeGreaterThan(0));
     await act(async () => { await new Promise(r => setTimeout(r, 1500)); });
     const saved = databaseService.saveWorkoutDraft.mock.calls.at(-1)?.[0];
@@ -108,7 +107,7 @@ describe('Beginner series: Home card → logger → leave and come back', () => 
     first.unmount();
     localStorage.removeItem('workoutDraft_u1');
 
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     expect((await screen.findAllByText('Push-up')).length).toBeGreaterThan(0);
     await act(async () => { await new Promise(r => setTimeout(r, 50)); });
     expect(videos()).toBeGreaterThan(0);

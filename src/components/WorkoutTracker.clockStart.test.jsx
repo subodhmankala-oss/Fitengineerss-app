@@ -24,7 +24,6 @@ vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 
 import WorkoutTracker from './WorkoutTracker';
 import { notifyEvent } from '../utils/pushNotify';
-import { TourProvider } from '../context/TourContext';
 
 // jsdom has no Element.scrollTo; the analytics chart calls it on mount.
 Element.prototype.scrollTo = vi.fn();
@@ -33,7 +32,7 @@ const T0 = 1_790_000_000_000;
 let now = T0;
 let dateSpy;
 
-const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
+const renderWorkoutTracker = () => render(<WorkoutTracker />);
 const clockText = () => document.querySelector('.hevy-stopwatch-banner .stopwatch-time')?.textContent;
 
 describe('WorkoutTracker workout clock', () => {

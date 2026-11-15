@@ -24,7 +24,6 @@ vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 
 import WorkoutTracker from './WorkoutTracker';
 import databaseService from '../services/databaseService';
-import { TourProvider } from '../context/TourContext';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import { WARMUP_BLOCKS, getWarmupWeekIndex, buildWarmupExercises } from '../utils/warmupBlocks';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
@@ -52,7 +51,7 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
   it('gym upper day: this week’s 3 warm-ups first, then the program with this week’s swaps', async () => {
     const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
     startLibraryProgram('u1', 'gym', 'intermediate', push, PRIOR_RUNS);
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
 
     const expected = WARMUP_BLOCKS.upper.gym[getWarmupWeekIndex(new Date())].map(i => i.name);
     const thisWeek = applyWeeklySwaps({ programName: push.name, exercises: push.exercises, level: 'intermediate', category: 'gym', priorRuns: PRIOR_RUNS });
@@ -82,7 +81,7 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
     ]));
     const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
     startLibraryProgram('u1', 'gym', 'intermediate', push);
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
 
     const names = push.exercises.map(e => e.name);
     for (const name of names) {
@@ -100,7 +99,7 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
     try {
       const lower = program('Home Intermediate Lower Body', 'Jump Squat', 'Bulgarian Split Squat', 'Reverse Lunge', 'Glute Bridge', 'Wall Sit');
       startLibraryProgram('u1', 'home', 'intermediate', lower, PRIOR_RUNS);
-      render(<TourProvider><WorkoutTracker /></TourProvider>);
+      render(<WorkoutTracker />);
 
       const thisWeek = applyWeeklySwaps({ programName: lower.name, exercises: lower.exercises, level: 'intermediate', category: 'home', priorRuns: PRIOR_RUNS });
       const warmups = buildWarmupExercises({ programName: lower.name, exercises: thisWeek, category: 'home' }).map(e => e.name);
@@ -129,7 +128,7 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
       ]);
       const legs = program('Intermediate Legs', 'Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl (Seated)');
       startLibraryProgram('u1', 'gym', 'intermediate', legs);
-      render(<TourProvider><WorkoutTracker /></TourProvider>);
+      render(<WorkoutTracker />);
 
       expect(await screen.findByText('🎯 Finisher · Calves not trained in 20 days')).toBeTruthy();
       expect(cardTitles().at(-1)).toBe('Standing Calf Raise');
@@ -147,7 +146,7 @@ describe('Start Empty Workout warm-up', () => {
     localStorage.setItem('userName', 'TestClient');
     localStorage.setItem('userId', 'u1');
     localStorage.setItem('workoutTrackerLastTab_u1', 'log');
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     fireEvent.click(await screen.findByText('Start Empty Workout'));
 
     expect(document.querySelectorAll('.warmup-move-head')).toHaveLength(1);
@@ -178,7 +177,7 @@ describe('Resumed workout from before the Warm-up card', () => {
       saveAsTemplate: false, workoutTimerStatus: 'running', workoutTimerStartedAt: Date.now() - 60000,
       workoutPauseIntervals: [], savedAt: Date.now(),
     }));
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     expect(await screen.findByLabelText('Complete Leg Swing')).toBeTruthy();
     expect(Array.from(document.querySelectorAll('.warmup-move-name')).map(el => el.textContent)).toEqual(['Arm Circle', 'Leg Swing']);
     expect(Array.from(document.querySelectorAll('h5')).map(el => el.textContent.trim())).toContain('Biceps Curls');
@@ -192,7 +191,7 @@ describe('Warm-up card form guide', () => {
     localStorage.setItem('userName', 'TestClient');
     localStorage.setItem('userId', 'u1');
     localStorage.setItem('workoutTrackerLastTab_u1', 'log');
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    render(<WorkoutTracker />);
     fireEvent.click(await screen.findByText('Start Empty Workout'));
     fireEvent.click(screen.getByLabelText('Form guide for Arm Circle'));
     expect(screen.queryByText('No logged history yet for this exercise.')).toBeNull();

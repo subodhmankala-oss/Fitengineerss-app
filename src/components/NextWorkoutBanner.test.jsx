@@ -262,9 +262,11 @@ describe('NextWorkoutBanner', () => {
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
     expect(await screen.findByText('Beginner Full Body B')).not.toBeNull();
-    fireEvent.click(screen.getByLabelText('Close'));
+    // No ✕ on this card: it swipes left to reveal a Hide action (SwipeToHide).
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide this suggestion' }));
     expect(onNavigate).not.toHaveBeenCalled();
-    expect(screen.queryByText('Beginner Full Body B')).toBeNull();
+    await waitFor(() => expect(screen.queryByText('Beginner Full Body B')).toBeNull());
     // The row left behind offers the level chooser, with a way back to the suggestion.
     fireEvent.click(screen.getByText('Choose your level'));
     expect(screen.getByText('What’s your level?')).not.toBeNull();
@@ -323,7 +325,7 @@ describe('NextWorkoutBanner', () => {
     const onNavigate = vi.fn();
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
-    const banner = (await screen.findAllByRole('button')).find(b => b.getAttribute('aria-label') !== 'Close');
+    const banner = await screen.findByRole('button', { name: /^Start / });
     banner.click();
     expect(localStorage.getItem('workoutTrackerLastTab_u1')).toBe('templates');
     expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('beginner');
@@ -341,7 +343,7 @@ describe('NextWorkoutBanner', () => {
     });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Home Beginner Full Body A' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    const banner = (await screen.findAllByRole('button')).find(b => b.getAttribute('aria-label') !== 'Close');
+    const banner = await screen.findByRole('button', { name: /^Start / });
     banner.click();
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('home');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));

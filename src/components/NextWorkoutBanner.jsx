@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
+import SwipeToHide from './SwipeToHide';
 import { buildWarmupExercises } from '../utils/warmupBlocks';
 import { applyWeeklySwaps, countPriorRuns } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
@@ -209,8 +210,14 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   const position = programPosition(library, category, level, program);
 
   // Slim card (2026-11-15): body heat map of today's muscles · day / name /
-  // stats · pulsing play. The whole card is the tap target.
+  // stats · pulsing play. The whole card is the tap target; swipe it left
+  // to hide it (no ✕ — see SwipeToHide).
   return (
+    <SwipeToHide
+      onHide={() => dismissBanner(program.name)}
+      hintKey={`nextWorkoutSwipeHintSeen_${userId}`}
+      style={{ marginBottom: '4px' }}
+    >
     <div
       className="next-workout-card"
       onClick={goToProgram}
@@ -219,17 +226,11 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       aria-label={`Start ${program.name}${session.focus.length ? ` — ${session.focus.join(', ')}` : ''}`}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToProgram(); } }}
       style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: '10px',
+        display: 'flex', alignItems: 'center', gap: '10px',
         background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-        // Right padding leaves the corner free for the ✕ above the play button.
-        borderRadius: '12px', padding: '10px 30px 10px 12px', marginBottom: '4px', cursor: 'pointer'
+        borderRadius: '12px', padding: '10px 12px', cursor: 'pointer'
       }}
     >
-      <CloseButton
-        inline
-        title="Close — I don’t want this suggestion now"
-        onClick={(e) => { e.stopPropagation(); dismissBanner(program.name); }}
-      />
       {session.muscles.length > 0 && (
         // --status-color tints the thumbnail's backdrop (.muscle-thumb).
         <div style={{ '--status-color': 'var(--primary-accent)', flexShrink: 0, display: 'flex' }}>
@@ -279,6 +280,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11-6.86a1 1 0 0 0 0-1.7l-11-6.86A1 1 0 0 0 8 5.14z" /></svg>
       </span>
     </div>
+    </SwipeToHide>
   );
 }
 
@@ -287,10 +289,8 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
 const HEAT_MAIN = '#ef4444';
 const HEAT_ALSO = '#f59e0b';
 
-// ✕ in the top-right corner of a banner card; `inline` is the smaller,
-// ring-less one for the slim next-workout row, so the play button stays the
-// focus.
-function CloseButton({ title, onClick, inline = false }) {
+// ✕ in the top-right corner of a banner card.
+function CloseButton({ title, onClick }) {
   return (
     <button
       type="button"
@@ -299,12 +299,7 @@ function CloseButton({ title, onClick, inline = false }) {
       onKeyDown={(e) => e.stopPropagation()}
       aria-label="Close"
       title={title}
-      style={inline ? {
-        position: 'absolute', top: '4px', right: '4px', width: '22px', height: '22px',
-        background: 'transparent', border: 'none', borderRadius: '50%', padding: 0,
-        color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'
-      } : {
+      style={{
         position: 'absolute', top: '10px', right: '10px', zIndex: 1,
         width: '32px', height: '32px', borderRadius: '50%',
         background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',

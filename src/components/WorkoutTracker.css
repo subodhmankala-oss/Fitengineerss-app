@@ -2886,6 +2886,13 @@
   color: rgba(var(--accent-rgb), 0.7);
 }
 
+/* A ticked warm-up / failure / drop / superset set keeps the normal ticked row
+   and tick colours; only its set letter keeps the type colour. */
+.hevy-set-row.set-row-completed.set-row-warmup .set-num-lbl   { color: #f59e0b; }
+.hevy-set-row.set-row-completed.set-row-failure .set-num-lbl  { color: #ef4444; }
+.hevy-set-row.set-row-completed.set-row-drop .set-num-lbl     { color: #8b5cf6; }
+.hevy-set-row.set-row-completed.set-row-superset .set-num-lbl { color: #3b82f6; }
+
 /* "✓ all" in the set table header (client logger + coach Live Log). */
 .btn-check-all {
   min-height: 44px;

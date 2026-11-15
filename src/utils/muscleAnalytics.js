@@ -29,12 +29,14 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightE
 // below. `target` is the single reference number shown as "X / Target Sets"
 // and used for the completion % (midpoint of the optimal band).
 // Weekly working-set bands per experience level. Intermediate is the original
-// band and the fallback when a client's level isn't known, so nobody's
-// numbers move until a level is saved. Beginners recover from and grow on
-// less volume; advanced lifters need more to keep progressing.
+// band. Beginners recover from and grow on less volume; advanced lifters need
+// more to keep progressing. Each band's low end matches what the AI Workout
+// Builder plans for that level (data/aiProgrammingRules.js
+// weeklySetsLarge/SmallMuscle), so a client following an AI plan reads
+// Optimal, not Slightly Low.
 // Optional muscles (Tibialis) are accessory work: a lighter band.
 export const TARGET_BANDS_BY_LEVEL = {
-  beginner: { large: [8, 12], small: [6, 10], optional: [3, 6] },
+  beginner: { large: [8, 12], small: [4, 8], optional: [3, 6] },
   intermediate: { large: [12, 20], small: [8, 15], optional: [4, 10] },
   advanced: { large: [15, 24], small: [10, 18], optional: [5, 12] },
 };

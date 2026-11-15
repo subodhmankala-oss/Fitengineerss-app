@@ -44,6 +44,7 @@ import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
+import { levelFromHistory } from '../utils/clientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
@@ -247,7 +248,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // what the Home tab's "Resume Workout" banner reads).
   const [ownUserId, setOwnUserId] = useState(null);
   // Experience level → the weekly set targets the "behind this week" hint uses.
-  const trainingLevel = useClientTrainingLevel(ownUserId);
+  const savedTrainingLevel = useClientTrainingLevel(ownUserId);
 
   // Custom on-screen number pad for the set-logging table's weight/reps/km/
   // time fields — see utils/setInputUtils.js for why this replaced the
@@ -3004,6 +3005,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     }
     return rows;
   }, [sessions, logExercises, isLoggingWorkout, logDate, loggedInUser]);
+  // Saved level, else the one their training time puts them at.
+  const trainingLevel = useMemo(() => savedTrainingLevel || levelFromHistory(muscleGapLogs), [savedTrainingLevel, muscleGapLogs]);
 
   // New exercises slide in (see hooks/useExerciseEnterAnimation.js).
   const { markEntering, enterRef } = useExerciseEnterAnimation();

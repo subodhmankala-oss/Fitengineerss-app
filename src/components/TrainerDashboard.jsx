@@ -82,6 +82,7 @@ import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 import MuscleGapHint from './MuscleGapHint';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
+import { levelFromHistory } from '../utils/clientTrainingLevel';
 import PhoneGate from './PhoneGate';
 import CoachFirstClientCard from './CoachFirstClientCard';
 import { hasValidPhone } from '../utils/coachPhone';
@@ -752,7 +753,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
   // The selected client's experience level → their weekly muscle set targets.
-  const selectedClientLevel = useClientTrainingLevel(selectedClient?.id || null);
+  const savedClientLevel = useClientTrainingLevel(selectedClient?.id || null);
   const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
 
   // Keep the screen from auto-locking/dimming only while the coach is
@@ -1745,6 +1746,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // log_date/exercise_name/weight_kg/reps rows, not the grouped per-date
   // session objects `workoutLogs` holds.
   const [rawWorkoutLogs, setRawWorkoutLogs] = useState([]);
+  // Selected client's level: saved, else the one their training time puts them at.
+  const selectedClientLevel = useMemo(() => savedClientLevel || levelFromHistory(rawWorkoutLogs), [savedClientLevel, rawWorkoutLogs]);
   // "Add missed exercise" on the client's Daily history (same sheet the
   // client gets on Home → Daily).
   const [missedExOpen, setMissedExOpen] = useState(false);

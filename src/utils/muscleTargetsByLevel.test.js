@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { getMuscleTargets, MUSCLE_TARGETS, normalizeTargetLevel, getWeeklyMuscleStats } from './muscleAnalytics';
+import { getMuscleTargets, MUSCLE_TARGETS, normalizeTargetLevel, getWeeklyMuscleStats, TARGET_BANDS_BY_LEVEL } from './muscleAnalytics';
+import { LEVEL_RULES } from '../data/aiProgrammingRules';
 import { regionBand, getMuscleGaps } from './muscleRegions';
-import { resolveClientTrainingLevel } from './clientTrainingLevel';
+import { resolveClientTrainingLevel, levelFromHistory } from './clientTrainingLevel';
 
 const benchSets = (n, date = '2026-07-20') => Array.from({ length: n }, (_, i) => ({
   log_date: date, exercise_name: 'Bench Press', weight_kg: 40, reps: 10, set_type: null,
@@ -13,7 +14,7 @@ describe('weekly set targets by experience level', () => {
     expect(getMuscleTargets('beginner').Chest).toEqual({ min: 8, max: 12, target: 10 });
     expect(getMuscleTargets('intermediate').Chest).toEqual({ min: 12, max: 20, target: 16 });
     expect(getMuscleTargets('advanced').Chest).toEqual({ min: 15, max: 24, target: 20 });
-    expect(getMuscleTargets('beginner').Biceps).toEqual({ min: 6, max: 10, target: 8 });
+    expect(getMuscleTargets('beginner').Biceps).toEqual({ min: 4, max: 8, target: 6 });
     expect(getMuscleTargets('beginner').Tibialis).toEqual({ min: 3, max: 6, target: 5 });
   });
 
@@ -69,5 +70,38 @@ describe('resolveClientTrainingLevel', () => {
   it('returns null when nothing is saved', () => {
     expect(resolveClientTrainingLevel(null, null, now)).toBeNull();
     expect(resolveClientTrainingLevel({ experienceLevel: '' }, { level: null }, now)).toBeNull();
+  });
+});
+
+describe('levelFromHistory (no level saved)', () => {
+  const now = new Date('2026-11-15T12:00:00').getTime();
+
+  it('a client who started 3 weeks ago (or has no workouts yet) is a beginner', () => {
+    expect(levelFromHistory([{ log_date: '2026-10-25' }, { log_date: '2026-11-14' }], now)).toBe('beginner');
+    expect(levelFromHistory([], now)).toBe('beginner');
+    expect(levelFromHistory(null, now)).toBe('beginner');
+  });
+
+  it('steps up at 12 and 24 weeks from the first workout, per-set rows or sessions', () => {
+    expect(levelFromHistory([{ log_date: '2026-08-01' }, { log_date: '2026-11-10' }], now)).toBe('intermediate');
+    expect(levelFromHistory([{ date: '2026-04-01' }], now)).toBe('advanced');
+  });
+
+  it('beginner targets for that client: chest 10, not the intermediate 16', () => {
+    expect(getMuscleTargets(levelFromHistory([{ log_date: '2026-11-09' }], now)).Chest.target).toBe(10);
+  });
+});
+
+describe('targets agree with what the AI Workout Builder plans', () => {
+  // A client who follows an AI plan exactly must read Optimal on the muscle
+  // screens: each AI weekly set target sits inside that level's band.
+  it.each(['beginner', 'intermediate', 'advanced'])('%s', (level) => {
+    const ai = LEVEL_RULES[level];
+    const bands = TARGET_BANDS_BY_LEVEL[level];
+    for (const [aiKey, size] of [['weeklySetsLargeMuscle', 'large'], ['weeklySetsSmallMuscle', 'small']]) {
+      const [min, max] = bands[size];
+      expect(ai[aiKey].target).toBeGreaterThanOrEqual(min);
+      expect(ai[aiKey].target).toBeLessThanOrEqual(max);
+    }
   });
 });

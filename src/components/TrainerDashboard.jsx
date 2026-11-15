@@ -22,7 +22,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
 import { getSetRingStates } from '../utils/setMuscleRing';
-import SetMuscleRing, { SetRingHeaderLabel } from './SetMuscleRing';
+import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -10645,7 +10645,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               </>
                             )}
                             <span className="col-check">
-                              {!exIsCardio && <SetRingHeaderLabel exerciseName={ex.name} />}
+                              {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={liveSetRings} exIdx={exIdx} />}
                               <button
                                 type="button"
                                 title="Mark all sets done"

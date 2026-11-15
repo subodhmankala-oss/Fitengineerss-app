@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
+import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
+import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './SetMuscleRing.css';
 
 // Ring beside a set's tick: how far this week's sets for the exercise's main
@@ -55,13 +57,24 @@ export default function SetMuscleRing({ ring }) {
   );
 }
 
-// Short names so the label fits over the 26px ring column.
-const SHORT = { Hamstrings: 'Hams', Shoulders: 'Delts', Forearms: 'Forearm', Tibialis: 'Tibs' };
+// Header over the ring column: a small drawing of the exercise's main muscle
+// (the same heat-map artwork as the Muscle Balance cards), coloured like the
+// rings below it — grey until a set is ticked, amber while this week's sets
+// are under target, green once the target is hit. An empty slot when the
+// exercise maps to no muscle, so "✓ all" stays over the ticks either way.
+const HEADER_COLORS = { idle: '#94a3b8', progress: '#d97706', done: '#16a34a' };
 
-// Header label over the ring column: the exercise's main muscle (what the
-// rings count). An empty slot when it maps to no muscle, so "✓ all" stays
-// over the ticks either way.
-export function SetRingHeaderLabel({ exerciseName }) {
+export function SetRingHeaderMuscle({ exerciseName, rings, exIdx }) {
   const muscle = getMuscleGroupsForExercise(exerciseName)[0];
-  return <span className="set-ring-col-label">{muscle ? (SHORT[muscle] || muscle) : ''}</span>;
+  if (!muscle) return <span className="set-ring-col-muscle" aria-hidden="true" />;
+  const states = Object.entries(rings || {})
+    .filter(([key]) => key.startsWith(`${exIdx}-`))
+    .map(([, r]) => r.state);
+  const state = states.includes('done') ? 'done' : states.includes('progress') ? 'progress' : 'idle';
+  const color = HEADER_COLORS[state];
+  return (
+    <span className="set-ring-col-muscle" title={muscle} style={{ '--status-color': color }}>
+      <MuscleThumbnail muscle={muscle} color={color} size={30} />
+    </span>
+  );
 }

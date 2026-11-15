@@ -52,14 +52,16 @@
 }
 .set-muscle-ring--idle .smr-track { stroke: rgba(var(--fg-rgb), 0.22); }
 
-/* Header label over the ring column (same width + spacing as the ring). */
-.hevy-table-header .set-ring-col-label {
+/* Muscle drawing over the ring column, centred on the 26px rings
+   (same 10px gap to "✓ all" as ring-to-tick). */
+.hevy-table-header .set-ring-col-muscle {
   width: 26px;
   margin-right: 10px;
   display: flex;
   justify-content: center;
   overflow: visible;
-  white-space: nowrap;
-  font-size: 0.62rem;
-  letter-spacing: 0.02em;
+}
+.hevy-table-header .set-ring-col-muscle .muscle-thumb {
+  border-radius: 8px;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }

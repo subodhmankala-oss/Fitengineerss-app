@@ -65,8 +65,8 @@
 }
 .coach-tab-head svg { flex-shrink: 0; transition: color 0.3s; }
 .coach-tab-label {
-  font-size: 0.74rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 800;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -81,8 +81,9 @@
   gap: 5px;
   min-width: 0;
   max-width: 100%;
-  font-size: 0.68rem;
-  color: var(--text-subtle);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 .coach-tab-num {
   font-variant-numeric: tabular-nums;
@@ -93,7 +94,7 @@
 
 .coach-tab.active svg { color: var(--tone); }
 .coach-tab.active .coach-tab-label { color: var(--text-main); }
-.coach-tab.active .coach-tab-status { color: var(--tone); font-weight: 600; }
+.coach-tab.active .coach-tab-status { color: var(--tone); font-weight: 700; }
 
 .coach-tab-live {
   width: 6px;
@@ -121,4 +122,24 @@
 @media (prefers-reduced-motion: reduce) {
   .coach-tabs-pill { transition: none; }
   .coach-tab-live { animation: none; }
+}
+
+/* Phones: edge to edge, like the Live Log timer bar. The tab row's own
+   gutter goes, and the track loses its side borders and rounded ends. */
+@media (max-width: 720px) {
+  .trainer-tabs.coach-tabs {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .coach-tabs-track {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .coach-tabs-pill {
+    left: calc(8px + var(--tab-idx) * (100% - 16px) / 4);
+    width: calc((100% - 16px) / 4);
+  }
 }

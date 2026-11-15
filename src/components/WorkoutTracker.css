@@ -2886,44 +2886,12 @@
   color: rgba(var(--accent-rgb), 0.7);
 }
 
-/* A ticked warm-up / failure / drop / superset set keeps its own colour
-   instead of turning accent green (client logger + coach Live Log). */
-.hevy-set-row.set-row-completed.set-row-warmup   { --set-rgb: 245, 158, 11;  --set-hex: #f59e0b; }
-.hevy-set-row.set-row-completed.set-row-failure  { --set-rgb: 239, 68, 68;   --set-hex: #ef4444; }
-.hevy-set-row.set-row-completed.set-row-drop     { --set-rgb: 139, 92, 246;  --set-hex: #8b5cf6; }
-.hevy-set-row.set-row-completed.set-row-superset { --set-rgb: 59, 130, 246;  --set-hex: #3b82f6; }
-
-.hevy-set-row.set-row-completed.set-row-warmup,
-.hevy-set-row.set-row-completed.set-row-failure,
-.hevy-set-row.set-row-completed.set-row-drop,
-.hevy-set-row.set-row-completed.set-row-superset {
-  background: rgba(var(--set-rgb), 0.08);
-  border-color: rgba(var(--set-rgb), 0.28);
-  box-shadow: inset 0 0 10px rgba(var(--set-rgb), 0.05);
-}
-
-.hevy-set-row.set-row-completed.set-row-warmup .set-num-lbl,
-.hevy-set-row.set-row-completed.set-row-failure .set-num-lbl,
-.hevy-set-row.set-row-completed.set-row-drop .set-num-lbl,
-.hevy-set-row.set-row-completed.set-row-superset .set-num-lbl {
-  color: var(--set-hex);
-}
-
-.hevy-set-row.set-row-completed.set-row-warmup .set-prev-lbl,
-.hevy-set-row.set-row-completed.set-row-failure .set-prev-lbl,
-.hevy-set-row.set-row-completed.set-row-drop .set-prev-lbl,
-.hevy-set-row.set-row-completed.set-row-superset .set-prev-lbl {
-  color: rgba(var(--set-rgb), 0.75);
-}
-
-.hevy-set-row.set-row-completed.set-row-warmup .btn-hevy-check.completed,
-.hevy-set-row.set-row-completed.set-row-failure .btn-hevy-check.completed,
-.hevy-set-row.set-row-completed.set-row-drop .btn-hevy-check.completed,
-.hevy-set-row.set-row-completed.set-row-superset .btn-hevy-check.completed {
-  background: var(--set-hex);
-  border-color: var(--set-hex);
-  box-shadow: 0 0 8px rgba(var(--set-rgb), 0.5);
-}
+/* A ticked warm-up / failure / drop / superset set keeps the normal ticked row
+   and tick colours; only its set letter keeps the type colour. */
+.hevy-set-row.set-row-completed.set-row-warmup .set-num-lbl   { color: #f59e0b; }
+.hevy-set-row.set-row-completed.set-row-failure .set-num-lbl  { color: #ef4444; }
+.hevy-set-row.set-row-completed.set-row-drop .set-num-lbl     { color: #8b5cf6; }
+.hevy-set-row.set-row-completed.set-row-superset .set-num-lbl { color: #3b82f6; }
 
 /* "✓ all" in the set table header (client logger + coach Live Log). */
 .btn-check-all {

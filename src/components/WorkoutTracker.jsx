@@ -40,6 +40,7 @@ import { exerciseIdField } from '../utils/exerciseName';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
+import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
@@ -1279,10 +1280,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // Ticked sets of the open workout → the Muscles tab's Muscle Balance
   // (see utils/liveSessionStore.js). Cleared once the workout is finished
   // or discarded, when the saved rows take over.
+  const liveTickedRows = useMemo(() => tickedSetRows(logExercises, logDate), [logExercises, logDate]);
   useEffect(() => {
     const userId = ownUserId || localStorage.getItem('userId');
-    publishLiveRows(userId, isLoggingWorkout ? tickedSetRows(logExercises, logDate) : []);
-  }, [isLoggingWorkout, logExercises, logDate, ownUserId]);
+    publishLiveRows(userId, isLoggingWorkout ? liveTickedRows : []);
+  }, [isLoggingWorkout, liveTickedRows, ownUserId]);
 
   const formatStopwatchTime = (totalSeconds) => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -4009,6 +4011,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="timer-controls">
               {workoutTimerStatus !== 'idle' && (
                 <>
+                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} />
                   <button
                     type="button"
                     className="btn-timer-stopwatch"

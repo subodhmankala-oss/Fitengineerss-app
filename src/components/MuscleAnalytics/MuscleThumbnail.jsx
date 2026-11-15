@@ -234,6 +234,44 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 
   );
 };
 
+/**
+ * The whole figure (no crop), `height` px tall, with each muscle tinted by
+ * `colorFor(muscle)` — muscles it returns nothing for stay the plain body.
+ * Used by the logger bar's live heat map (WorkoutMuscleHeat). `pulseKey`
+ * (optional): muscle → value; when a muscle's value changes its layer is
+ * remounted, which replays the `.heat-body-pulse` glow — a ticked set
+ * flashes the muscles it just hit.
+ */
+export const HeatBodyFigure = ({ view = 'front', height = 48, colorFor, pulseKey }) => {
+  const sex = useBodySex();
+  const isFront = view !== 'back';
+  const art = getBodyArt(sex)[isFront ? 'front' : 'back'];
+  const scale = height / CANVAS_H;
+  const width = Math.round(CANVAS_W * scale);
+
+  return (
+    <div className="muscle-thumb heat-body" style={{ width, height }} aria-hidden="true">
+      <div
+        className="muscle-thumb-canvas"
+        style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+      >
+        <BodyBase art={art} view={isFront ? 'front' : 'back'} gid={`heat-${view}-${height}`} />
+        {Object.entries(art.layers).flatMap(([muscle, rawFiles]) => {
+          const color = colorFor?.(muscle);
+          if (!color) return [];
+          return rawFiles.map((rawSvg, i) => (
+            <div
+              key={`${muscle}-${i}-${pulseKey ? pulseKey(muscle) : ''}`}
+              className={`muscle-thumb-layer${pulseKey ? ' heat-body-pulse' : ''}`}
+              dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }}
+            />
+          ));
+        })}
+      </div>
+    </div>
+  );
+};
+
 // Same Push/Pull/Legs/Core palette PlanCard uses for its muscle chips — kept
 // local (not imported from WorkoutTracker.jsx) to avoid a circular import;
 // this is a fixed design-system mapping, not client-specific state.

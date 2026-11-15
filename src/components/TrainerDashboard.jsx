@@ -21,6 +21,7 @@ import './WorkoutTracker.css';
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
+import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -10359,11 +10360,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           ⏱ {formatDuration(liveElapsedSeconds)}
                         </span>
                         <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                        <div style={{ marginLeft: 'auto' }}>
+                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
+                        </div>
                         <button
                           type="button"
                           onClick={() => setShowClockTimer(true)}
                           title="Timer / Stopwatch"
-                          style={{ background: 'transparent', border: 'none', color: '#3b82f6', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: 'auto' }}
+                          style={{ background: 'transparent', border: 'none', color: '#3b82f6', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                         >
                           <StopwatchIcon size={22} />
                         </button>

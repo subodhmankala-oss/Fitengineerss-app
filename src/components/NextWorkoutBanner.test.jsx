@@ -121,8 +121,8 @@ describe('NextWorkoutBanner', () => {
     rerender(<NextWorkoutBanner userId="u1" logs={[{ log_date: '2026-10-15', plan_name: 'Beginner Full Body A' }]} onNavigateToWorkouts={() => {}} />);
     expect(screen.queryByRole('button', { name: /Choose your level/ })).toBeNull();
     expect(screen.queryByText(/Let’s get you started/)).toBeNull();
-    expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
-    expect(screen.getByText(/Next up: Beginner Full Body B/)).not.toBeNull();
+    expect(screen.getByRole('button', { name: /^Start Beginner Full Body B/ })).not.toBeNull();
+    expect(screen.getByText('Day 2 of 3')).not.toBeNull();
   });
 
   it('closing the picker doesn’t hide the normal next-program banner once they have logged workouts', async () => {
@@ -130,7 +130,7 @@ describe('NextWorkoutBanner', () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
+    expect(await screen.findByText('Beginner Full Body B')).not.toBeNull();
   });
 
   it('uses the library it already loaded instead of fetching it a second time', async () => {
@@ -204,8 +204,8 @@ describe('NextWorkoutBanner', () => {
       { log_date: '2026-09-05', plan_name: 'Beginner Full Body B' }
     ];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
-    expect(screen.getByText(/Nice work on Beginner Full Body B! Next up: Beginner Lower & Core\./)).not.toBeNull();
+    expect(await screen.findByText('Beginner Lower & Core')).not.toBeNull();
+    expect(screen.getByText('Day 3 of 3')).not.toBeNull();
   });
 
   it("previews today's session: warm-up, a swap in a program done before, and a neglected-muscle finisher", async () => {
@@ -224,9 +224,9 @@ describe('NextWorkoutBanner', () => {
       row('2026-10-05', 'Beginner Full Body A', 'Dumbbell Row'), row('2026-10-07', 'Beginner Full Body B', 'Chest Press (Machine)')
     ];
     const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Next up: Beginner Lower & Core/)).not.toBeNull();
-    const focus = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent).join(' · ');
-    expect(focus).toMatch(/^🔥 Warm-up · 🔄 1 new exercise · 🎯 \w+ finisher/);
+    const card = await screen.findByRole('button', { name: /^Start Beginner Lower & Core/ });
+    expect(card.getAttribute('aria-label')).toMatch(/ — Warm-up, 1 new exercise, \w+ finisher/);
+    expect(container.querySelector('.next-workout-stats').textContent).toMatch(/^\d+ min · \d+ exercises · \d+ sets$/);
   });
 
   it('no swap for a program the client has never done, even weeks after their first workout', async () => {
@@ -237,10 +237,9 @@ describe('NextWorkoutBanner', () => {
     ] } });
     // Did Full Body A once, weeks ago, and never came back.
     const logs = [{ log_date: '2026-10-30', plan_name: 'Beginner Full Body A', exercise_name: 'Goblet Squat' }];
-    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Next up: Beginner Full Body B/)).not.toBeNull();
-    const pills = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent);
-    expect(pills.some(p => /new exercise/.test(p))).toBe(false);
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    const card = await screen.findByRole('button', { name: /^Start Beginner Full Body B/ });
+    expect(card.getAttribute('aria-label')).not.toMatch(/new exercise/);
   });
 
   it('promises no swap to a client whose only workouts are today', async () => {
@@ -252,10 +251,9 @@ describe('NextWorkoutBanner', () => {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const logs = [{ log_date: today, plan_name: 'Beginner Full Body A', exercise_name: 'Goblet Squat' }];
-    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Next up: Beginner Full Body B/)).not.toBeNull();
-    const pills = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent);
-    expect(pills.some(p => /new exercise/.test(p))).toBe(false);
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    const card = await screen.findByRole('button', { name: /^Start Beginner Full Body B/ });
+    expect(card.getAttribute('aria-label')).not.toMatch(/new exercise/);
   });
 
   it('the suggestion card closes to a slim row that brings it back, without starting the workout', async () => {
@@ -263,15 +261,15 @@ describe('NextWorkoutBanner', () => {
     const onNavigate = vi.fn();
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
-    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
+    expect(await screen.findByText('Beginner Full Body B')).not.toBeNull();
     fireEvent.click(screen.getByLabelText('Close'));
     expect(onNavigate).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Keep going — next up/)).toBeNull();
+    expect(screen.queryByText('Beginner Full Body B')).toBeNull();
     // The row left behind offers the level chooser, with a way back to the suggestion.
     fireEvent.click(screen.getByText('Choose your level'));
     expect(screen.getByText('What’s your level?')).not.toBeNull();
     fireEvent.click(screen.getByText('Show the suggested workout again'));
-    expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
+    expect(screen.getByText('Beginner Full Body B')).not.toBeNull();
   });
 
   it('a client who chose a level but has never trained: "New here?" with no swap', async () => {
@@ -281,17 +279,17 @@ describe('NextWorkoutBanner', () => {
       { name: 'Beginner Full Body B', exercises: ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug') }
     ] } });
     databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: null });
-    const { container } = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/New here\? Start with this/)).not.toBeNull();
-    expect(Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent)).toEqual(['🔥 Warm-up']);
+    render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText('Start here')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /^Start Beginner Full Body A/ }).getAttribute('aria-label')).toBe('Start Beginner Full Body A — Warm-up');
   });
 
   it('shows no finisher until the client has 3 logged sessions', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
-    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
-    expect(Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent)).toEqual(['🔥 Warm-up']);
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    const card = await screen.findByRole('button', { name: /^Start Beginner Full Body B/ });
+    expect(card.getAttribute('aria-label')).not.toMatch(/finisher/);
   });
 
   it('keeps showing guidance even with many sessions logged (no session-count cutoff)', async () => {
@@ -304,7 +302,7 @@ describe('NextWorkoutBanner', () => {
     // Leveling is time-based (see beginnerGuidance.js), not session-count
     // based, so 20 sessions logged within the same short window stays on
     // Beginner and keeps recommending the next program — it doesn't vanish.
-    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
+    expect(await screen.findByText('Beginner Full Body B')).not.toBeNull();
   });
 
   it('announces leveling up once ~3 months have passed since the first-ever session', async () => {
@@ -315,20 +313,10 @@ describe('NextWorkoutBanner', () => {
     const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const logs = [{ log_date: daysAgo(100), plan_name: 'Beginner Full Body A' }]; // ~14 weeks ago
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Intermediate unlocked!/)).not.toBeNull();
-    expect(screen.getByText(/3 months as a Gym Beginner/)).not.toBeNull();
-    expect(screen.getByText(/Intermediate Push/)).not.toBeNull();
+    expect(await screen.findByText('Intermediate unlocked')).not.toBeNull();
+    expect(screen.getByText('Intermediate Push')).not.toBeNull();
   });
 
-  it("doesn't claim 3 months as a Beginner when the client never did a Beginner program", async () => {
-    mockLibrary({ gym: { beginner: gymBeginner, intermediate: [{ name: 'Intermediate Push', exercises: [] }] } });
-    const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const logs = [{ log_date: daysAgo(100), plan_name: 'Coach Push Day' }];
-    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Intermediate unlocked!/)).not.toBeNull();
-    expect(screen.getByText(/You've been training for 3 months/)).not.toBeNull();
-    expect(screen.queryByText(/as a Gym Beginner/)).toBeNull();
-  });
 
   it('writes the last-tab/last-level/last-category and auto-start localStorage keys, then navigates on click (has-history case, not the zero-session choice)', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });

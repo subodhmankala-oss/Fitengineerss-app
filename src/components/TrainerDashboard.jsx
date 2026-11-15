@@ -21,6 +21,8 @@ import './WorkoutTracker.css';
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
+import { getSetRingStates } from '../utils/setMuscleRing';
+import SetMuscleRing from './SetMuscleRing';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -1895,6 +1897,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Muscles tab counts them before the session is saved (same as the
   // client's own logger — see utils/liveSessionStore.js).
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
+  // Ring beside each ticked set — same as the client's logger (utils/setMuscleRing.js).
+  const liveSetRings = useMemo(
+    () => getSetRingStates(rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel),
+    [rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel]
+  );
   const [livePlanName, setLivePlanName] = useState('Live Routine');
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
@@ -10949,6 +10956,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   })()
                                 )}
                                 <div className="col-check set-actions-field">
+                                  {!exIsCardio && <SetMuscleRing ring={liveSetRings[`${exIdx}-${setIdx}`]} />}
                                   <button
                                     type="button"
                                     className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}

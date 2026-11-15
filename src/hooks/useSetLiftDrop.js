@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // "Lift and drop" for set rows (client logger + coach Live Log):
-// press and hold a set row (~300 ms) and it lifts off the table; a
-// "Drop to remove" pill slides up from the bottom of the screen. Drop the
-// row on the pill to remove the set (with a 5 s Undo), or drop it over
+// press and hold a set row (~300 ms) and it lifts off the table, and that
+// exercise's Add Set / Start Rest bar turns into "Drop to remove" (see
+// SetDropZone in SetLiftOverlay.jsx). Drop the
+// row on it to remove the set (with a 5 s Undo), or drop it over
 // another row of the same exercise to move it there. Replaces the red bin
 // that used to sit on every row.
 //
@@ -25,6 +26,7 @@ export function useSetLiftDrop({ onRemove, onMove, canRemove }) {
   // itself is applied straight to the DOM so dragging never re-renders.
   const [bin, setBin] = useState(null); // { exIdx, hot, allowed }
   const [undo, setUndo] = useState(null); // { id, restore }
+  const [hasLifted, setHasLifted] = useState(false);
   const binRef = useRef(null);
   const drag = useRef(null);
   const toClear = useRef([]);
@@ -35,6 +37,7 @@ export function useSetLiftDrop({ onRemove, onMove, canRemove }) {
   const clearRows = (rows) => rows.forEach((n) => {
     n.style.transition = 'none';
     n.style.transform = '';
+    n.style.opacity = '';
     n.classList.remove('set-row-lifted');
   });
 
@@ -61,8 +64,11 @@ export function useSetLiftDrop({ onRemove, onMove, canRemove }) {
     setTimeout(() => window.removeEventListener('click', swallow, true), 60);
 
     if (hot && st.allowed) {
-      clearRows(st.rows);
-      st.rows.forEach((n) => { n.style.transition = ''; });
+      // Hide the dropped row and leave the others where they are until the
+      // set is gone from the list, so the rows below don't flash back.
+      st.row.style.transition = 'none';
+      st.row.style.opacity = '0';
+      toClear.current = st.rows;
       buzz(18);
       const restore = handlers.current.onRemove(st.exIdx, st.setIdx);
       if (typeof restore === 'function') {
@@ -72,7 +78,8 @@ export function useSetLiftDrop({ onRemove, onMove, canRemove }) {
       }
       return;
     }
-    const to = st.target;
+    // Dropped on a bin that refuses (last set): settle back in place.
+    const to = hot ? st.setIdx : st.target;
     if (to === st.setIdx) {
       // Settle back into place.
       st.rows.forEach((n) => { n.style.transition = SLIDE; n.style.transform = ''; n.classList.remove('set-row-lifted'); });
@@ -103,17 +110,23 @@ export function useSetLiftDrop({ onRemove, onMove, canRemove }) {
       e.preventDefault();
       const dy = e.clientY - st.y0;
       st.row.style.transform = `translateY(${dy}px) scale(1.03)`;
+      // The drop zone sits right under this exercise's sets (it replaces the
+      // Add Set / Start Rest bar while a row is lifted): hot once the lifted
+      // row overlaps it.
       const binEl = binRef.current;
-      const hot = !!binEl && e.clientY > binEl.getBoundingClientRect().top - 24;
+      const hot = !!binEl && st.row.getBoundingClientRect().bottom > binEl.getBoundingClientRect().top + 8;
       if (hot !== st.hot) {
         st.hot = hot;
         if (hot && st.allowed) buzz(8);
         setBin((b) => (b ? { ...b, hot } : b));
       }
+      // Over the bin the other rows stay exactly where they are, so nothing
+      // jumps back and forth on the way down.
+      if (hot) return;
       const centre = st.mids[st.setIdx] + dy;
       let target = 0;
       st.mids.forEach((m, k) => { if (centre > m - st.step / 2) target = k; });
-      st.target = hot ? st.setIdx : Math.max(0, Math.min(st.rows.length - 1, target));
+      st.target = Math.max(0, Math.min(st.rows.length - 1, target));
       st.rows.forEach((n, k) => {
         if (n === st.row) return;
         let off = 0;
@@ -158,6 +171,7 @@ export function useSetLiftDrop({ onRemove, onMove, canRemove }) {
     document.body.classList.add('set-lift-active');
     buzz(10);
     setBin({ exIdx: st.exIdx, hot: false, allowed: st.allowed });
+    setHasLifted(true);
   };
 
   // Spread onto each set row: <div {...liftRowProps(exIdx, setIdx)}>
@@ -181,5 +195,5 @@ export function useSetLiftDrop({ onRemove, onMove, canRemove }) {
     setUndo(null);
   };
 
-  return { liftRowProps, bin, binRef, undo, runUndo };
+  return { liftRowProps, bin, binRef, undo, runUndo, hasLifted };
 }

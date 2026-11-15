@@ -80,7 +80,7 @@ import { hasUnseenWhatsNew } from '../data/whatsNewData';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { useSetLiftDrop } from '../hooks/useSetLiftDrop';
-import SetLiftOverlay from './SetLiftOverlay';
+import SetLiftOverlay, { SetDropZone, SetLiftHint } from './SetLiftOverlay';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 import MuscleGapHint from './MuscleGapHint';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
@@ -10518,12 +10518,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       edges, matching the app's standard flush logging layout. */}
                   <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} />
 
-                  <SetLiftOverlay
-                    bin={liveLiftDrop.bin}
-                    binRef={liveLiftDrop.binRef}
-                    undo={liveLiftDrop.undo}
-                    onUndo={liveLiftDrop.runUndo}
-                  />
+                  <SetLiftOverlay undo={liveLiftDrop.undo} onUndo={liveLiftDrop.runUndo} />
                   <div className="live-logger-exercise-list">
                     {liveExercises.length === 0 && (
                       <div className="wt-empty-state">No exercises yet. Tap ➕ Add Exercise below to start.</div>
@@ -10600,6 +10595,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           {cardMenu}
                         </div>
 
+                        {exIdx === 0 && <SetLiftHint storageKey="setLiftHintShows:coach" hide={liveLiftDrop.hasLifted} />}
                         {/* Sets Table */}
                         <div className="hevy-sets-table">
                           <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
@@ -10968,6 +10964,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           </div>
                         </div>
 
+                        <SetDropZone exIdx={exIdx} liftDrop={liveLiftDrop}>
                         <div className="ex-card-actions">
                           <button
                             onClick={(e) => { handleLiveAddSet(exIdx); animateNewSetRow(e.currentTarget); }}
@@ -10980,6 +10977,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             title="Start a 60s rest timer"
                           >⏱️ Start Rest</button>
                         </div>
+                        </SetDropZone>
                       </div>
                       )}
                       </div>

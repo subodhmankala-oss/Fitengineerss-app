@@ -107,8 +107,11 @@ describe('WorkoutTracker delete set', () => {
 
     fireEvent.pointerDown(row, { pointerId: 1, clientX: 10, clientY: 10, button: 0 });
     await waitFor(() => expect(hasClass(row, 'set-row-lifted')).toBe(true));
-    expect(document.querySelector('.set-lift-bin.is-on')).toBeTruthy();
-    // jsdom lays everything out at 0,0, so any pointer position is "over" the bin.
+    // The exercise's Add Set / Start Rest bar has turned into the drop zone.
+    const zone = document.querySelector('.set-drop-zone-wrap.is-lifting .set-drop-zone');
+    expect(zone).toBeTruthy();
+    // jsdom has no layout: place the zone above the row so the lifted row overlaps it.
+    zone.getBoundingClientRect = () => ({ top: -100, bottom: -50, left: 0, right: 300, height: 50, width: 300 });
     fireEvent.pointerMove(document, { pointerId: 1, clientX: 10, clientY: 40 });
     fireEvent.pointerUp(document, { pointerId: 1, clientX: 10, clientY: 40 });
 
@@ -125,6 +128,24 @@ describe('WorkoutTracker delete set', () => {
     expect(firstRow.contains(screen.getByRole('button', { name: '40' }))).toBe(true);
   });
 
+  it('shows the hold tip on the first 5 opens only, and hides it once a set is lifted', async () => {
+    const opens = [];
+    for (let i = 0; i < 6; i += 1) {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(threeSetDraft()));
+      renderWorkoutTracker();
+      expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+      opens.push(!!screen.queryByText('Hold a set to move or remove it'));
+      if (i === 0) {
+        const row = screen.getByRole('button', { name: '40' }).closest('.hevy-set-row');
+        fireEvent.pointerDown(row, { pointerId: 1, clientX: 10, clientY: 10, button: 0 });
+        await waitFor(() => expect(screen.queryByText('Hold a set to move or remove it')).toBeNull());
+        fireEvent.pointerUp(document, { pointerId: 1, clientX: 10, clientY: 10 });
+      }
+      cleanup();
+    }
+    expect(opens).toEqual([true, true, true, true, true, false]);
+  });
+
   it('a quick tap on a row never lifts it', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(threeSetDraft()));
     renderWorkoutTracker();
@@ -134,6 +155,6 @@ describe('WorkoutTracker delete set', () => {
     fireEvent.pointerUp(document, { pointerId: 1, clientX: 10, clientY: 10 });
     await new Promise((r) => setTimeout(r, 400));
     expect(hasClass(row, 'set-row-lifted')).toBe(false);
-    expect(document.querySelector('.set-lift-bin.is-on')).toBeNull();
+    expect(document.querySelector('.set-drop-zone-wrap.is-lifting')).toBeNull();
   });
 });

@@ -35,7 +35,7 @@ import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { useSetLiftDrop } from '../hooks/useSetLiftDrop';
-import SetLiftOverlay from './SetLiftOverlay';
+import SetLiftOverlay, { SetDropZone, SetLiftHint } from './SetLiftOverlay';
 import { exerciseIdField } from '../utils/exerciseName';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
@@ -4034,12 +4034,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="section-title-row" style={{ position: 'relative' }}>
               <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>
             </div>
-            <SetLiftOverlay
-              bin={setLiftDrop.bin}
-              binRef={setLiftDrop.binRef}
-              undo={setLiftDrop.undo}
-              onUndo={setLiftDrop.runUndo}
-            />
+            <SetLiftOverlay undo={setLiftDrop.undo} onUndo={setLiftDrop.runUndo} />
 
             <div className="exercises-input-list">
               {logExercises.map((ex, exIdx) => {
@@ -4184,6 +4179,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       );
                     })()}
 
+                    {exIdx === 0 && <SetLiftHint storageKey="setLiftHintShows:client" hide={setLiftDrop.hasLifted} />}
                     <div className="hevy-sets-table">
                       <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
                         <span className="col-set">SET</span>
@@ -4673,6 +4669,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       </div>
                     </div>
 
+                    <SetDropZone exIdx={exIdx} liftDrop={setLiftDrop}>
                     <div className="ex-card-actions">
                       <button
                         type="button"
@@ -4690,6 +4687,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         ⏱️ Start Rest
                       </button>
                     </div>
+                    </SetDropZone>
                   </div>
                   )}
                   </div>

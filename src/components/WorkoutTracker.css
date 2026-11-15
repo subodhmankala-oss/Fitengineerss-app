@@ -5763,45 +5763,112 @@ body.set-lift-active {
   cursor: grabbing;
 }
 
-.set-lift-bin {
-  position: fixed;
-  left: 50%;
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  z-index: 2000;
-  height: 52px;
-  padding: 0 22px;
-  border-radius: 26px;
+/* Drop zone: replaces the exercise's Add Set / Start Rest bar while one of
+   its sets is lifted (SetDropZone in SetLiftOverlay.jsx). */
+.set-drop-zone-wrap {
+  position: relative;
+}
+
+.set-drop-zone-wrap > :not(.set-drop-zone) {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.set-drop-zone-wrap.is-lifting > :not(.set-drop-zone) {
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
+}
+
+.set-drop-zone {
+  position: absolute;
+  inset: 0;
+  min-height: 46px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   font-size: 0.9rem;
   font-weight: 600;
   color: #ef4444;
-  background: var(--bg-card, #fff);
+  background: rgba(239, 68, 68, 0.06);
   border: 1.5px dashed rgba(239, 68, 68, 0.55);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
-  transform: translate(-50%, 140px);
   opacity: 0;
+  transform: scale(0.96);
   pointer-events: none;
-  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.25, 1.2), opacity 0.2s, background 0.15s, color 0.15s, border-color 0.15s;
+  transition: opacity 0.22s, transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.2), background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.set-lift-bin.is-on {
-  transform: translate(-50%, 0);
+.set-drop-zone-wrap.is-lifting .set-drop-zone {
   opacity: 1;
+  transform: none;
 }
 
-.set-lift-bin.is-hot {
+.set-drop-zone.is-hot {
   background: #ef4444;
   border-color: #ef4444;
   border-style: solid;
   color: #fff;
-  transform: translate(-50%, 0) scale(1.1);
+  transform: scale(1.03) !important;
 }
 
-.set-lift-bin.is-blocked {
+.set-drop-zone.is-blocked {
   color: var(--text-muted);
   border-color: rgba(var(--fg-rgb), 0.2);
+  background: transparent;
+}
+
+/* "Hold a set to move or remove it" — first 5 opens of the logger. */
+.set-lift-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent-text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  animation: set-lift-hint-in 0.35s ease;
+}
+
+.set-lift-hint button {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  color: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.set-lift-hint-dot {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.18);
+}
+
+.set-lift-hint-dot::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--accent-text);
+  animation: set-lift-hint-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes set-lift-hint-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+@keyframes set-lift-hint-pulse {
+  0%, 100% { transform: scale(0.7); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.6; }
 }
 
 .set-lift-undo {
@@ -5858,6 +5925,6 @@ body.set-lift-active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .set-lift-bin, .set-lift-undo { transition: none; animation: none; }
+  .set-drop-zone, .set-lift-undo, .set-lift-hint, .set-lift-hint-dot::after { transition: none; animation: none; }
   .set-lift-undo-bar { animation-duration: 0s; }
 }

@@ -256,22 +256,49 @@ describe('NextWorkoutBanner', () => {
     expect(card.getAttribute('aria-label')).not.toMatch(/new exercise/);
   });
 
-  it('the suggestion card closes to a slim row that brings it back, without starting the workout', async () => {
+  it('hiding the card leaves a "Show next workout" row that brings the same card back — never the level picker', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const onNavigate = vi.fn();
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
-    expect(await screen.findByText('Beginner Full Body B')).not.toBeNull();
+    expect(await screen.findByRole('button', { name: /^Start Beginner Full Body B/ })).not.toBeNull();
     // No ✕ on this card: it swipes left to reveal a Hide action (SwipeToHide).
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Hide this suggestion' }));
     expect(onNavigate).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.queryByText('Beginner Full Body B')).toBeNull());
-    // The row left behind offers the level chooser, with a way back to the suggestion.
-    fireEvent.click(screen.getByText('Choose your level'));
-    expect(screen.getByText('What’s your level?')).not.toBeNull();
-    fireEvent.click(screen.getByText('Show the suggested workout again'));
-    expect(screen.getByText('Beginner Full Body B')).not.toBeNull();
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Start / })).toBeNull());
+
+    const row = screen.getByRole('button', { name: /Show next workout/ });
+    expect(row.textContent).toContain('Beginner Full Body B');
+    expect(screen.queryByText('Choose your level')).toBeNull();
+    expect(screen.queryByText('What’s your level?')).toBeNull();
+
+    fireEvent.click(row);
+    expect(screen.getByRole('button', { name: /^Start Beginner Full Body B/ })).not.toBeNull();
+    expect(screen.queryByText('What’s your level?')).toBeNull();
+    expect(localStorage.getItem('nextWorkoutBannerDismissed_u1')).toBeNull();
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('a hidden card stays hidden on the next app open, and the next day’s card shows once a workout is logged', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    localStorage.setItem('nextWorkoutBannerDismissed_u1', 'Beginner Full Body B');
+    const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A' }];
+    const { rerender } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByRole('button', { name: /Show next workout/ })).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /^Start / })).toBeNull();
+
+    rerender(<NextWorkoutBanner userId="u1" logs={[...logs, { log_date: '2026-09-03', plan_name: 'Beginner Full Body B' }]} onNavigateToWorkouts={() => {}} />);
+    expect(screen.getByRole('button', { name: /^Start Beginner Lower & Core/ })).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /Show next workout/ })).toBeNull();
+  });
+
+  it('never shows the level picker to a client who has logged a workout, even with no saved level', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    render(<NextWorkoutBanner userId="u1" logs={[{ log_date: '2026-09-01', plan_name: 'Coach Push Day' }]} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByRole('button', { name: /^Start / })).not.toBeNull();
+    expect(screen.queryByText('What’s your level?')).toBeNull();
+    expect(screen.queryByText('Choose your level')).toBeNull();
   });
 
   it('a client who chose a level but has never trained: "New here?" with no swap', async () => {
@@ -283,6 +310,8 @@ describe('NextWorkoutBanner', () => {
     databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: null });
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText('Start here')).not.toBeNull();
+    // Chose a level at sign-up but hasn't trained yet: their card, not the picker.
+    expect(screen.queryByText('What’s your level?')).toBeNull();
     expect(screen.getByRole('button', { name: /^Start Beginner Full Body A/ }).getAttribute('aria-label')).toBe('Start Beginner Full Body A — Warm-up');
   });
 

@@ -40,6 +40,8 @@ import { exerciseIdField } from '../utils/exerciseName';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
+import WorkoutMuscleHeat from './WorkoutMuscleHeat';
+import useFullBleed from '../utils/useFullBleed';
 import { getSetRingStates } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import PlanCard, { TrashIcon } from './PlanCard';
@@ -1281,10 +1283,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // Ticked sets of the open workout → the Muscles tab's Muscle Balance
   // (see utils/liveSessionStore.js). Cleared once the workout is finished
   // or discarded, when the saved rows take over.
+  const liveTickedRows = useMemo(() => tickedSetRows(logExercises, logDate), [logExercises, logDate]);
+  // Timer bar spans the screen edge to edge, past the form's padding.
+  const timerBarRef = useFullBleed();
   useEffect(() => {
     const userId = ownUserId || localStorage.getItem('userId');
-    publishLiveRows(userId, isLoggingWorkout ? tickedSetRows(logExercises, logDate) : []);
-  }, [isLoggingWorkout, logExercises, logDate, ownUserId]);
+    publishLiveRows(userId, isLoggingWorkout ? liveTickedRows : []);
+  }, [isLoggingWorkout, liveTickedRows, ownUserId]);
 
   const formatStopwatchTime = (totalSeconds) => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -1817,7 +1822,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // narrower than `width`, but the SVG itself renders at `width`px — see
     // the inline style on the <svg> — so this is a 1:1 unit match).
     const targetScroll = targetX - el.clientWidth / 2;
-    el.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
+    // Optional call: jsdom (tests) and some old WebViews have no Element.scrollTo.
+    el.scrollTo?.({ left: Math.max(0, targetScroll), behavior: 'smooth' });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- activeSessionData is a new object every render; listing it would re-scroll on every render
   }, [selectedSessionIndex, chartMetric, selectedExercise]);
 
@@ -4005,17 +4011,17 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           {/* Hevy Stopwatch Header — same idle/running/paused bar as the coach's
               Live Log: stays idle (no clock, no Pause button) until the first
               set is marked done, then ticks and shows live calories. */}
-          <div className="hevy-stopwatch-banner">
+          <div className="hevy-stopwatch-banner" ref={timerBarRef}>
             <div className="timer-display">
               {workoutTimerStatus === 'idle' ? (
                 <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
               ) : (
-                <>
+                <div className="timer-stack">
                   <strong className={`stopwatch-time ${workoutTimerStatus === 'paused' ? 'is-paused' : ''}`}>
                     {formatStopwatchTime(workoutActiveSeconds)}
                   </strong>
                   <span className="live-kcal-badge">🔥 {liveOwnWorkoutKcal} kcal</span>
-                </>
+                </div>
               )}
             </div>
             <div className="timer-controls">
@@ -4029,6 +4035,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   >
                     <StopwatchIcon size={22} />
                   </button>
+                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} />
                   <button
                     type="button"
                     className="btn-timer-toggle"

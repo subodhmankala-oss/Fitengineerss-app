@@ -21,6 +21,8 @@ import './WorkoutTracker.css';
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
+import WorkoutMuscleHeat from './WorkoutMuscleHeat';
+import useFullBleed from '../utils/useFullBleed';
 import { getSetRingStates } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import StatsStrip from './StatsStrip';
@@ -1897,6 +1899,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Muscles tab counts them before the session is saved (same as the
   // client's own logger — see utils/liveSessionStore.js).
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
+  // Live Log timer bar spans the screen edge to edge.
+  const liveTimerBarRef = useFullBleed();
   // Ring beside each ticked set — same as the client's logger (utils/setMuscleRing.js).
   const liveSetRings = useMemo(
     () => getSetRingStates(rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel),
@@ -10357,28 +10361,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       start + pause windows + each set's completion time),
                       never from an incrementing counter, so getting
                       distracted or leaving this tab open never causes drift. */}
-                  <div className="live-timer-bar">
+                  <div className="live-timer-bar" ref={liveTimerBarRef}>
                     {liveTimerStatus === 'idle' ? (
                       <span className="live-timer-idle-hint">⏱ Timer starts when you log your first set</span>
                     ) : (
                       <>
-                        <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
-                          ⏱ {formatDuration(liveElapsedSeconds)}
-                        </span>
-                        <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                        <div className="timer-stack">
+                          <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                            ⏱ {formatDuration(liveElapsedSeconds)}
+                          </span>
+                          <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                        </div>
                         <button
                           type="button"
+                          className="btn-timer-stopwatch"
                           onClick={() => setShowClockTimer(true)}
                           title="Timer / Stopwatch"
-                          style={{ background: 'transparent', border: 'none', color: '#3b82f6', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: 'auto' }}
+                          style={{ marginLeft: 'auto', marginRight: -14 }}
                         >
                           <StopwatchIcon size={22} />
                         </button>
-                        {liveTimerStatus === 'running' ? (
-                          <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer} title="Pause"><PauseIcon size={20} /></button>
-                        ) : (
-                          <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
-                        )}
+                        {/* Heat tile flush against Pause, both full height. */}
+                        <div className="live-timer-end">
+                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
+                          {liveTimerStatus === 'running' ? (
+                            <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer} title="Pause"><PauseIcon size={20} /></button>
+                          ) : (
+                            <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

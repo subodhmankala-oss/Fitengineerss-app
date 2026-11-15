@@ -1,0 +1,178 @@
+/* Live muscle heat map in the logger's timer bar (WorkoutMuscleHeat.jsx). */
+.wmh {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.wmh-toggle {
+  /* One dark tile: front + back sit flush and the chevron is inside, so the
+     whole thing reads (and taps) as a single control. */
+  display: flex;
+  align-items: center;
+  gap: 0;
+  /* Full bleed: touches the bar's top and bottom edges. */
+  padding: 0 6px 0 4px;
+  background: #0b1120;
+  border: none;
+  border-radius: 0;
+  color: var(--tint-amber);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+.wmh-toggle:hover,
+.wmh-toggle.is-open {
+  background: #141c2e;
+}
+
+.wmh-chev {
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.wmh-toggle.is-open .wmh-chev {
+  transform: rotate(180deg);
+}
+
+/* Figures in the bar tile: no frame of their own. */
+.wmh-toggle .heat-body.muscle-thumb {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.heat-body.muscle-thumb {
+  border-radius: 6px;
+  background: #0b1120;
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+}
+
+/* A muscle a ticked set just hit glows once (its layer is remounted). */
+.heat-body-pulse {
+  animation: heatBodyPulse 0.9s ease-out;
+}
+
+@keyframes heatBodyPulse {
+  0% { filter: brightness(1.8) drop-shadow(0 0 6px #fb923c); }
+  100% { filter: none; }
+}
+
+/* Drops down from the bar's bottom edge — the bar itself is position: sticky. */
+.wmh-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 14px);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+  animation: wmhIn 0.18s ease-out;
+}
+
+@keyframes wmhIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.wmh-panel-body {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.wmh-figs {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.wmh-figs > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.wmh-figs span {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.wmh-list {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.wmh-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  column-gap: 8px;
+  row-gap: 3px;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+
+.wmh-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.wmh-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wmh-sets {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.wmh-bar {
+  grid-column: 2 / 4;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(var(--fg-rgb), 0.07);
+  overflow: hidden;
+}
+
+.wmh-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.wmh-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.wmh-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 12px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.wmh-legend i {
+  width: 16px;
+  height: 6px;
+  border-radius: 2px;
+}

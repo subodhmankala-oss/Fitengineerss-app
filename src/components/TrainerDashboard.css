@@ -1118,7 +1118,9 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px 14px;
+  /* No top/right/bottom padding: the heat tile and Pause box bleed to the
+     bar's edges; the time/kcal stack and idle hint pad themselves. */
+  padding: 0 0 0 14px;
   /* Opaque base under the amber tint so scrolled content doesn't show
      through while the bar is pinned. */
   background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), var(--bg-card);
@@ -1132,6 +1134,19 @@
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: var(--radius-md);
   flex-wrap: wrap;
+}
+
+/* Heat tile + Pause, flush together at the bar's right end. */
+.live-timer-end {
+  flex: 0 0 auto;
+  display: flex;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.live-timer-bar > .timer-stack,
+.live-timer-bar > .live-timer-idle-hint {
+  padding: 8px 0;
 }
 
 .live-timer-idle-hint {
@@ -1172,10 +1187,16 @@
 }
 
 .live-timer-btn {
-  padding: 6px 14px;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  border-radius: var(--radius-sm);
+  /* Same whole tinted box as the client bar's Pause (.btn-timer-toggle). */
+  width: 54px;
+  min-height: 46px;
+  align-self: stretch;
+  padding: 0;
+  flex-shrink: 0;
+  background: rgba(245, 158, 11, 0.14);
+  border: none;
+  border-left: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0;
   color: var(--tint-amber);
   font-size: 0.75rem;
   font-weight: 700;

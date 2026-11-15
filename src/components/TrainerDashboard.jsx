@@ -1719,6 +1719,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const [showClientPickerModal, setShowClientPickerModal] = useState(false);
   const [clientPickerSearch, setClientPickerSearch] = useState('');
   const [extraAssignClientIds, setExtraAssignClientIds] = useState([]);
+  // ⋮ → Share: sends an assigned plan, exactly as it is, straight to other
+  // clients (each gets their own copy) without opening the plan editor.
+  const [sharePlanSource, setSharePlanSource] = useState(null);
+  const [shareClientIds, setShareClientIds] = useState([]);
+  const [shareSearch, setShareSearch] = useState('');
+  const [sharingPlan, setSharingPlan] = useState(false);
 
   const fetchClientPlans = async (clientId) => {
     setLoadingPlans(true);
@@ -4785,6 +4791,63 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       }]);
       return swapped;
     }));
+  };
+
+  const closeSharePlan = () => {
+    if (sharingPlan) return;
+    setSharePlanSource(null);
+    setShareClientIds([]);
+    setShareSearch('');
+  };
+
+  const handleSharePlan = async () => {
+    const source = sharePlanSource;
+    if (!source || shareClientIds.length === 0 || sharingPlan) return;
+    const exercises = cleanEditorExercises(source.exercises || []);
+    if (exercises.length === 0) {
+      alert('This plan has no sets to share.');
+      return;
+    }
+    const planName = (source.planName || '').trim();
+    setSharingPlan(true);
+    const sharedIds = [];
+    try {
+      for (const clientId of shareClientIds) {
+        try {
+          const saved = await databaseService.saveWorkoutPlan({
+            id: null,
+            userId: clientId,
+            planName,
+            exercises,
+            createdBy: 'coach',
+            isAssigned: true
+          });
+          if (saved?.syncError) {
+            await databaseService.removeLocalPlan(clientId, saved.id);
+            alert(planSaveFailedMessage(saved.syncError));
+            break;
+          }
+        } catch (err) {
+          console.error('Failed to share workout plan:', err);
+          alert(err.message || 'Could not share this plan. Please try again.');
+          break;
+        }
+        sharedIds.push(clientId);
+        notifyEvent('plan_assigned', { clientUserId: clientId, planName });
+      }
+    } finally {
+      setSharingPlan(false);
+    }
+    if (sharedIds.length === shareClientIds.length) {
+      setSharePlanSource(null);
+      setShareClientIds([]);
+      setShareSearch('');
+      alert(`"${planName}" shared with ${sharedIds.length} ${sharedIds.length === 1 ? 'client' : 'clients'}.`);
+    } else {
+      // Keep only the clients that didn't get it, so pressing Share again
+      // doesn't hand a second copy to the ones that already did.
+      setShareClientIds(prev => prev.filter(id => !sharedIds.includes(id)));
+    }
   };
 
   const handleSavePlan = async () => {
@@ -10103,6 +10166,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                       </button>
                                       <button
                                         type="button"
+                                        onClick={() => {
+                                          setOpenPlanCardMenuId(null);
+                                          setSharePlanSource(plan);
+                                          setShareClientIds([]);
+                                          setShareSearch('');
+                                        }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                      >
+                                        Share
+                                      </button>
+                                      <button
+                                        type="button"
                                         onClick={async () => {
                                           setOpenPlanCardMenuId(null);
                                           if (confirm('Delete this workout plan?')) {
@@ -11546,6 +11621,85 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
           </div>
         </div>
       )}
+      {/* ⋮ → Share: send this plan as-is to other clients of this coach. */}
+      {sharePlanSource && (() => {
+        const shareCandidates = clients
+          .filter(c => c.coach_id === loggedInUserId && c.id !== selectedClient?.id);
+        const visible = shareCandidates
+          .filter(c => (c.userName || '').toLowerCase().includes(shareSearch.toLowerCase()));
+        const nothingPicked = shareClientIds.length === 0;
+        return (
+        <div className="payment-gateway-backdrop" onClick={closeSharePlan}>
+          <div
+            className="payment-gateway-modal animate-scale-in"
+            style={{ maxWidth: '380px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="payment-modal-header">
+              <div className="modal-title-box">
+                <h3>Share plan</h3>
+                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {sharePlanSource.planName} · {(sharePlanSource.exercises || []).length} exercises
+                </p>
+              </div>
+              <button type="button" className="btn-close-modal" onClick={closeSharePlan} disabled={sharingPlan}>✕</button>
+            </div>
+            {shareCandidates.length === 0 ? (
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '8px 2px' }}>
+                You have no other clients to share this plan with yet.
+              </p>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search clients..."
+                  value={shareSearch}
+                  onChange={(e) => setShareSearch(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: 'rgba(var(--bg-app-rgb), 0.6)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', marginBottom: '10px' }}
+                />
+                <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {visible.map(c => {
+                    const checked = shareClientIds.includes(c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(var(--fg-rgb), 0.02)', border: checked ? '1px solid rgba(var(--accent-rgb), 0.3)' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={sharingPlan}
+                          onChange={() => setShareClientIds(prev => checked ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+                        />
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>{c.userName}</span>
+                      </label>
+                    );
+                  })}
+                  {visible.length === 0 && (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '6px 2px' }}>No clients match that search.</p>
+                  )}
+                </div>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', margin: '10px 0 0' }}>
+                  Each client gets their own copy. Editing one later won&apos;t change the others.
+                </p>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={handleSharePlan}
+              disabled={nothingPicked || sharingPlan}
+              style={{ marginTop: '14px', padding: '10px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-on-accent)', fontWeight: 700, fontSize: '0.85rem', cursor: nothingPicked || sharingPlan ? 'default' : 'pointer', opacity: nothingPicked || sharingPlan ? 0.5 : 1 }}
+            >
+              {sharingPlan
+                ? 'Sharing…'
+                : nothingPicked
+                ? 'Pick clients to share with'
+                : `Share with ${shareClientIds.length} ${shareClientIds.length === 1 ? 'client' : 'clients'}`}
+            </button>
+          </div>
+        </div>
+        );
+      })()}
       <SetNumberPad active={getActiveLiveSetField()} activeKey={activeLiveSetKey} onClose={closeLiveSetField} />
     </div>
     </BodySexContext.Provider>

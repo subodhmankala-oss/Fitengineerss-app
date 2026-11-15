@@ -1138,18 +1138,6 @@
   flex-wrap: wrap;
 }
 
-/* Stopwatch shortcut: neutral in the Live Log, so Pause is the one accent. */
-.live-timer-bar .btn-timer-stopwatch {
-  background: transparent;
-  border-left: 1px solid var(--border-color);
-  color: var(--text-muted);
-}
-
-.live-timer-bar .btn-timer-stopwatch:hover {
-  background: rgba(var(--fg-rgb), 0.05);
-  color: var(--text-main);
-}
-
 /* Heat tile + Pause, flush together at the bar's right end. */
 .live-timer-end {
   flex: 0 0 auto;
@@ -1172,7 +1160,7 @@
 .live-timer-value {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 1.4rem;
+  font-size: 1.15rem;
   line-height: 1.1;
   font-weight: 600;
   letter-spacing: -0.01em;

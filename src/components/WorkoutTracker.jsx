@@ -1822,7 +1822,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // narrower than `width`, but the SVG itself renders at `width`px — see
     // the inline style on the <svg> — so this is a 1:1 unit match).
     const targetScroll = targetX - el.clientWidth / 2;
-    el.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
+    // Optional call: jsdom (tests) and some old WebViews have no Element.scrollTo.
+    el.scrollTo?.({ left: Math.max(0, targetScroll), behavior: 'smooth' });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- activeSessionData is a new object every render; listing it would re-scroll on every render
   }, [selectedSessionIndex, chartMetric, selectedExercise]);
 

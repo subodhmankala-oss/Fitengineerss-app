@@ -10509,18 +10509,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             {liveCalories.totalKcal} kcal{liveTimerStatus === 'paused' ? ' · Paused' : ''}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          className="btn-timer-stopwatch"
-                          onClick={() => setShowClockTimer(true)}
-                          title="Timer / Stopwatch"
-                          style={{ marginLeft: 'auto', marginRight: -14 }}
-                        >
-                          <StopwatchIcon size={22} />
-                        </button>
-                        {/* Heat tile flush against Pause, both full height. */}
-                        <div className="live-timer-end">
+                        {/* Heat map, stopwatch and Pause flush at the bar's right end, all full height. */}
+                        <div className="live-timer-end" style={{ marginLeft: 'auto' }}>
                           <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
+                          <button
+                            type="button"
+                            className="btn-timer-stopwatch"
+                            onClick={() => setShowClockTimer(true)}
+                            title="Timer / Stopwatch"
+                          >
+                            <StopwatchIcon size={22} />
+                          </button>
                           {liveTimerStatus === 'running' ? (
                             <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer} title="Pause"><PauseIcon size={20} /></button>
                           ) : (

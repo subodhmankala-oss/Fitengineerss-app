@@ -12,7 +12,7 @@
   align-items: center;
   gap: 0;
   /* Full bleed: touches the bar's top and bottom edges. */
-  padding: 0 4px;
+  padding: 0 10px;
   background: transparent;
   border: none;
   border-radius: 0;

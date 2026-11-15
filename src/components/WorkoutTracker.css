@@ -1966,12 +1966,18 @@
 /* Compact inline clock — no stacked "Active Tracker" badge; icon, time, kcal and
    Pause all sit on one row. */
 .stopwatch-time {
+  /* Same look as the coach Live Log bar (.live-timer-value). */
   font-size: 1rem;
   color: var(--tint-amber);
   font-family: 'Courier New', Courier, monospace;
-  letter-spacing: 0.04em;
-  font-weight: 700;
+  font-weight: 800;
   white-space: nowrap;
+}
+
+/* Leading ⏱ like the coach bar — drawn by CSS so the clock text stays the bare time. */
+.timer-stack .stopwatch-time::before {
+  content: '⏱';
+  margin-right: 8px;
 }
 
 .stopwatch-time.is-paused {
@@ -1979,13 +1985,10 @@
 }
 
 .live-kcal-badge {
-  font-size: 0.78rem;
+  /* Plain bold line, like the coach Live Log bar (.live-timer-kcal). */
+  font-size: 0.85rem;
   font-weight: 700;
-  color: var(--tint-amber);
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  padding: 4px 10px;
-  border-radius: 20px;
+  color: var(--text-main);
   white-space: nowrap;
 }
 
@@ -2095,10 +2098,6 @@
     font-size: 0.95rem;
   }
 
-  .live-kcal-badge {
-    font-size: 0.72rem;
-    padding: 3px 8px;
-  }
 
 }
 

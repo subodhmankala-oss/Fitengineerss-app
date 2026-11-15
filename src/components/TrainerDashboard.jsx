@@ -10367,9 +10367,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         </div>
                         <button
                           type="button"
+                          className="btn-timer-stopwatch"
                           onClick={() => setShowClockTimer(true)}
                           title="Timer / Stopwatch"
-                          style={{ background: 'transparent', border: 'none', color: '#3b82f6', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: 'auto' }}
+                          style={{ marginLeft: 'auto', marginRight: -14 }}
                         >
                           <StopwatchIcon size={22} />
                         </button>

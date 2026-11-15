@@ -2072,20 +2072,31 @@
 }
 
 .btn-timer-stopwatch {
-  background: transparent;
+  /* Full-height tinted block like Pause, in the stopwatch's own blue —
+     client bar and coach Live Log bar. */
+  background: rgba(59, 130, 246, 0.1);
   border: none;
+  border-left: 1px solid rgba(59, 130, 246, 0.3);
   color: #3b82f6;
-  padding: 4px 10px;
+  width: 54px;
+  min-height: 46px;
+  padding: 0;
   font-size: 1.2rem;
   cursor: pointer;
-  transition: transform var(--transition-fast);
+  transition: background var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  align-self: stretch;
 }
 
 .btn-timer-stopwatch:hover {
-  transform: scale(1.1);
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.btn-timer-stopwatch:active {
+  background: rgba(59, 130, 246, 0.26);
 }
 
 @media (max-width: 390px) {

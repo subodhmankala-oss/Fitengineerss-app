@@ -6,11 +6,13 @@ import './SetMuscleRing.css';
 
 // Ring beside a set's tick: how far this week's sets for the exercise's main
 // muscle have got toward its weekly target (see utils/setMuscleRing.js).
-// Plain grey = not ticked yet, amber = still under target, green with a
-// check = target hit, dashed grey = ticked but not counted (no kg / no reps).
-// Tap for the numbers. Rows with no ring keep an empty slot of the same
+// The week's count sits inside the ring ("11/12"). Plain grey = not ticked
+// yet, amber = still under target, green = target hit, dashed grey = ticked
+// but not counted (no kg / no reps). Tap for the muscle's name. Rows with no ring keep an empty slot of the same
 // width so the ticks stay lined up.
-const R = 10;
+const SIZE = 34;
+const MID = SIZE / 2;
+const R = 15;
 const C = 2 * Math.PI * R;
 
 export default function SetMuscleRing({ ring }) {
@@ -40,18 +42,19 @@ export default function SetMuscleRing({ ring }) {
       title={label}
       onClick={() => setOpen(o => !o)}
     >
-      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-        <circle className="smr-track" cx="13" cy="13" r={R} strokeDasharray={state === 'none' ? '3 3' : undefined} />
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
+        <circle className="smr-track" cx={MID} cy={MID} r={R} strokeDasharray={state === 'none' ? '3 3' : undefined} />
         {(state === 'progress' || state === 'done') && fraction > 0 && (
           <circle
             className="smr-fill"
-            cx="13" cy="13" r={R}
+            cx={MID} cy={MID} r={R}
             strokeDasharray={`${(C * fraction).toFixed(1)} ${C.toFixed(1)}`}
-            transform="rotate(-90 13 13)"
+            transform={`rotate(-90 ${MID} ${MID})`}
           />
         )}
-        {state === 'done' && <path className="smr-check" d="M9 13.5l2.6 2.6L17 10.5" />}
       </svg>
+      {/* Whole sets only — a secondary muscle's half set would read "10.5/12". */}
+      <span className="smr-count" aria-hidden="true">{state === 'none' ? '–' : `${Math.floor(sets)}/${target}`}</span>
       {open && <span className="set-muscle-ring-tip" role="status">{label}</span>}
     </button>
   );

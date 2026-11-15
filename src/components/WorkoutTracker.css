@@ -2474,6 +2474,7 @@
 /* "✓ all" sits right above the ticks (which hug the row's right edge). */
 .hevy-table-header .col-check {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   padding-right: 2px;
 }

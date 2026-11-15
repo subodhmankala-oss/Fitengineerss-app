@@ -51,3 +51,15 @@
   pointer-events: none;
 }
 .set-muscle-ring--idle .smr-track { stroke: rgba(var(--fg-rgb), 0.22); }
+
+/* Header label over the ring column (same width + spacing as the ring). */
+.hevy-table-header .set-ring-col-label {
+  width: 26px;
+  margin-right: 10px;
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+  white-space: nowrap;
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import './SetMuscleRing.css';
 
 // Ring beside a set's tick: how far this week's sets for the exercise's main
@@ -52,4 +53,15 @@ export default function SetMuscleRing({ ring }) {
       {open && <span className="set-muscle-ring-tip" role="status">{label}</span>}
     </button>
   );
+}
+
+// Short names so the label fits over the 26px ring column.
+const SHORT = { Hamstrings: 'Hams', Shoulders: 'Delts', Forearms: 'Forearm', Tibialis: 'Tibs' };
+
+// Header label over the ring column: the exercise's main muscle (what the
+// rings count). An empty slot when it maps to no muscle, so "✓ all" stays
+// over the ticks either way.
+export function SetRingHeaderLabel({ exerciseName }) {
+  const muscle = getMuscleGroupsForExercise(exerciseName)[0];
+  return <span className="set-ring-col-label">{muscle ? (SHORT[muscle] || muscle) : ''}</span>;
 }

@@ -41,7 +41,7 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
 import { getSetRingStates } from '../utils/setMuscleRing';
-import SetMuscleRing from './SetMuscleRing';
+import SetMuscleRing, { SetRingHeaderLabel } from './SetMuscleRing';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
@@ -4232,7 +4232,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                             <span className="col-reps">REPS</span>
                           </>
                         )}
-                        <span className="col-check" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <span className="col-check">
+                          {!exIsCardio && <SetRingHeaderLabel exerciseName={ex.name} />}
                           <button
                             type="button"
                             title="Mark all sets done"

@@ -565,6 +565,49 @@ export function remapSetTimersForSetRemoval(exIdx, removedSetIdx, timers) {
   return remapped;
 }
 
+// Undo of a set removal puts the set back at insertedSetIdx: every timer at
+// or after it in that exercise moves one index down, the reverse of
+// remapSetTimersForSetRemoval.
+export function remapSetTimersForSetInsert(exIdx, insertedSetIdx, timers) {
+  if (!timers || Object.keys(timers).length === 0) return timers;
+  const remapped = {};
+  Object.keys(timers).forEach((key) => {
+    const [exPart, setPart] = key.split(',');
+    const ex = Number(exPart);
+    const set = Number(setPart);
+    if (ex !== exIdx || set < insertedSetIdx) { remapped[key] = timers[key]; return; }
+    remapped[`${ex},${set + 1}`] = timers[key];
+  });
+  return remapped;
+}
+
+// A set dragged from fromIdx to toIdx within one exercise (lift and drop):
+// its own timer follows it and the sets in between shift by one.
+export function remapSetTimersForSetMove(exIdx, fromIdx, toIdx, timers) {
+  if (!timers || Object.keys(timers).length === 0 || fromIdx === toIdx) return timers;
+  const remapped = {};
+  Object.keys(timers).forEach((key) => {
+    const [exPart, setPart] = key.split(',');
+    const ex = Number(exPart);
+    const set = Number(setPart);
+    if (ex !== exIdx) { remapped[key] = timers[key]; return; }
+    let next = set;
+    if (set === fromIdx) next = toIdx;
+    else if (fromIdx < toIdx && set > fromIdx && set <= toIdx) next = set - 1;
+    else if (fromIdx > toIdx && set >= toIdx && set < fromIdx) next = set + 1;
+    remapped[`${ex},${next}`] = timers[key];
+  });
+  return remapped;
+}
+
+// Moves one item in an array (used for a set dragged to a new position).
+export function moveItem(list, fromIdx, toIdx) {
+  const next = list.slice();
+  const [item] = next.splice(fromIdx, 1);
+  next.splice(toIdx, 0, item);
+  return next;
+}
+
 // Sums calories for every completed set only — MET-based (on bodyWeightKg +
 // logged weight + reps) for regular strength sets, MET-based (on bodyWeightKg
 // + reps) for bodyweight moves like push-ups, MET-based for cardio, MET-based

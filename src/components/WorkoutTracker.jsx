@@ -8,7 +8,7 @@ import ExerciseCardMenu from './ExerciseCardMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, remapSetTimersForSetInsert, remapSetTimersForSetMove, moveItem, rankTemplatesByPerformance, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
@@ -34,6 +34,8 @@ import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
+import { useSetLiftDrop } from '../hooks/useSetLiftDrop';
+import SetLiftOverlay from './SetLiftOverlay';
 import { exerciseIdField } from '../utils/exerciseName';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
@@ -1892,6 +1894,33 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return ex;
     }));
   };
+
+  // Lift and drop on set rows (see hooks/useSetLiftDrop.js): drop on the
+  // bin removes the set with an Undo, drop on another row moves it there.
+  const setLiftDrop = useSetLiftDrop({
+    canRemove: (exIdx) => (logExercises[exIdx]?.sets.length || 0) > 1,
+    onRemove: (exIdx, setIdx) => {
+      const removed = logExercises[exIdx]?.sets[setIdx];
+      if (!removed) return null;
+      saveDraftNowRef.current = true;
+      handleRemoveSet(exIdx, setIdx);
+      return () => {
+        saveDraftNowRef.current = true;
+        setSetTimers(prev => remapSetTimersForSetInsert(exIdx, setIdx, prev));
+        setLogExercises(prev => prev.map((ex, idx) => {
+          if (idx !== exIdx) return ex;
+          const sets = ex.sets.slice();
+          sets.splice(Math.min(setIdx, sets.length), 0, removed);
+          return { ...ex, sets };
+        }));
+      };
+    },
+    onMove: (exIdx, fromIdx, toIdx) => {
+      saveDraftNowRef.current = true;
+      setSetTimers(prev => remapSetTimersForSetMove(exIdx, fromIdx, toIdx, prev));
+      setLogExercises(prev => prev.map((ex, idx) => (idx === exIdx ? { ...ex, sets: moveItem(ex.sets, fromIdx, toIdx) } : ex)));
+    },
+  });
 
   const handleSetChange = (exerciseIndex, setIndex, field, value) => {
     setLogExercises(prev => prev.map((ex, idx) => {
@@ -4005,6 +4034,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="section-title-row" style={{ position: 'relative' }}>
               <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>
             </div>
+            <SetLiftOverlay
+              bin={setLiftDrop.bin}
+              binRef={setLiftDrop.binRef}
+              undo={setLiftDrop.undo}
+              onUndo={setLiftDrop.runUndo}
+            />
 
             <div className="exercises-input-list">
               {logExercises.map((ex, exIdx) => {
@@ -4351,6 +4386,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                               className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isExitingSet(exIdx, sIdx) ? 'set-row-exit' : ''}`}
                               onAnimationEnd={(e) => { if (e.target === e.currentTarget) handleExitAnimationEnd(exIdx, sIdx); }}
                               ref={(node) => registerRow(exIdx, sIdx, node)}
+                              {...setLiftDrop.liftRowProps(exIdx, sIdx)}
                             >
                               <span className="col-set set-type-menu-wrapper">
                                 <span
@@ -4630,16 +4666,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                                   {set.isCompleted ? '✓' : ''}
                                 </button>
                                 
-                                {ex.sets.length > 1 && (
-                                  <button 
-                                    type="button" 
-                                    className="btn-hevy-row-delete"
-                                    onClick={() => beginExit(exIdx, sIdx, () => handleRemoveSet(exIdx, sIdx))}
-                                    title="Delete Set"
-                                  >
-                                    <TrashIcon size={16} />
-                                  </button>
-                                )}
                               </div>
                             </div>
                           );

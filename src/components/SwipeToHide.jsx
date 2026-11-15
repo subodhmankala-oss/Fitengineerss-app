@@ -97,7 +97,10 @@ export default function SwipeToHide({ onHide, hintKey, hideLabel = 'Hide this su
   };
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px', ...style }}>
+    // flexShrink 0: the home screen is a fixed-height, scrolling flex column,
+    // and an overflow:hidden child there may shrink to 0px tall (no automatic
+    // min-height) — the card was rendered but invisible (2026-11-15).
+    <div ref={wrapRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px', flexShrink: 0, ...style }}>
       <button
         type="button"
         aria-label={hideLabel}

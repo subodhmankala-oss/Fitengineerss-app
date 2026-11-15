@@ -7,9 +7,12 @@
 // can't disagree. "Full" is the target band's low end, the point where the
 // heat map turns the muscle green (Optimal).
 
-import { getWeeklyMuscleStats, getMuscleTargets, isCountableSet } from './muscleAnalytics.js';
+import { getWeeklyMuscleStats, getMuscleTargets, isCountableSet, classifyStatus, getHeatMapTier } from './muscleAnalytics.js';
 import { getMuscleGroupsForExercise, getMuscleWeight } from './muscleGroups.js';
 import { parseLocalDateString, shiftLocalDateString } from './dateUtils.js';
+
+// The heat map's "Not Trained" slate, for unticked and uncounted sets.
+export const NOT_TRAINED = '#64748b';
 
 const isWarmupSet = (set) => !!set.isWarmup || set.setType === 'warmup';
 
@@ -24,7 +27,7 @@ export function weekRangeFor(dateStr) {
 /**
  * Ring state per set, keyed `${exIdx}-${setIdx}`. Every set of an exercise
  * that maps to a muscle gets an entry; warmups get none.
- *   { state: 'idle' | 'progress' | 'done' | 'none', fraction, muscle, sets, target }
+ *   { state: 'idle' | 'progress' | 'done' | 'none', fraction, muscle, sets, target, color }
  * 'idle' = not ticked yet (sets = the count so far, before this set);
  * 'none' = ticked but not counted (no kg / no reps).
  * @param {Array} savedLogs - this client's saved workout_logs rows
@@ -48,7 +51,7 @@ export function getSetRingStates(savedLogs, exercises, logDate, level) {
       // Not ticked yet: a plain grey ring, so every row of the exercise has one.
       if (!set.isCompleted) {
         const main = muscles[0];
-        out[`${exIdx}-${setIdx}`] = { state: 'idle', fraction: 0, muscle: main, sets: Math.round((counts[main] || 0) * 10) / 10, target: targets[main]?.min || 1 };
+        out[`${exIdx}-${setIdx}`] = { state: 'idle', fraction: 0, muscle: main, sets: Math.round((counts[main] || 0) * 10) / 10, target: targets[main]?.min || 1, color: NOT_TRAINED };
         return;
       }
       const row = {
@@ -58,9 +61,10 @@ export function getSetRingStates(savedLogs, exercises, logDate, level) {
         set_type: set.setType || 'normal',
       };
       const main = muscles[0];
-      const target = targets[main]?.min || 1;
+      const band = targets[main] || { min: 1, max: 1, target: 1 };
+      const target = band.min;
       if (!isCountableSet(row)) {
-        out[`${exIdx}-${setIdx}`] = { state: 'none', fraction: 0, muscle: main, sets: Math.round((counts[main] || 0) * 10) / 10, target };
+        out[`${exIdx}-${setIdx}`] = { state: 'none', fraction: 0, muscle: main, sets: Math.round((counts[main] || 0) * 10) / 10, target, color: NOT_TRAINED };
         return;
       }
       muscles.forEach(m => { counts[m] = (counts[m] || 0) + getMuscleWeight(ex.name, m); });
@@ -71,6 +75,9 @@ export function getSetRingStates(savedLogs, exercises, logDate, level) {
         muscle: main,
         sets,
         target,
+        // The heat map's own colour for this many sets: blue Low, green
+        // Optimal, orange High, red Very High (getHeatMapTier).
+        color: getHeatMapTier({ status: classifyStatus(sets, band), completionPercent: Math.round((sets / band.target) * 100) }).color,
       };
     });
   });

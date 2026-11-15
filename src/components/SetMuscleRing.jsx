@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import { NOT_TRAINED } from '../utils/setMuscleRing';
-import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
+import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './SetMuscleRing.css';
 
@@ -64,6 +64,7 @@ export default function SetMuscleRing({ ring }) {
 }
 
 // Header over the ring column: a small drawing of the exercise's main muscle
+// (or just the part the rings count, e.g. Side Delts)
 // (the same heat-map artwork as the Muscle Balance cards), coloured like the
 // rings below it (the Muscle Balance status colours; slate until a set is ticked).
 // It takes the colour of the exercise's last counted set. An empty slot when the
@@ -71,13 +72,18 @@ export default function SetMuscleRing({ ring }) {
 export function SetRingHeaderMuscle({ exerciseName, rings, exIdx }) {
   const muscle = getMuscleGroupsForExercise(exerciseName)[0];
   if (!muscle) return <span className="set-ring-col-muscle" aria-hidden="true" />;
-  const counted = Object.entries(rings || {})
-    .filter(([key, r]) => key.startsWith(`${exIdx}-`) && (r.state === 'progress' || r.state === 'done'))
+  const own = Object.entries(rings || {})
+    .filter(([key]) => key.startsWith(`${exIdx}-`))
     .map(([, r]) => r);
+  const counted = own.filter(r => r.state === 'progress' || r.state === 'done');
   const color = counted.length ? counted[counted.length - 1].color : NOT_TRAINED;
+  // The part the rings count (Side Delts for a Lateral Raise), else the muscle.
+  const region = own.find(r => r.region)?.region || null;
   return (
-    <span className="set-ring-col-muscle" title={muscle} style={{ '--status-color': color }}>
-      <MuscleThumbnail muscle={muscle} color={color} size={30} />
+    <span className="set-ring-col-muscle" title={region || muscle} style={{ '--status-color': color }}>
+      {region
+        ? <RegionThumbnail region={region} color={color} size={30} />
+        : <MuscleThumbnail muscle={muscle} color={color} size={30} />}
     </span>
   );
 }

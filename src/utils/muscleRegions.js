@@ -126,6 +126,18 @@ function regionsOf(muscle, name) {
   return cfg.split ? hits : hits.slice(0, 1);
 }
 
+/**
+ * The one region the logger's set ring counts for an exercise: only for the
+ * muscles the "behind this week" nudge splits into parts (Back, Chest,
+ * Shoulders), so a Lateral Raise reads Side Delts 3/4 like the nudge under
+ * it, not all of Shoulders. null for every other muscle (counted whole).
+ */
+export function ringRegionOf(muscle, name) {
+  if (!GAP_REGION_MUSCLES.has(muscle)) return null;
+  const ids = regionsOf(muscle, name);
+  return ids.length === 1 ? ids[0] : null;
+}
+
 // A region's weekly band is its share of the whole muscle's band, split
 // evenly across the regions (Back 12–20 over 5 regions → 2–4 sets each).
 // Hitting every region's band therefore lands the whole muscle in range.

@@ -1,3 +1,4 @@
+import useFullBleed from '../utils/useFullBleed';
 import './CoachDetailTabs.css';
 
 // Coach client-detail tab bar ("status tabs"): each tab shows its name plus a
@@ -24,9 +25,10 @@ const TABS = [
 
 export default function CoachDetailTabs({ active, onSelect, statuses, liveRunning, hasDot }) {
   const idx = Math.max(0, TABS.findIndex(t => t.key === active));
+  const trackRef = useFullBleed();
   return (
     <div className="trainer-tabs coach-tabs">
-      <div className="coach-tabs-track" role="tablist" style={{ '--tab-idx': idx }}>
+      <div ref={trackRef} className="coach-tabs-track" role="tablist" style={{ '--tab-idx': idx }}>
         <span className={`coach-tabs-pill tone-${TABS[idx].key}`} aria-hidden="true" />
         {TABS.map(({ key, label, short, icon, tour }) => {
           const on = key === active;

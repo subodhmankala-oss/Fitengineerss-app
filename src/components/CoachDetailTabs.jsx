@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import useFullBleed from '../utils/useFullBleed';
+import { useLayoutEffect, useRef, useState } from 'react';
 import './CoachDetailTabs.css';
 
 // Coach client-detail tab bar ("status tabs"): each tab shows its name plus a
@@ -21,19 +20,39 @@ const TABS = [
   { key: 'plans', label: 'Send plan', short: 'Plan', icon: <SendIcon />, tour: 'tc-tab-plans' },
   { key: 'livelog', label: 'Live Log', short: 'Live', icon: <PulseIcon />, tour: 'tc-tab-livelog' },
   { key: 'workout', label: 'History', short: 'History', icon: <HistoryIcon />, tour: 'tc-tab-workout' },
-  { key: 'measurements', label: 'Measurements', short: 'Measure', icon: <RulerIcon /> },
+  { key: 'measurements', label: 'Measurements', short: 'Measurements', icon: <RulerIcon /> },
 ];
 
 export default function CoachDetailTabs({ active, onSelect, statuses, liveRunning, hasDot }) {
   const idx = Math.max(0, TABS.findIndex(t => t.key === active));
-  const trackRef = useFullBleed();
-  // The pill only slides once a tab is tapped — not while the bar is first
-  // measured and padded on load (it would visibly drift into place).
+  // Tabs are sized to their content (so "Measurements" fits in full), so the
+  // pill can't be placed by arithmetic — it's laid over the active tab's own
+  // box, re-measured when the tab, its text or the bar's width changes.
+  const trackRef = useRef(null);
+  const pillRef = useRef(null);
+  // The pill only slides once a tab is tapped, not into place on first paint.
   const [slid, setSlid] = useState(false);
+  const statusKey = TABS.map(t => statuses[t.key]).join('|');
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    const pill = pillRef.current;
+    if (!track || !pill) return undefined;
+    const place = () => {
+      const btn = track.querySelectorAll('.coach-tab')[idx];
+      if (!btn) return;
+      pill.style.left = `${btn.offsetLeft}px`;
+      pill.style.width = `${btn.offsetWidth}px`;
+    };
+    place();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(place) : null;
+    ro?.observe(track);
+    window.addEventListener('resize', place);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', place); };
+  }, [idx, statusKey]);
   return (
     <div className="trainer-tabs coach-tabs">
-      <div ref={trackRef} className="coach-tabs-track" role="tablist" style={{ '--tab-idx': idx }}>
-        <span className={`coach-tabs-pill tone-${TABS[idx].key}${slid ? ' is-sliding' : ''}`} aria-hidden="true" />
+      <div ref={trackRef} className="coach-tabs-track" role="tablist">
+        <span ref={pillRef} className={`coach-tabs-pill tone-${TABS[idx].key}${slid ? ' is-sliding' : ''}`} aria-hidden="true" />
         {TABS.map(({ key, label, short, icon, tour }) => {
           const on = key === active;
           return (

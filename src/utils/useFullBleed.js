@@ -42,8 +42,6 @@ export default function useFullBleed() {
       el.classList.remove('is-full-bleed');
       el.style.marginLeft = '';
       el.style.marginRight = '';
-      el.style.removeProperty('--bleed-left');
-      el.style.removeProperty('--bleed-right');
     };
 
     const measure = () => {
@@ -63,14 +61,8 @@ export default function useFullBleed() {
         edgeLeft = s.left + scroller.clientLeft;
         edgeRight = edgeLeft + scroller.clientWidth;
       }
-      const bleedLeft = Math.max(0, contentLeft - edgeLeft);
-      const bleedRight = Math.max(0, edgeRight - contentRight);
-      el.style.marginLeft = `${-bleedLeft}px`;
-      el.style.marginRight = `${-bleedRight}px`;
-      // How far it was pulled out each side, so CSS can pad the contents back
-      // in line with the page (e.g. the coach status tabs' pill).
-      el.style.setProperty('--bleed-left', `${bleedLeft}px`);
-      el.style.setProperty('--bleed-right', `${bleedRight}px`);
+      el.style.marginLeft = `${Math.min(0, edgeLeft - contentLeft)}px`;
+      el.style.marginRight = `${Math.min(0, contentRight - edgeRight)}px`;
     };
 
     measure();

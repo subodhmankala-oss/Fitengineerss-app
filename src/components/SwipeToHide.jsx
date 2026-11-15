@@ -107,19 +107,27 @@ export default function SwipeToHide({ onHide, hintKey, hideLabel = 'Hide this su
         onClick={hide}
         onFocus={() => setOffset(-ACTION_W)}
         onBlur={() => { if (!drag.current) setOffset(0); }}
+        // Spans the whole card, so however far it's dragged the uncovered
+        // area is all Hide — no gap between the card and the action. The
+        // icon + label stay pinned in the right-hand ACTION_W strip.
         style={{
-          position: 'absolute', top: 0, right: 0, bottom: 0, width: `${ACTION_W + 12}px`, paddingLeft: '12px',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px',
+          position: 'absolute', inset: 0, padding: 0,
+          display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end',
           background: 'rgba(239, 68, 68, 0.16)', color: '#f87171', border: 'none', cursor: 'pointer',
           fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 700
         }}
       >
+        <span style={{
+          width: `${ACTION_W}px`, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: '3px'
+        }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" />
           <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" />
           <path d="M3 3l18 18" />
         </svg>
         Hide
+        </span>
       </button>
       <div
         onPointerDown={onPointerDown}

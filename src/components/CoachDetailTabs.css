@@ -18,7 +18,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 5px;
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-strong);
   border-radius: 18px;
 }
 
@@ -65,8 +65,8 @@
 }
 .coach-tab-head svg { flex-shrink: 0; transition: color 0.3s; }
 .coach-tab-label {
-  font-size: 0.74rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 800;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -81,8 +81,9 @@
   gap: 5px;
   min-width: 0;
   max-width: 100%;
-  font-size: 0.68rem;
-  color: var(--text-subtle);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 .coach-tab-num {
   font-variant-numeric: tabular-nums;
@@ -93,7 +94,7 @@
 
 .coach-tab.active svg { color: var(--tone); }
 .coach-tab.active .coach-tab-label { color: var(--text-main); }
-.coach-tab.active .coach-tab-status { color: var(--tone); font-weight: 600; }
+.coach-tab.active .coach-tab-status { color: var(--tone); font-weight: 700; }
 
 .coach-tab-live {
   width: 6px;
@@ -109,11 +110,11 @@
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 
-@media (max-width: 440px) {
+@media (max-width: 600px) {
   .coach-tab-label .long { display: none; }
   .coach-tab-label .short { display: inline; }
 }
-@media (min-width: 441px) {
+@media (min-width: 601px) {
   .coach-tab-label .long { display: inline; }
   .coach-tab-label .short { display: none; }
 }
@@ -121,4 +122,21 @@
 @media (prefers-reduced-motion: reduce) {
   .coach-tabs-pill { transition: none; }
   .coach-tab-live { animation: none; }
+}
+
+/* Phones: edge to edge, like the Live Log timer bar — useFullBleed stretches
+   the track to the scroll area's edges and adds .is-full-bleed (phone widths
+   only), so the side borders and rounded ends go; the top and bottom lines stay, in the stronger border colour. */
+.coach-tabs-track.is-full-bleed {
+  border-left: none;
+  border-right: none;
+  border-top: 1.5px solid var(--border-strong);
+  border-bottom: 1.5px solid var(--border-strong);
+  border-radius: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.coach-tabs-track.is-full-bleed .coach-tabs-pill {
+  left: calc(8px + var(--tab-idx) * (100% - 16px) / 4);
+  width: calc((100% - 16px) / 4);
 }

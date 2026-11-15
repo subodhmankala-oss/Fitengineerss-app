@@ -42,6 +42,8 @@ import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import useFullBleed from '../utils/useFullBleed';
+import { getSetRingStates } from '../utils/setMuscleRing';
+import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
@@ -3010,7 +3012,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // Flat per-set rows for MuscleGapHint: this client's saved sessions plus
   // the sets already ticked off in the session in progress (not saved yet,
   // so never double-counted), so the hint updates as the workout goes.
-  const muscleGapLogs = useMemo(() => {
+  const savedSetRows = useMemo(() => {
     const me = loggedInUser.toLowerCase();
     const rows = [];
     sessions.forEach(s => {
@@ -3020,15 +3022,25 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         rows.push({ exercise_name: ex.name, log_date: date, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup ? 'warmup' : (set.setType || null) });
       }));
     });
+    return rows;
+  }, [sessions, loggedInUser]);
+  const muscleGapLogs = useMemo(() => {
+    const rows = [...savedSetRows];
     if (isLoggingWorkout) {
       logExercises.forEach(ex => (ex.sets || []).forEach(set => {
         if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: logDate, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : null });
       }));
     }
     return rows;
-  }, [sessions, logExercises, isLoggingWorkout, logDate, loggedInUser]);
+  }, [savedSetRows, logExercises, isLoggingWorkout, logDate]);
   // Saved level, else the one their training time puts them at.
   const trainingLevel = useMemo(() => savedTrainingLevel || levelFromHistory(muscleGapLogs), [savedTrainingLevel, muscleGapLogs]);
+  // Ring beside each ticked set: this week's sets for the exercise's main
+  // muscle vs its weekly target (see utils/setMuscleRing.js).
+  const setRings = useMemo(
+    () => (isLoggingWorkout ? getSetRingStates(savedSetRows, logExercises, logDate, trainingLevel) : {}),
+    [isLoggingWorkout, savedSetRows, logExercises, logDate, trainingLevel]
+  );
 
   // New exercises slide in (see hooks/useExerciseEnterAnimation.js).
   const { markEntering, enterRef } = useExerciseEnterAnimation();
@@ -4226,7 +4238,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                             <span className="col-reps">REPS</span>
                           </>
                         )}
-                        <span className="col-check" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <span className="col-check">
+                          {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={setRings} exIdx={exIdx} />}
                           <button
                             type="button"
                             title="Mark all sets done"
@@ -4659,6 +4672,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                                 );
                               })()}
                               <div className="col-check set-actions-field">
+                                {!exIsCardio && <SetMuscleRing ring={setRings[`${exIdx}-${sIdx}`]} />}
                                 <button
                                   type="button"
                                   className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}

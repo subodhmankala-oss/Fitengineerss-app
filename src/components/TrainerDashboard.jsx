@@ -23,6 +23,8 @@ import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import useFullBleed from '../utils/useFullBleed';
+import { getSetRingStates } from '../utils/setMuscleRing';
+import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -1899,6 +1901,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
   // Live Log timer bar spans the screen edge to edge.
   const liveTimerBarRef = useFullBleed();
+  // Ring beside each ticked set — same as the client's logger (utils/setMuscleRing.js).
+  const liveSetRings = useMemo(
+    () => getSetRingStates(rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel),
+    [rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel]
+  );
   const [livePlanName, setLivePlanName] = useState('Live Routine');
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
@@ -10649,6 +10656,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               </>
                             )}
                             <span className="col-check">
+                              {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={liveSetRings} exIdx={exIdx} />}
                               <button
                                 type="button"
                                 title="Mark all sets done"
@@ -10960,6 +10968,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   })()
                                 )}
                                 <div className="col-check set-actions-field">
+                                  {!exIsCardio && <SetMuscleRing ring={liveSetRings[`${exIdx}-${setIdx}`]} />}
                                   <button
                                     type="button"
                                     className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}

@@ -1,0 +1,67 @@
+.set-muscle-ring {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: 6px;
+}
+.set-muscle-ring--empty { cursor: default; }
+.set-muscle-ring svg { display: block; }
+.set-muscle-ring .smr-track {
+  fill: none;
+  stroke: rgba(var(--fg-rgb), 0.15);
+  stroke-width: 3;
+}
+.set-muscle-ring .smr-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+.set-muscle-ring--progress .smr-fill { stroke: #d97706; }
+.set-muscle-ring--done .smr-fill { stroke: #16a34a; }
+.set-muscle-ring .smr-check {
+  fill: none;
+  stroke: #16a34a;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.set-muscle-ring--none .smr-track { stroke: rgba(var(--fg-rgb), 0.45); }
+.set-muscle-ring-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: var(--bg-card, #fff);
+  color: var(--text-main, #111);
+  border: 1px solid rgba(var(--fg-rgb), 0.15);
+  pointer-events: none;
+}
+.set-muscle-ring--idle .smr-track { stroke: rgba(var(--fg-rgb), 0.22); }
+
+/* Muscle drawing over the ring column, centred on the 26px rings
+   (same 10px gap to "✓ all" as ring-to-tick). */
+.hevy-table-header .set-ring-col-muscle {
+  width: 26px;
+  margin-right: 10px;
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+}
+.hevy-table-header .set-ring-col-muscle .muscle-thumb {
+  border-radius: 8px;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}

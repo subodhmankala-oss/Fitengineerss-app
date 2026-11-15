@@ -50,3 +50,4 @@
   border: 1px solid rgba(var(--fg-rgb), 0.15);
   pointer-events: none;
 }
+.set-muscle-ring--idle .smr-track { stroke: rgba(var(--fg-rgb), 0.22); }

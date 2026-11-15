@@ -2471,6 +2471,13 @@
   padding-left: 6px;
 }
 
+/* "✓ all" sits right above the ticks (which hug the row's right edge). */
+.hevy-table-header .col-check {
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 2px;
+}
+
 .hevy-set-row {
   display: grid;
   grid-template-columns: 0.6fr 1.2fr 1.3fr 1fr 1.4fr;
@@ -2867,8 +2874,10 @@
 .hevy-set-row .set-actions-field {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* Tick hugs the row's right edge; the muscle ring sits just left of it. */
+  justify-content: flex-end;
   gap: 4px;
+  padding-right: 2px;
 }
 
 /* Row Completed State (Glowing Emerald Blur) */
@@ -2896,8 +2905,10 @@
 /* "✓ all" in the set table header (client logger + coach Live Log). */
 .btn-check-all {
   min-height: 44px;
-  min-width: 44px;
-  padding: 0 6px;
+  /* Same width as the tick below it, so the two are centred on each other. */
+  width: 40px;
+  padding: 0;
+  white-space: nowrap;
   background: none;
   border: none;
   cursor: pointer;

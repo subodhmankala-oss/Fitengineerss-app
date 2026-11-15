@@ -28,10 +28,10 @@ describe('getSetRingStates', () => {
     expect(r['0-0'].sets).toBe(1);
   });
 
-  it('marks a ticked set with no kg as not counted, and skips unticked and warmup sets', () => {
+  it('marks a ticked set with no kg as not counted, unticked sets idle, and skips warmups', () => {
     const r = getSetRingStates([], [press([{ isCompleted: true, weight: '', reps: '10' }, { isCompleted: false, weight: '5', reps: '10' }, { ...done(5, 10), isWarmup: true }])], '2026-11-15', 'beginner');
     expect(r['0-0'].state).toBe('none');
-    expect(r['0-1']).toBeUndefined();
+    expect(r['0-1']).toMatchObject({ state: 'idle', sets: 0 });
     expect(r['0-2']).toBeUndefined();
   });
 });

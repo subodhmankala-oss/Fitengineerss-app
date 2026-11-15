@@ -3,9 +3,10 @@ import './SetMuscleRing.css';
 
 // Ring beside a set's tick: how far this week's sets for the exercise's main
 // muscle have got toward its weekly target (see utils/setMuscleRing.js).
-// Amber = still under target, green with a check = target hit, dashed grey =
-// ticked but not counted (no kg / no reps). Tap for the numbers. Rows with no
-// ring keep an empty slot of the same width so the ticks stay lined up.
+// Plain grey = not ticked yet, amber = still under target, green with a
+// check = target hit, dashed grey = ticked but not counted (no kg / no reps).
+// Tap for the numbers. Rows with no ring keep an empty slot of the same
+// width so the ticks stay lined up.
 const R = 10;
 const C = 2 * Math.PI * R;
 
@@ -20,7 +21,9 @@ export default function SetMuscleRing({ ring }) {
   if (!ring) return <span className="set-muscle-ring set-muscle-ring--empty" aria-hidden="true" />;
 
   const { state, fraction, muscle, sets, target } = ring;
-  const label = state === 'none'
+  const label = state === 'idle'
+    ? `${muscle} · ${sets} of ${target} sets this week so far`
+    : state === 'none'
     ? 'Not counted: needs kg and reps'
     : state === 'done'
       ? `${muscle} · ${sets} of ${target} sets, weekly target hit`
@@ -36,7 +39,7 @@ export default function SetMuscleRing({ ring }) {
     >
       <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
         <circle className="smr-track" cx="13" cy="13" r={R} strokeDasharray={state === 'none' ? '3 3' : undefined} />
-        {state !== 'none' && fraction > 0 && (
+        {(state === 'progress' || state === 'done') && fraction > 0 && (
           <circle
             className="smr-fill"
             cx="13" cy="13" r={R}

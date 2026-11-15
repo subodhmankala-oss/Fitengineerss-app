@@ -22,9 +22,10 @@ export function weekRangeFor(dateStr) {
 }
 
 /**
- * Ring state per set, keyed `${exIdx}-${setIdx}`. Only ticked sets of
- * exercises that map to a muscle get an entry; warmups get none.
- *   { state: 'progress' | 'done' | 'none', fraction, muscle, sets, target }
+ * Ring state per set, keyed `${exIdx}-${setIdx}`. Every set of an exercise
+ * that maps to a muscle gets an entry; warmups get none.
+ *   { state: 'idle' | 'progress' | 'done' | 'none', fraction, muscle, sets, target }
+ * 'idle' = not ticked yet (sets = the count so far, before this set);
  * 'none' = ticked but not counted (no kg / no reps).
  * @param {Array} savedLogs - this client's saved workout_logs rows
  * @param {Array} exercises - the open workout's exercises ({name, sets})
@@ -43,7 +44,13 @@ export function getSetRingStates(savedLogs, exercises, logDate, level) {
   exercises.forEach((ex, exIdx) => {
     const muscles = getMuscleGroupsForExercise(ex?.name);
     (ex?.sets || []).forEach((set, setIdx) => {
-      if (!set.isCompleted || isWarmupSet(set) || muscles.length === 0) return;
+      if (isWarmupSet(set) || muscles.length === 0) return;
+      // Not ticked yet: a plain grey ring, so every row of the exercise has one.
+      if (!set.isCompleted) {
+        const main = muscles[0];
+        out[`${exIdx}-${setIdx}`] = { state: 'idle', fraction: 0, muscle: main, sets: Math.round((counts[main] || 0) * 10) / 10, target: targets[main]?.min || 1 };
+        return;
+      }
       const row = {
         exercise_name: ex.name,
         weight_kg: parseFloat(set.weight) || 0,

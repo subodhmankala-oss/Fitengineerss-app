@@ -14,8 +14,12 @@
 
 .coach-tabs-track {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Each tab as wide as its content, spare room spread between them — so
+     "Measurements" shows in full on a phone. The pill is placed over the
+     active tab by CoachDetailTabs (it measures the tab). */
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
   padding: 5px;
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
@@ -26,13 +30,13 @@
   position: absolute;
   top: 5px;
   bottom: 5px;
-  left: calc(5px + var(--tab-idx) * (100% - 10px) / 4);
-  width: calc((100% - 10px) / 4);
   border-radius: 13px;
   background: color-mix(in srgb, var(--tone) 11%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 40%, transparent);
-  transition: left 0.45s cubic-bezier(0.34, 1.3, 0.5, 1), background 0.3s, box-shadow 0.3s;
   pointer-events: none;
+}
+.coach-tabs-pill.is-sliding {
+  transition: left 0.45s cubic-bezier(0.34, 1.3, 0.5, 1), width 0.45s cubic-bezier(0.34, 1.3, 0.5, 1), background 0.3s, box-shadow 0.3s;
 }
 
 .tone-plans { --tone: var(--tone-plans); }
@@ -43,6 +47,7 @@
 .coach-tabs .coach-tab {
   position: relative;
   z-index: 1;
+  flex: 0 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -113,6 +118,18 @@
 @media (max-width: 600px) {
   .coach-tab-label .long { display: none; }
   .coach-tab-label .short { display: inline; }
+  /* Tighter on phones so all four tabs — "Measurements" in full — fit. */
+  .coach-tabs-track { gap: 0; }
+  .coach-tabs .coach-tab { padding: 8px 6px 7px; }
+  .coach-tab-head { gap: 4px; }
+  .coach-tab-head svg { width: 13px; height: 13px; }
+  .coach-tab-label { font-size: 0.72rem; }
+  .coach-tab-status { font-size: 0.66rem; gap: 4px; }
+}
+/* Narrow phones (360px Android and below): drop the small icons so every
+   label and status still reads in full. */
+@media (max-width: 370px) {
+  .coach-tab-head svg { display: none; }
 }
 @media (min-width: 601px) {
   .coach-tab-label .long { display: inline; }
@@ -120,23 +137,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .coach-tabs-pill { transition: none; }
+  .coach-tabs-pill,
+  .coach-tabs-pill.is-sliding { transition: none; }
   .coach-tab-live { animation: none; }
-}
-
-/* Phones: edge to edge, like the Live Log timer bar — useFullBleed stretches
-   the track to the scroll area's edges and adds .is-full-bleed (phone widths
-   only), so the side borders and rounded ends go; the top and bottom lines stay, in the stronger border colour. */
-.coach-tabs-track.is-full-bleed {
-  border-left: none;
-  border-right: none;
-  border-top: 1.5px solid var(--border-strong);
-  border-bottom: 1.5px solid var(--border-strong);
-  border-radius: 0;
-  padding-left: 8px;
-  padding-right: 8px;
-}
-.coach-tabs-track.is-full-bleed .coach-tabs-pill {
-  left: calc(8px + var(--tab-idx) * (100% - 16px) / 4);
-  width: calc((100% - 16px) / 4);
 }

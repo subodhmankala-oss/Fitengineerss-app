@@ -44,8 +44,9 @@ export const MUSCLE_BODY_VIEW = {
   Back: 'back', Triceps: 'back', Glutes: 'back', Hamstrings: 'back', Calves: 'back'
 };
 
-// "Large" muscles get the 12–20 weekly target band, "small" muscles 8–15,
-// per the spec's Smart Calculations section.
+// "Large" muscles get the larger weekly target band, "small" muscles the
+// smaller one; the bands themselves depend on the client's level (see
+// TARGET_BANDS_BY_LEVEL in muscleAnalytics.js: intermediate 12–20 / 8–15).
 export const LARGE_MUSCLES = new Set(['Chest', 'Back', 'Shoulders', 'Quads', 'Hamstrings', 'Glutes']);
 
 // Ordered, most-specific-first keyword rules. Each rule maps to either a

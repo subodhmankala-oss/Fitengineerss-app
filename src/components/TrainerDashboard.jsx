@@ -223,6 +223,16 @@ const LIVE_REST_KEY = 'coachLiveRestEndAt';
 // names } — see the save effect next to liveSetTimers and setTimerRestore.js.
 const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
+// Goal → tint (tint + ring chips, never a solid fill): client summary card
+// and the one-line client header.
+const GOAL_TINTS = {
+  'Fat Loss': 'var(--tint-orange)',
+  'Muscle Building': 'var(--tint-blue)',
+  'Gut Fix': 'var(--tint-cyan)',
+  'Gut Health': 'var(--tint-cyan)',
+  'General Fitness': 'var(--tint-violet)'
+};
+
 const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, openTestimonials = false, onTestimonialLinkUsed }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
@@ -1594,6 +1604,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // "Edit Total Sessions" popup — triggered by the top-right Edit button on
   // the Program Sessions panel instead of an always-visible stepper.
   const [showTotalSessionsModal, setShowTotalSessionsModal] = useState(false);
+  // Phones: the client summary card (goal, stats, sessions ring) is folded
+  // under a one-line header on every tab; tapping the name opens it.
+  const [clientCardOpen, setClientCardOpen] = useState(false);
   // Inline confirmation for the Program Total Sessions save — the panel sits
   // above the tab bar and is visible on every tab, but `liveToast` only
   // renders inside the Live Log tab, so a save on another tab looked like it
@@ -6081,7 +6094,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             toggle floating above an unrelated screen. Payments already has
             its own back button (see client-payments-view) for leaving. */}
         {superAdmin && viewMode !== 'payments' && (
-          <div className="role-toggle-bar" style={{
+          // is-client-open: phones hide this bar while a client is open
+          // ("← Dashboard" brings it back); desktop keeps it in the header.
+          <div className={`role-toggle-bar${viewMode === 'coach' && selectedClient ? ' is-client-open' : ''}`} style={{
             display: 'flex',
             gap: '4px',
             padding: '4px',
@@ -8287,7 +8302,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             </div>
           ) : (
             // Client Detail & Workout Logs Screen
-            <div className={`client-detail-view animate-scale-in${detailTab === 'livelog' ? ' is-live-tab' : ''}`}>
+            <div className={`client-detail-view animate-scale-in${clientCardOpen || showTotalSessionsModal ? ' is-card-open' : ''}`}>
+              {/* Phones fold the summary card under the one-line header unless
+                  is-card-open: the coach tapped the name, or the Edit Total
+                  Sessions popup (which lives in that card) is open from the
+                  header's sessions button. Desktop sidebar always shows it. */}
               {/* Back to Dashboard Breadcrumb */}
               <div className="dashboard-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>
                 <button 
@@ -8331,23 +8350,75 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   avatarUrl={selectedClient.avatarUrl}
                   size={42}
                 />
-                <div className="client-detail-header-info" style={{ minWidth: 0, flex: 1 }}>
-                  <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
+                <div
+                  className="client-detail-header-info"
+                  style={{ minWidth: 0, flex: 1 }}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={clientCardOpen}
+                  aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
+                  onClick={() => setClientCardOpen(o => !o)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setClientCardOpen(o => !o); } }}
+                >
+                  <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }}>{selectedClient.userName}</h4>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
-                  {/* Live tab on phones: goal · weight in place of the email,
-                      since the summary card below is hidden there. */}
+                  {/* Phones: goal · weight in place of the email, with a
+                      chevron showing the summary card folds open from here. */}
                   <span className="client-detail-live-sub">
-                    {[
-                      selectedClient.userGoal,
-                      (clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight) && `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
-                    ].filter(Boolean).join(' · ') || selectedClient.email}
+                    {selectedClient.userGoal && (
+                      <span className="client-detail-goal-chip" style={{ '--goal-tint': GOAL_TINTS[selectedClient.userGoal] || 'var(--text-muted)' }}>
+                        {selectedClient.userGoal}
+                      </span>
+                    )}
+                    <span className="client-detail-live-sub-text">
+                      {(clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight)
+                        ? `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
+                        : (!selectedClient.userGoal ? selectedClient.email : '')}
+                    </span>
+                    <span className={`client-detail-chevron${clientCardOpen ? ' is-open' : ''}`} aria-hidden="true">
+                      <svg width="12" height="12" viewBox="0 0 14 14">
+                        <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
                   </span>
                 </div>
-                {selectedClient.coach_id === loggedInUserId && selectedClient.total_sessions != null && (
-                  <div className="client-detail-live-sessions">
-                    <span className="client-detail-live-sessions-num">{programSessionsDone}/{selectedClient.total_sessions}</span>
-                    <span className="client-detail-live-sessions-label">sessions</span>
-                  </div>
+                {/* Tappable: opens the same Edit Total Sessions popup as the
+                    summary card's pencil (that card is folded on phones). */}
+                {selectedClient.coach_id === loggedInUserId && (
+                  <button
+                    type="button"
+                    className="client-detail-live-sessions"
+                    aria-label="Edit program"
+                    title="Edit total sessions and program dates"
+                    onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
+                  >
+                    {selectedClient.total_sessions != null ? (() => {
+                      const total = selectedClient.total_sessions;
+                      const pct = total ? Math.min(1, programSessionsDone / total) : 0;
+                      const c = 2 * Math.PI * 10;
+                      return (
+                        <>
+                          <svg className="client-detail-live-sessions-ring" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+                            <circle cx="14" cy="14" r="10" fill="none" stroke="rgba(var(--fg-rgb), 0.12)" strokeWidth="3.5" />
+                            {pct > 0 && (
+                              <circle cx="14" cy="14" r="10" fill="none" stroke="var(--accent-soft)" strokeWidth="3.5" strokeLinecap="round"
+                                strokeDasharray={`${pct * c} ${c}`} transform="rotate(-90 14 14)" />
+                            )}
+                          </svg>
+                          <span className="client-detail-live-sessions-text">
+                            <span className="client-detail-live-sessions-num">{programSessionsDone}/{total}</span>
+                            <span className="client-detail-live-sessions-label">{Math.max(0, total - programSessionsDone)} left</span>
+                          </span>
+                        </>
+                      );
+                    })() : (
+                      <span className="client-detail-live-sessions-text">
+                        <span className="client-detail-live-sessions-num">Set</span>
+                        <span className="client-detail-live-sessions-label">sessions</span>
+                      </span>
+                    )}
+                    <span className="client-detail-live-sessions-edit"><PencilIcon size={13} /></span>
+                  </button>
                 )}
                 {/* Deliberately low-key: muted dots, no label, so Remove is
                     there when needed but never a tap-target by accident. */}
@@ -8399,6 +8470,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               {/* Client summary — one card: goal pill + age/height, the three
                   numbers a coach checks (weight, calories, protein), and the
                   compact Program Sessions row below. */}
+              {/* Phones: folds open/closed under the header (height eases
+                  0 → natural via grid rows, card fades and slides in).
+                  Desktop: always open in the sidebar. */}
+              <div className="client-summary-fold">
+              <div className="client-summary-fold-inner">
               <div className="client-summary-card" style={{
                 position: 'relative',
                 padding: '14px',
@@ -8411,13 +8487,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {[selectedClient.userGoal || 'Goal not set', selectedClient.userSecondaryGoal].filter(Boolean).map(goal => {
                       // Distinct tint per goal (tint + ring, not a solid fill).
-                      const tint = {
-                        'Fat Loss': 'var(--tint-orange)',
-                        'Muscle Building': 'var(--tint-blue)',
-                        'Gut Fix': 'var(--tint-cyan)',
-                        'Gut Health': 'var(--tint-cyan)',
-                        'General Fitness': 'var(--tint-violet)'
-                      }[goal] || 'var(--text-muted)';
+                      const tint = GOAL_TINTS[goal] || 'var(--text-muted)';
                       return (
                         <span key={goal} style={{
                           display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -8740,6 +8810,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
                 );
               })()}
+              </div>
+              </div>
               </div>
               </div>
 

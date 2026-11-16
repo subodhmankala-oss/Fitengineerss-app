@@ -707,8 +707,8 @@
 }
 
 .client-detail-header-info h4 {
-  font-size: 1.2rem;
-  font-weight: 800;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .client-detail-header-info span {
@@ -1432,51 +1432,204 @@
   color: var(--text-muted);
 }
 
-/* Client header on the Live tab (phones): one compact line — name,
-   goal · weight, sessions done — and no summary card, so the start card
-   is the first thing under the tabs. Desktop keeps its sidebar as is. */
+/* Client header on phones (every tab): one compact line — name,
+   goal · weight ▾, sessions done. The summary card folds under it and
+   opens on tapping the name (.is-card-open). Desktop sidebar unchanged. */
 .client-detail-live-sub,
 .client-detail-live-sessions {
   display: none;
 }
 
 @media (max-width: 899px) {
-  .client-detail-view.is-live-tab .client-summary-card,
-  .client-detail-view.is-live-tab .client-detail-email {
+  .client-detail-view .client-detail-email {
     display: none;
   }
 
-  .client-detail-view.is-live-tab .client-detail-header {
+  .client-detail-view .client-detail-header {
+    transition: margin-bottom 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .client-detail-view:not(.is-card-open) .client-detail-header {
     margin-bottom: 12px !important;
   }
 
-  .client-detail-view.is-live-tab .client-detail-live-sub {
-    display: block;
+  .client-detail-view .client-detail-header-info {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .client-detail-view .client-detail-live-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin-top: 3px;
     font-size: 0.8rem;
     color: var(--text-muted);
+  }
+
+  .client-detail-header-info .client-detail-goal-chip {
+    flex-shrink: 0;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--goal-tint);
+    background: color-mix(in srgb, var(--goal-tint) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--goal-tint) 35%, transparent);
+  }
+
+  .client-detail-header-info .client-detail-live-sub-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-main);
+    opacity: 0.85;
   }
 
-  .client-detail-view.is-live-tab .client-detail-live-sessions {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+  /* Round fold button: rotates when the card is open. */
+  .client-detail-header-info .client-detail-chevron {
     flex-shrink: 0;
-    line-height: 1.15;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(var(--fg-rgb), 0.16);
+    color: var(--text-muted);
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.2s, border-color 0.2s, background 0.2s;
   }
+
+  .client-detail-header-info:hover .client-detail-chevron,
+  .client-detail-header-info .client-detail-chevron.is-open {
+    color: var(--accent-text);
+    border-color: rgba(var(--accent-soft-rgb), 0.45);
+    background: rgba(var(--accent-soft-rgb), 0.1);
+  }
+
+  .client-detail-header-info .client-detail-chevron.is-open {
+    transform: rotate(180deg);
+  }
+
+  /* Summary card fold: height eases 0 → natural (grid rows), the card fades
+     and slides down into place. Hidden from taps/focus once folded. */
+  .client-summary-fold {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .client-summary-fold-inner {
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: visibility 0s linear 0.34s;
+  }
+
+  .client-summary-fold .client-summary-card {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+    transform-origin: top center;
+    transition: opacity 0.22s ease, transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .client-detail-view.is-card-open .client-summary-fold {
+    grid-template-rows: 1fr;
+  }
+
+  .client-detail-view.is-card-open .client-summary-fold-inner {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .client-detail-view.is-card-open .client-summary-fold .client-summary-card {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.28s ease 0.06s, transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Sessions badge: fades out while the card is open — the card's own
+     sessions row (with dates and its pencil) is then the one place to edit. */
+  .client-detail-view .client-detail-live-sessions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0s;
+  }
+
+  .client-detail-view.is-card-open .client-detail-live-sessions {
+    opacity: 0;
+    transform: scale(0.92);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0.22s;
+  }
+}
+
+@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+  .client-summary-fold,
+  .client-summary-fold .client-summary-card,
+  .client-detail-view .client-detail-header,
+  .client-detail-view .client-detail-live-sessions,
+  .client-detail-header-info .client-detail-chevron {
+    transition: none !important;
+  }
+}
+
+/* Sessions pill: progress ring, "12/18" over "6 left", pencil. Tint + ring
+   so it reads as tappable without a solid fill. */
+.client-detail-live-sessions {
+  gap: 8px;
+  padding: 4px 10px 4px 5px;
+  background: rgba(var(--accent-soft-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-soft-rgb), 0.3);
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.client-detail-live-sessions:hover,
+.client-detail-live-sessions:focus-visible {
+  background: rgba(var(--accent-soft-rgb), 0.14);
+  border-color: rgba(var(--accent-soft-rgb), 0.5);
+}
+
+.client-detail-live-sessions:active {
+  transform: scale(0.97);
+}
+
+.client-detail-live-sessions-ring {
+  flex-shrink: 0;
+}
+
+.client-detail-live-sessions-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
 }
 
 .client-detail-live-sessions-num {
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--text-main);
+  font-variant-numeric: tabular-nums;
 }
 
+.client-detail-header-info span.client-detail-live-sessions-label,
 .client-detail-live-sessions-label {
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   color: var(--text-muted);
+}
+
+.client-detail-live-sessions-edit {
+  display: flex;
+  color: var(--accent-text);
+  padding-left: 6px;
+  border-left: 1px solid rgba(var(--accent-soft-rgb), 0.25);
 }
 
 /* "Is this <client>'s workout?" — the client is logging on their own phone
@@ -2114,4 +2267,13 @@
      edge to edge on phones. */
   padding-left: var(--screen-gutter);
   padding-right: var(--screen-gutter);
+}
+
+/* Super-admin My Clients / News / Super-Admin bar: hidden on phones while a
+   client is open, so the client header and tabs sit at the top. The
+   breadcrumb's "← Dashboard" returns to the list, where it shows again. */
+@media (max-width: 899px) {
+  .role-toggle-bar.is-client-open {
+    display: none !important;
+  }
 }

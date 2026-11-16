@@ -10440,7 +10440,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         </div>
                         {/* Heat map, stopwatch and Pause flush at the bar's right end, all full height. */}
                         <div className="live-timer-end" style={{ marginLeft: 'auto' }}>
-                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
+                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} savedLogs={rawWorkoutLogs} level={selectedClientLevel} />
                           <button
                             type="button"
                             className="btn-timer-stopwatch"
@@ -10586,7 +10586,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               </>
                             )}
                             <span className="col-check">
-                              {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={liveSetRings} exIdx={exIdx} savedLogs={rawWorkoutLogs} liveRows={liveTickedRows} logDate={liveDate} level={selectedClientLevel} />}
+                              {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={liveSetRings} exIdx={exIdx} />}
                               <button
                                 type="button"
                                 title="Mark all sets done"

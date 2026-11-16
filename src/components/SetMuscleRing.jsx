@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import { NOT_TRAINED } from '../utils/setMuscleRing';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
-import WeekMuscleSheet from './WeekMuscleSheet';
 import './SetMuscleRing.css';
 
 // Ring beside a set's tick: how far this week's sets for the exercise's main
@@ -70,11 +69,7 @@ export default function SetMuscleRing({ ring }) {
 // rings below it (the Muscle Balance status colours; slate until a set is ticked).
 // It takes the colour of the exercise's last counted set. An empty slot when the
 // exercise maps to no muscle, so "✓ all" stays over the ticks either way.
-// Tapping it opens "This week's muscles" (WeekMuscleSheet) when the logger
-// passes the week's logs.
-export function SetRingHeaderMuscle({ exerciseName, rings, exIdx, savedLogs, liveRows, logDate, level }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const closeSheet = useCallback(() => setSheetOpen(false), []);
+export function SetRingHeaderMuscle({ exerciseName, rings, exIdx }) {
   const muscle = getMuscleGroupsForExercise(exerciseName)[0];
   if (!muscle) return <span className="set-ring-col-muscle" aria-hidden="true" />;
   const own = Object.entries(rings || {})
@@ -84,35 +79,11 @@ export function SetRingHeaderMuscle({ exerciseName, rings, exIdx, savedLogs, liv
   const color = counted.length ? counted[counted.length - 1].color : NOT_TRAINED;
   // The part the rings count (Side Delts for a Lateral Raise), else the muscle.
   const region = own.find(r => r.region)?.region || null;
-  const art = region
-    ? <RegionThumbnail region={region} color={color} size={30} />
-    : <MuscleThumbnail muscle={muscle} color={color} size={30} />;
-  if (!logDate) {
-    return (
-      <span className="set-ring-col-muscle" title={region || muscle} style={{ '--status-color': color }}>{art}</span>
-    );
-  }
   return (
-    <>
-      <button
-        type="button"
-        className="set-ring-col-muscle set-ring-col-muscle--button"
-        title="This week's muscles"
-        aria-label={`${region || muscle}: open this week's muscles`}
-        style={{ '--status-color': color }}
-        onClick={() => setSheetOpen(true)}
-      >
-        {art}
-      </button>
-      <WeekMuscleSheet
-        open={sheetOpen}
-        onClose={closeSheet}
-        exerciseName={exerciseName}
-        savedLogs={savedLogs}
-        liveRows={liveRows}
-        logDate={logDate}
-        level={level}
-      />
-    </>
+    <span className="set-ring-col-muscle" title={region || muscle} style={{ '--status-color': color }}>
+      {region
+        ? <RegionThumbnail region={region} color={color} size={30} />
+        : <MuscleThumbnail muscle={muscle} color={color} size={30} />}
+    </span>
   );
 }

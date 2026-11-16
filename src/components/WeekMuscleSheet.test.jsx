@@ -2,41 +2,52 @@
 import React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
-import { SetRingHeaderMuscle } from './SetMuscleRing';
+import WeekMuscleSheet from './WeekMuscleSheet';
+import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 
-// Tapping the muscle drawing over the set table's ring column opens
-// "This week's muscles": the saved week plus the sets ticked so far.
-const DATE = '2026-11-18'; // a Wednesday
-const set = (date, kg = 20, reps = 10) => ({ exercise_name: 'Barbell Bench Press', log_date: date, weight_kg: kg, reps, set_type: 'normal' });
+// "This week's muscles" (opened from the timer bar's body figures): one card
+// per muscle this workout worked, with the same numbers as the home
+// Muscle Balance cards, plus what today added.
+const DATE = '2026-11-18'; // a Wednesday; week = 16th–22nd
+const bench = (date, kg = 60) => ({ exercise_name: 'Barbell Bench Press', log_date: date, weight_kg: kg, reps: 8, set_type: 'normal' });
 
-describe('SetRingHeaderMuscle → WeekMuscleSheet', () => {
+describe('WeekMuscleSheet', () => {
   afterEach(cleanup);
 
-  const open = (props) => {
-    render(<SetRingHeaderMuscle exerciseName="Barbell Bench Press" rings={{}} exIdx={0} logDate={DATE} level="intermediate" {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: /open this week's muscles/i }));
+  const show = (savedLogs, liveRows, onClose = () => {}) => {
+    render(<WeekMuscleSheet open onClose={onClose} savedLogs={savedLogs} liveRows={liveRows} logDate={DATE} level="intermediate" />);
     return screen.getByRole('dialog', { name: "This week's muscles" });
   };
 
-  it('counts the saved week plus the live sets, and shows what today added', () => {
-    const saved = [set('2026-11-16'), set('2026-11-16'), set('2026-11-09')]; // last week's set doesn't count
-    const live = [set(DATE), set(DATE), set(DATE, 0)]; // empty kg doesn't count
-    const dialog = open({ savedLogs: saved, liveRows: live });
-    expect(dialog.textContent).toContain('live · 2 sets today');
-    const main = dialog.querySelector('.wms-main');
-    expect(main.textContent).toMatch(/this exercise/);
-    expect(main.querySelector('.wms-main-num').textContent).toMatch(/^4\/\d+ ↑2$/);
-    expect(dialog.querySelectorAll('.wms-body')).toHaveLength(2);
+  it("shows each worked muscle exactly as its home card does, plus today's sets", () => {
+    const saved = [bench('2026-11-16'), bench('2026-11-16'), bench('2026-11-09')]; // last week's set doesn't count
+    const live = [bench(DATE), bench(DATE), bench(DATE, 0)]; // empty kg doesn't count
+    const sheet = show(saved, live);
+    expect(sheet.textContent).toContain('live · 2 sets today');
+
+    const home = getWeeklyMuscleStats([...saved, ...live], '2026-11-16', '2026-11-22', { level: 'intermediate' })
+      .find(s => s.muscle === 'Chest');
+    const card = [...sheet.querySelectorAll('.wms-card')].find(c => c.querySelector('strong').textContent === 'Chest');
+    expect(card.textContent).toContain(home.status.label);
+    expect(card.textContent).toContain(`${home.sets} / ${home.target} target sets`);
+    expect(card.textContent).toContain(`${home.completionPercent}%`);
+    expect(card.textContent).toContain('↑2 today');
+    // The chest part today's sets went to, on its own small line.
+    expect(card.querySelector('.wms-part')).not.toBeNull();
   });
 
-  it('closes from the handle', () => {
-    open({ savedLogs: [], liveRows: [] });
+  it('lists only muscles this workout worked', () => {
+    const sheet = show([{ ...bench('2026-11-16'), exercise_name: 'Barbell Squat' }], [bench(DATE)]);
+    const names = [...sheet.querySelectorAll('.wms-card strong')].map(n => n.textContent);
+    expect(names).toContain('Chest');
+    expect(names).not.toContain('Quads');
+  });
+
+  it('shows a hint before any set is ticked, and closes from the handle', () => {
+    let closed = false;
+    const sheet = show([], [], () => { closed = true; });
+    expect(sheet.textContent).toMatch(/Tick a set/);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('is a plain drawing when the logger passes no date', () => {
-    render(<SetRingHeaderMuscle exerciseName="Barbell Bench Press" rings={{}} exIdx={0} />);
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(closed).toBe(true);
   });
 });

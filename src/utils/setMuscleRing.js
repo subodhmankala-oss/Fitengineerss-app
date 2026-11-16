@@ -18,7 +18,7 @@ export const NOT_TRAINED = '#64748b';
 // The Muscle Balance cards' status colours (WeeklyMuscleAnalytics.css
 // .status-*): red Neglected, orange Undertrained, yellow Slightly Low,
 // green Optimal, blue High Volume.
-export const STATUS_COLORS = {
+const STATUS_COLORS = {
   neglected: '#ef4444',
   undertrained: '#f97316',
   slightly_low: '#eab308',

@@ -4032,7 +4032,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="timer-controls">
               {workoutTimerStatus !== 'idle' && (
                 <>
-                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} />
+                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} savedLogs={savedSetRows} level={trainingLevel} />
                   <button
                     type="button"
                     className="btn-timer-stopwatch"
@@ -4245,7 +4245,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           </>
                         )}
                         <span className="col-check">
-                          {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={setRings} exIdx={exIdx} savedLogs={savedSetRows} liveRows={liveTickedRows} logDate={logDate} level={trainingLevel} />}
+                          {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={setRings} exIdx={exIdx} />}
                           <button
                             type="button"
                             title="Mark all sets done"

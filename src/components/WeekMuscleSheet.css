@@ -62,50 +62,45 @@
   align-items: center;
 }
 .wms-view { font-size: 0.72rem; color: rgba(var(--fg-rgb), 0.5); margin-top: 2px; }
-.wms-main {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+.wms-caption { font-size: 0.74rem; color: rgba(var(--fg-rgb), 0.5); margin: 4px 2px 0; }
+.wms-empty { font-size: 0.84rem; color: rgba(var(--fg-rgb), 0.6); text-align: center; margin: 8px 0 4px; }
+.wms-card {
+  margin-top: 8px;
   padding: 10px 12px;
-  border-radius: 12px;
-  font-size: 0.88rem;
-  color: var(--wms-color);
-  background: color-mix(in srgb, var(--wms-color) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--wms-color) 55%, transparent);
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid color-mix(in srgb, var(--status-color) 45%, transparent);
 }
-.wms-main-num { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.wms-other {
+.wms-card-top { display: flex; gap: 10px; align-items: center; }
+.wms-thumb { flex-shrink: 0; display: flex; }
+.wms-card-title { flex: 1; min-width: 0; }
+.wms-card-name { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.wms-card-name strong { font-size: 0.92rem; }
+.wms-up { font-size: 0.74rem; font-weight: 700; color: #10b981; white-space: nowrap; }
+.wms-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 600; color: var(--status-color); }
+.wms-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-color); }
+.wms-card-stats {
   display: flex;
   justify-content: space-between;
-  padding: 8px 12px 0;
-  font-size: 0.86rem;
-  color: rgba(var(--fg-rgb), 0.75);
+  align-items: baseline;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: rgba(var(--fg-rgb), 0.65);
 }
-.wms-legend {
+.wms-pct { font-size: 1.05rem; font-weight: 800; color: var(--text-main, #e6e9f2); }
+.wms-track { height: 5px; border-radius: 3px; background: rgba(var(--fg-rgb), 0.1); margin-top: 6px; overflow: hidden; }
+.wms-fill { height: 100%; border-radius: 3px; background: var(--status-color); transition: width 0.5s ease; }
+.wms-part {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4px 12px;
-  margin-top: 14px;
-  font-size: 0.72rem;
-  color: rgba(var(--fg-rgb), 0.6);
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(var(--fg-rgb), 0.15);
+  font-size: 0.76rem;
+  color: rgba(var(--fg-rgb), 0.65);
 }
-.wms-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 4px;
-  vertical-align: 1px;
-}
+.wms-part-num { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wms-part.is-done .wms-part-num { color: #10b981; }
 @keyframes wms-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes wms-fade { from { opacity: 0; } to { opacity: 1; } }
-
-/* The muscle drawing over the ring column opens the sheet. */
-.set-ring-col-muscle--button {
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}

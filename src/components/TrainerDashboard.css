@@ -1468,10 +1468,32 @@
   }
 }
 
+.client-detail-live-sessions {
+  padding: 4px 8px;
+  margin-right: -4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.client-detail-live-sessions:hover,
+.client-detail-live-sessions:focus-visible {
+  border-color: rgba(var(--accent-soft-rgb), 0.35);
+}
+
 .client-detail-live-sessions-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-main);
+}
+
+.client-detail-live-sessions-num svg {
+  color: var(--accent-text);
 }
 
 .client-detail-live-sessions-label {

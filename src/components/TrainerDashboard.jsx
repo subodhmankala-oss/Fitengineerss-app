@@ -8287,7 +8287,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             </div>
           ) : (
             // Client Detail & Workout Logs Screen
-            <div className={`client-detail-view animate-scale-in${detailTab === 'livelog' ? ' is-live-tab' : ''}`}>
+            <div className={`client-detail-view animate-scale-in${detailTab === 'livelog' && !showTotalSessionsModal ? ' is-live-tab' : ''}`}>
+              {/* is-live-tab hides the summary card on phones — but not while
+                  the Edit Total Sessions popup (which lives in that card) is
+                  open from the header's sessions button. */}
               {/* Back to Dashboard Breadcrumb */}
               <div className="dashboard-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>
                 <button 
@@ -8343,11 +8346,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     ].filter(Boolean).join(' · ') || selectedClient.email}
                   </span>
                 </div>
-                {selectedClient.coach_id === loggedInUserId && selectedClient.total_sessions != null && (
-                  <div className="client-detail-live-sessions">
-                    <span className="client-detail-live-sessions-num">{programSessionsDone}/{selectedClient.total_sessions}</span>
+                {/* Tappable: opens the same Edit Total Sessions popup as the
+                    summary card's pencil (that card is hidden here). */}
+                {selectedClient.coach_id === loggedInUserId && (
+                  <button
+                    type="button"
+                    className="client-detail-live-sessions"
+                    aria-label="Edit program"
+                    title="Edit total sessions and program dates"
+                    onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
+                  >
+                    <span className="client-detail-live-sessions-num">
+                      {selectedClient.total_sessions != null ? `${programSessionsDone}/${selectedClient.total_sessions}` : 'Set'}
+                      <PencilIcon size={12} />
+                    </span>
                     <span className="client-detail-live-sessions-label">sessions</span>
-                  </div>
+                  </button>
                 )}
                 {/* Deliberately low-key: muted dots, no label, so Remove is
                     there when needed but never a tap-target by accident. */}

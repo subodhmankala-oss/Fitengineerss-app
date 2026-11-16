@@ -1594,6 +1594,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // "Edit Total Sessions" popup — triggered by the top-right Edit button on
   // the Program Sessions panel instead of an always-visible stepper.
   const [showTotalSessionsModal, setShowTotalSessionsModal] = useState(false);
+  // Phones: the client summary card (goal, stats, sessions ring) is folded
+  // under a one-line header on every tab; tapping the name opens it.
+  const [clientCardOpen, setClientCardOpen] = useState(false);
   // Inline confirmation for the Program Total Sessions save — the panel sits
   // above the tab bar and is visible on every tab, but `liveToast` only
   // renders inside the Live Log tab, so a save on another tab looked like it
@@ -8287,10 +8290,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             </div>
           ) : (
             // Client Detail & Workout Logs Screen
-            <div className={`client-detail-view animate-scale-in${detailTab === 'livelog' && !showTotalSessionsModal ? ' is-live-tab' : ''}`}>
-              {/* is-live-tab hides the summary card on phones — but not while
-                  the Edit Total Sessions popup (which lives in that card) is
-                  open from the header's sessions button. */}
+            <div className={`client-detail-view animate-scale-in${clientCardOpen || showTotalSessionsModal ? ' is-card-open' : ''}`}>
+              {/* Phones fold the summary card under the one-line header unless
+                  is-card-open: the coach tapped the name, or the Edit Total
+                  Sessions popup (which lives in that card) is open from the
+                  header's sessions button. Desktop sidebar always shows it. */}
               {/* Back to Dashboard Breadcrumb */}
               <div className="dashboard-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>
                 <button 
@@ -8334,20 +8338,34 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   avatarUrl={selectedClient.avatarUrl}
                   size={42}
                 />
-                <div className="client-detail-header-info" style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  className="client-detail-header-info"
+                  style={{ minWidth: 0, flex: 1 }}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={clientCardOpen}
+                  aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
+                  onClick={() => setClientCardOpen(o => !o)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setClientCardOpen(o => !o); } }}
+                >
                   <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
-                  {/* Live tab on phones: goal · weight in place of the email,
-                      since the summary card below is hidden there. */}
+                  {/* Phones: goal · weight in place of the email, with a
+                      chevron showing the summary card folds open from here. */}
                   <span className="client-detail-live-sub">
-                    {[
-                      selectedClient.userGoal,
-                      (clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight) && `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
-                    ].filter(Boolean).join(' · ') || selectedClient.email}
+                    <span className="client-detail-live-sub-text">
+                      {[
+                        selectedClient.userGoal,
+                        (clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight) && `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
+                      ].filter(Boolean).join(' · ') || selectedClient.email}
+                    </span>
+                    <svg className={`client-detail-chevron${clientCardOpen ? ' is-open' : ''}`} width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+                      <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </span>
                 </div>
                 {/* Tappable: opens the same Edit Total Sessions popup as the
-                    summary card's pencil (that card is hidden here). */}
+                    summary card's pencil (that card is folded on phones). */}
                 {selectedClient.coach_id === loggedInUserId && (
                   <button
                     type="button"

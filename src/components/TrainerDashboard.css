@@ -1432,34 +1432,54 @@
   color: var(--text-muted);
 }
 
-/* Client header on the Live tab (phones): one compact line — name,
-   goal · weight, sessions done — and no summary card, so the start card
-   is the first thing under the tabs. Desktop keeps its sidebar as is. */
+/* Client header on phones (every tab): one compact line — name,
+   goal · weight ▾, sessions done. The summary card folds under it and
+   opens on tapping the name (.is-card-open). Desktop sidebar unchanged. */
 .client-detail-live-sub,
 .client-detail-live-sessions {
   display: none;
 }
 
 @media (max-width: 899px) {
-  .client-detail-view.is-live-tab .client-summary-card,
-  .client-detail-view.is-live-tab .client-detail-email {
+  .client-detail-view:not(.is-card-open) .client-summary-card,
+  .client-detail-view .client-detail-email {
     display: none;
   }
 
-  .client-detail-view.is-live-tab .client-detail-header {
+  .client-detail-view:not(.is-card-open) .client-detail-header {
     margin-bottom: 12px !important;
   }
 
-  .client-detail-view.is-live-tab .client-detail-live-sub {
-    display: block;
+  .client-detail-view .client-detail-header-info {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .client-detail-view .client-detail-live-sub {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
     font-size: 0.8rem;
     color: var(--text-muted);
+  }
+
+  .client-detail-live-sub-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .client-detail-view.is-live-tab .client-detail-live-sessions {
+  .client-detail-chevron {
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+  }
+
+  .client-detail-chevron.is-open {
+    transform: rotate(180deg);
+  }
+
+  .client-detail-view .client-detail-live-sessions {
     display: flex;
     flex-direction: column;
     align-items: flex-end;

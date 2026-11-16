@@ -3802,6 +3802,34 @@ const databaseService = {
     }
   },
 
+  // When the coach last closed the home "finished a workout" cards. Stored on
+  // the coach's own row (not localStorage) so closing on one device/browser
+  // keeps them closed everywhere — only a session after this time shows again.
+  // undefined = fetch failed (caller keeps what it has); null = never closed.
+  async getHomeCardsClosedAt(coachId) {
+    if (!isSupabaseConfigured || !coachId) return null;
+    try {
+      const rows = await restSelect(
+        `coaches?select=home_cards_closed_at&user_id=eq.${encodeURIComponent(coachId)}&limit=1`
+      );
+      return rows?.[0]?.home_cards_closed_at || null;
+    } catch (e) {
+      console.error('Cloud DB getHomeCardsClosedAt error:', e);
+      return undefined;
+    }
+  },
+
+  async setHomeCardsClosedAt(coachId, iso) {
+    if (!isSupabaseConfigured || !coachId || !iso) return false;
+    try {
+      await restUpdate(`coaches?user_id=eq.${encodeURIComponent(coachId)}`, { home_cards_closed_at: iso });
+      return true;
+    } catch (e) {
+      console.error('Cloud DB setHomeCardsClosedAt error:', e);
+      return false;
+    }
+  },
+
   // ─── SESSIONS AWAITING A COACH NOTE (home-screen prompt) ───
   // For the logged-in coach, return each attached client's MOST RECENT
   // workout session that hasn't yet been answered by a coach note — i.e. no

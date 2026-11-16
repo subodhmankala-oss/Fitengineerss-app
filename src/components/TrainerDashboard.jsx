@@ -3673,11 +3673,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setHiddenHomeSessions(readHiddenHomeSessions());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hiddenHomeSessionsKey]);
-  const homeSessionsAwaitingNote = sessionsAwaitingNote.filter(s => !hiddenHomeSessions.includes(homeSessionCardKey(s)));
+  // 2026-11-16: the localStorage list above only covers THIS browser, so
+  // cards closed on the laptop came back on the phone (and after storage was
+  // cleared). The close time is now also saved on the coach's row
+  // (coaches.home_cards_closed_at); a session at or before it stays hidden on
+  // every device.
+  const [homeCardsClosedAt, setHomeCardsClosedAt] = useState(null);
+  const sessionAtMs = (s) => new Date(s.sessionAt || `${s.date}T00:00:00`).getTime();
+  const closedAtMs = homeCardsClosedAt ? new Date(homeCardsClosedAt).getTime() : null;
+  const homeSessionsAwaitingNote = sessionsAwaitingNote.filter(s =>
+    !hiddenHomeSessions.includes(homeSessionCardKey(s)) &&
+    !(closedAtMs != null && sessionAtMs(s) <= closedAtMs)
+  );
   const handleCloseHomeSessionCards = () => {
     const keys = [...new Set([...hiddenHomeSessions, ...sessionsAwaitingNote.map(homeSessionCardKey)])];
     try { localStorage.setItem(hiddenHomeSessionsKey, JSON.stringify(keys)); } catch { /* storage full/blocked */ }
     setHiddenHomeSessions(keys);
+    // Latest session time on screen (server clock), so a workout that lands
+    // a moment after the coach taps ✕ still shows; never moves backwards.
+    const latestMs = Math.max(closedAtMs ?? 0, ...sessionsAwaitingNote.map(sessionAtMs).filter(Number.isFinite));
+    if (latestMs > 0) {
+      const iso = new Date(latestMs).toISOString();
+      setHomeCardsClosedAt(iso);
+      databaseService.setHomeCardsClosedAt(resolvedCoachId, iso);
+    }
   };
 
   // Keep the slider's active index in range as cards are sent/dismissed —
@@ -3691,7 +3710,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
   const refreshSessionsAwaitingNote = async () => {
     if (!resolvedCoachId) return;
-    const sessions = await databaseService.getSessionsAwaitingCoachNote(resolvedCoachId);
+    const [sessions, closedAt] = await Promise.all([
+      databaseService.getSessionsAwaitingCoachNote(resolvedCoachId),
+      databaseService.getHomeCardsClosedAt(resolvedCoachId)
+    ]);
+    // undefined = that fetch failed; keep the close time already in state.
+    // Only ever moves forward, so a refresh that lands before the ✕ save
+    // finishes can't bring the closed cards back.
+    if (closedAt) {
+      setHomeCardsClosedAt(prev => (!prev || new Date(closedAt) > new Date(prev) ? closedAt : prev));
+    }
     // BUG FIX 2026-08-18: null means the fetch itself failed (see the
     // matching comment in databaseService), not "nothing pending" — skip the
     // update so a dropped request on a weak connection doesn't blank out the

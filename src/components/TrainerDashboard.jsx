@@ -6094,7 +6094,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             toggle floating above an unrelated screen. Payments already has
             its own back button (see client-payments-view) for leaving. */}
         {superAdmin && viewMode !== 'payments' && (
-          <div className="role-toggle-bar" style={{
+          // is-client-open: phones hide this bar while a client is open
+          // ("← Dashboard" brings it back); desktop keeps it in the header.
+          <div className={`role-toggle-bar${viewMode === 'coach' && selectedClient ? ' is-client-open' : ''}`} style={{
             display: 'flex',
             gap: '4px',
             padding: '4px',

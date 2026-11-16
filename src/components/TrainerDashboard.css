@@ -2268,3 +2268,12 @@
   padding-left: var(--screen-gutter);
   padding-right: var(--screen-gutter);
 }
+
+/* Super-admin My Clients / News / Super-Admin bar: hidden on phones while a
+   client is open, so the client header and tabs sit at the top. The
+   breadcrumb's "← Dashboard" returns to the list, where it shows again. */
+@media (max-width: 899px) {
+  .role-toggle-bar.is-client-open {
+    display: none !important;
+  }
+}

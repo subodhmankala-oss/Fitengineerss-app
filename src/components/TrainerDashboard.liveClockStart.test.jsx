@@ -40,7 +40,7 @@ const renderLiveLog = () => render(
 
 // TrainerDashboard's first render can take several seconds on a busy runner.
 const SLOW = { timeout: 15000 };
-const IDLE_HINT = 'Timer starts when you log your first set';
+const IDLE_HINT = 'The timer starts when you load a plan or tick the first set';
 
 const PLAN = { id: 'p1', planName: 'Leg Day', exercises: [{ name: 'Squat', sets: [{ reps: 10, weight: 20 }, { reps: 10, weight: 20 }] }] };
 

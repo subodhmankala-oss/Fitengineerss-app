@@ -30,3 +30,131 @@
   background: rgba(var(--fg-rgb), 0.05);
   border-color: rgba(var(--fg-rgb), 0.1);
 }
+
+/* Coach Live tab: "Still to train this week" list (MuscleGapHint variant="list"). */
+.muscle-gap-list {
+  margin: 2px 0 14px;
+}
+
+.muscle-gap-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.muscle-gap-list-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.muscle-gap-list-title svg {
+  color: var(--tint-amber);
+}
+
+.muscle-gap-list-link {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.muscle-gap-list-map {
+  display: block;
+  margin: 8px auto 0;
+}
+
+.muscle-gap-list--good {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.muscle-gap-list--good .muscle-gap-list-title {
+  font-weight: 600;
+  color: var(--tint-emerald);
+}
+
+.muscle-gap-list-rows {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.muscle-gap-row + .muscle-gap-row {
+  border-top: 1px solid var(--border-color);
+}
+
+.muscle-gap-row-main {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.muscle-gap-row-main:hover,
+.muscle-gap-row.is-open .muscle-gap-row-main {
+  background: rgba(var(--fg-rgb), 0.03);
+}
+
+.muscle-gap-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.muscle-gap-row-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.muscle-gap-row-count {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.muscle-gap-row-bar {
+  display: block;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: rgba(var(--fg-rgb), 0.08);
+  overflow: hidden;
+}
+
+.muscle-gap-row-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--tint-amber);
+  transition: width 0.3s ease;
+}
+
+.muscle-gap-row-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+  background: rgba(var(--fg-rgb), 0.03);
+}

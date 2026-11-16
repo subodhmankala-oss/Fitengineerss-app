@@ -4843,6 +4843,30 @@ const databaseService = {
     }
   },
 
+  // Newest measured_at per client, for the coach's "measurement due" bell
+  // items. RLS (is_my_client) limits rows to this coach's own clients.
+  async getLatestMeasurementDates(userIds = []) {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    if (!isSupabaseConfigured || ids.length === 0) return {};
+    try {
+      const out = {};
+      // Chunked so a big roster can't blow past the URL length limit.
+      for (let i = 0; i < ids.length; i += 80) {
+        const idList = ids.slice(i, i + 80).map(encodeURIComponent).join(',');
+        const rows = await restSelect(
+          `body_measurements?select=user_id,measured_at&user_id=in.(${idList})&order=measured_at.desc`
+        );
+        (rows || []).forEach(r => {
+          if (!out[r.user_id] || r.measured_at > out[r.user_id]) out[r.user_id] = r.measured_at;
+        });
+      }
+      return out;
+    } catch (e) {
+      console.warn('Latest measurement dates failed:', e?.message || e);
+      return null;
+    }
+  },
+
   // Coach-only override: removes one history row by id (e.g. a blank/bad
   // entry saved during the SDK-hang bug, which otherwise locks the client
   // out of re-entering real numbers for 15 days with nothing to show for

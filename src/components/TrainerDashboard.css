@@ -1635,8 +1635,18 @@
     white-space: nowrap;
   }
 
+  /* Header as its own card — same surface and border as the tabs band
+     below, so the two read as one set. */
   .client-detail-view .client-detail-header {
     gap: 10px !important;
+    padding: 10px 8px 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 18px;
+  }
+
+  .client-detail-view.is-card-open .client-detail-header {
+    margin-bottom: 10px !important;
   }
 }
 

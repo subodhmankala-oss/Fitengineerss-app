@@ -8374,11 +8374,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     title="Edit total sessions and program dates"
                     onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
                   >
-                    <span className="client-detail-live-sessions-num">
-                      {selectedClient.total_sessions != null ? `${programSessionsDone}/${selectedClient.total_sessions}` : 'Set'}
-                      <PencilIcon size={12} />
-                    </span>
-                    <span className="client-detail-live-sessions-label">sessions</span>
+                    {selectedClient.total_sessions != null ? (() => {
+                      const total = selectedClient.total_sessions;
+                      const pct = total ? Math.min(1, programSessionsDone / total) : 0;
+                      const c = 2 * Math.PI * 10;
+                      return (
+                        <>
+                          <svg className="client-detail-live-sessions-ring" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+                            <circle cx="14" cy="14" r="10" fill="none" stroke="rgba(var(--fg-rgb), 0.12)" strokeWidth="3.5" />
+                            {pct > 0 && (
+                              <circle cx="14" cy="14" r="10" fill="none" stroke="var(--accent-soft)" strokeWidth="3.5" strokeLinecap="round"
+                                strokeDasharray={`${pct * c} ${c}`} transform="rotate(-90 14 14)" />
+                            )}
+                          </svg>
+                          <span className="client-detail-live-sessions-text">
+                            <span className="client-detail-live-sessions-num">{programSessionsDone}/{total}</span>
+                            <span className="client-detail-live-sessions-label">{Math.max(0, total - programSessionsDone)} left</span>
+                          </span>
+                        </>
+                      );
+                    })() : (
+                      <span className="client-detail-live-sessions-text">
+                        <span className="client-detail-live-sessions-num">Set</span>
+                        <span className="client-detail-live-sessions-label">sessions</span>
+                      </span>
+                    )}
+                    <span className="client-detail-live-sessions-edit"><PencilIcon size={13} /></span>
                   </button>
                 )}
                 {/* Deliberately low-key: muted dots, no label, so Remove is

@@ -1,0 +1,111 @@
+.wms-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.wms-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  animation: wms-fade 0.25s ease;
+}
+.wms-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--bg-card, #121a2e);
+  color: var(--text-main, #e6e9f2);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.12);
+  border-radius: 22px 22px 0 0;
+  padding: 6px 16px calc(16px + env(safe-area-inset-bottom));
+  animation: wms-up 0.32s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.wms-grab {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 6px 0 12px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.wms-grab span {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(var(--fg-rgb), 0.25);
+}
+.wms-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.wms-title { font-weight: 700; font-size: 1rem; }
+.wms-live { font-size: 0.78rem; color: rgba(var(--fg-rgb), 0.55); }
+.wms-bodies {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 10px 0 12px;
+}
+.wms-body {
+  flex: 0 1 46%;
+  max-width: 170px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.wms-view { font-size: 0.72rem; color: rgba(var(--fg-rgb), 0.5); margin-top: 2px; }
+.wms-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  color: var(--wms-color);
+  background: color-mix(in srgb, var(--wms-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wms-color) 55%, transparent);
+}
+.wms-main-num { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wms-other {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px 0;
+  font-size: 0.86rem;
+  color: rgba(var(--fg-rgb), 0.75);
+}
+.wms-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  margin-top: 14px;
+  font-size: 0.72rem;
+  color: rgba(var(--fg-rgb), 0.6);
+}
+.wms-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: 1px;
+}
+@keyframes wms-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes wms-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* The muscle drawing over the ring column opens the sheet. */
+.set-ring-col-muscle--button {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}

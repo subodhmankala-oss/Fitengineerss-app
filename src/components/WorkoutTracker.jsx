@@ -4245,7 +4245,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           </>
                         )}
                         <span className="col-check">
-                          {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={setRings} exIdx={exIdx} />}
+                          {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={setRings} exIdx={exIdx} savedLogs={savedSetRows} liveRows={liveTickedRows} logDate={logDate} level={trainingLevel} />}
                           <button
                             type="button"
                             title="Mark all sets done"

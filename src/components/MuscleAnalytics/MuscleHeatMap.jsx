@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 're
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import { useBodySex } from './bodySex';
+import { LEGEND } from './heatMapLegend';
 import { getRegionShape, clipStylePct, clipBox, REGION_SHAPES } from './regionShapes';
 import {
   getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, LAYER_REGIONS,
@@ -12,14 +13,6 @@ import {
 // are cut from (the female figure's layers are warped copies, so compare by
 // index against these).
 const MALE_LAYERS = { front: FRONT_MUSCLE_LAYERS, back: BACK_MUSCLE_LAYERS };
-
-const LEGEND = [
-  { key: 'not_trained', color: 'var(--text-subtle)', label: 'Not Trained' },
-  { key: 'low', color: '#3b82f6', label: 'Low' },
-  { key: 'optimal', color: '#10b981', label: 'Optimal' }, // same green the map paints (getHeatMapTier)
-  { key: 'high', color: '#f97316', label: 'High' },
-  { key: 'very_high', color: '#ef4444', label: 'Very High' },
-];
 
 // Taps are resolved by BodyDiagram (snap to the nearest part), so a layer
 // only names what it is (data-muscle / data-region / data-clip) and handles

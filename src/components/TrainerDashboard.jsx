@@ -10586,7 +10586,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               </>
                             )}
                             <span className="col-check">
-                              {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={liveSetRings} exIdx={exIdx} />}
+                              {!exIsCardio && <SetRingHeaderMuscle exerciseName={ex.name} rings={liveSetRings} exIdx={exIdx} savedLogs={rawWorkoutLogs} liveRows={liveTickedRows} logDate={liveDate} level={selectedClientLevel} />}
                               <button
                                 type="button"
                                 title="Mark all sets done"

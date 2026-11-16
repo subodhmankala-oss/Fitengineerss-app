@@ -29,11 +29,12 @@ describe('WeekMuscleSheet', () => {
       .find(s => s.muscle === 'Chest');
     const card = [...sheet.querySelectorAll('.wms-card')].find(c => c.querySelector('strong').textContent === 'Chest');
     expect(card.textContent).toContain(home.status.label);
-    expect(card.textContent).toContain(`${home.sets} / ${home.target} target sets`);
+    expect(card.textContent).toContain(`${home.sets} / ${home.target} sets`);
+    expect(card.textContent).toContain(`${home.min - home.sets} more to Optimal`);
     expect(card.textContent).toContain(`${home.completionPercent}%`);
-    expect(card.textContent).toContain('↑2 today');
+    expect(card.textContent).toContain('+2 today');
     // The chest part today's sets went to, on its own small line.
-    expect(card.querySelector('.wms-part')).not.toBeNull();
+    expect(card.querySelector('.wms-chip')).not.toBeNull();
   });
 
   it('lists only muscles this workout worked', () => {

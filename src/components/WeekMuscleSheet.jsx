@@ -90,35 +90,50 @@ export default function WeekMuscleSheet({ open, onClose, savedLogs, liveRows, lo
         ) : (
           <>
             <p className="wms-caption">Muscles in this workout · same as your home cards</p>
-            {cards.map(({ stat, today, parts }) => (
-              <div key={stat.muscle} className={`wms-card status-${stat.status.color}`}>
-                <div className="wms-card-top">
-                  <span className="wms-thumb">
-                    <MuscleThumbnail muscle={stat.muscle} color="var(--status-color)" size={38} />
-                  </span>
-                  <div className="wms-card-title">
-                    <div className="wms-card-name">
-                      <strong>{stat.muscle}</strong>
-                      <span className="wms-up">↑{fmt(today)} today</span>
+            {cards.map(({ stat, today, parts }) => {
+              // Bar on the home card's scale (sets / target): the week before
+              // today solid, today's sets striped on top, a green tick where
+              // Optimal starts (the band's low end).
+              const pctOf = n => Math.min(100, Math.max(0, (n / stat.target) * 100));
+              const beforePct = pctOf(stat.sets - today);
+              const todayPct = pctOf(stat.sets) - beforePct;
+              const goal = stat.sets < stat.min
+                ? `${fmt(stat.min - stat.sets)} more to Optimal`
+                : stat.sets <= stat.max ? 'In the Optimal range' : 'Past the useful range';
+              return (
+                <div key={stat.muscle} className={`wms-card status-${stat.status.color}`}>
+                  <div className="wms-card-top">
+                    <span className="wms-thumb">
+                      <MuscleThumbnail muscle={stat.muscle} color="var(--status-color)" size={36} />
+                    </span>
+                    <div className="wms-card-title">
+                      <div className="wms-card-line">
+                        <strong>{stat.muscle}</strong>
+                        <span className="wms-pct">{stat.completionPercent}<small>%</small></span>
+                      </div>
+                      <div className="wms-card-line">
+                        <span className="wms-pill">{stat.status.label}</span>
+                        <span className="wms-sets">{fmt(stat.sets)} / {stat.target} sets</span>
+                      </div>
                     </div>
-                    <span className="wms-pill"><span className="wms-dot" />{stat.status.label}</span>
+                  </div>
+                  <div className="wms-track" role="img" aria-label={`${fmt(stat.sets)} of ${stat.target} sets, ${fmt(today)} today`}>
+                    <span className="wms-fill" style={{ width: `${beforePct}%` }} />
+                    <span className="wms-fill wms-fill--today" style={{ left: `${beforePct}%`, width: `${todayPct}%` }} />
+                    <span className="wms-optimal" style={{ left: `${pctOf(stat.min)}%` }} />
+                  </div>
+                  <div className="wms-card-foot">
+                    <span className="wms-up">↗ +{fmt(today)} today</span>
+                    {parts.map(p => (
+                      <span key={p.id} className={`wms-chip${p.sets >= p.min ? ' is-done' : ''}`}>
+                        {p.sets >= p.min ? '✓ ' : ''}{p.id} {fmt(p.sets)}/{p.min}
+                      </span>
+                    ))}
+                    <span className="wms-goal">{goal}</span>
                   </div>
                 </div>
-                <div className="wms-card-stats">
-                  <span>{fmt(stat.sets)} / {stat.target} target sets</span>
-                  <span className="wms-pct">{stat.completionPercent}%</span>
-                </div>
-                <div className="wms-track">
-                  <div className="wms-fill" style={{ width: `${Math.min(100, Math.max(0, stat.completionPercent))}%` }} />
-                </div>
-                {parts.map(p => (
-                  <div key={p.id} className={`wms-part${p.sets >= p.min ? ' is-done' : ''}`}>
-                    <span>{p.id} · part worked today</span>
-                    <span className="wms-part-num">{fmt(p.sets)} / {p.min}{p.sets >= p.min ? ' ✓' : ''}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
+              );
+            })}
           </>
         )}
       </div>

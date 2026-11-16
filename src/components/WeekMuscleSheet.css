@@ -66,41 +66,85 @@
 .wms-empty { font-size: 0.84rem; color: rgba(var(--fg-rgb), 0.6); text-align: center; margin: 8px 0 4px; }
 .wms-card {
   margin-top: 8px;
-  padding: 10px 12px;
+  padding: 11px 12px;
   border-radius: 14px;
-  background: rgba(var(--fg-rgb), 0.03);
-  border: 1px solid color-mix(in srgb, var(--status-color) 45%, transparent);
+  background: rgba(var(--fg-rgb), 0.035);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
 }
 .wms-card-top { display: flex; gap: 10px; align-items: center; }
-.wms-thumb { flex-shrink: 0; display: flex; }
+.wms-thumb {
+  flex-shrink: 0;
+  display: flex;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--status-color) 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-color) 45%, transparent);
+}
 .wms-card-title { flex: 1; min-width: 0; }
-.wms-card-name { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.wms-card-name strong { font-size: 0.92rem; }
-.wms-up { font-size: 0.74rem; font-weight: 700; color: #10b981; white-space: nowrap; }
-.wms-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 600; color: var(--status-color); }
-.wms-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-color); }
-.wms-card-stats {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-top: 8px;
-  font-size: 0.8rem;
-  color: rgba(var(--fg-rgb), 0.65);
+.wms-card-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wms-card-line + .wms-card-line { margin-top: 3px; }
+.wms-card-line strong { font-size: 0.95rem; }
+.wms-pct { font-size: 1.15rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.wms-pct small { font-size: 0.7rem; font-weight: 600; color: rgba(var(--fg-rgb), 0.55); margin-left: 1px; }
+.wms-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--status-color);
+  background: color-mix(in srgb, var(--status-color) 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-color) 40%, transparent);
+  padding: 2px 9px;
+  border-radius: 999px;
 }
-.wms-pct { font-size: 1.05rem; font-weight: 800; color: var(--text-main, #e6e9f2); }
-.wms-track { height: 5px; border-radius: 3px; background: rgba(var(--fg-rgb), 0.1); margin-top: 6px; overflow: hidden; }
-.wms-fill { height: 100%; border-radius: 3px; background: var(--status-color); transition: width 0.5s ease; }
-.wms-part {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 7px;
-  border-top: 1px dashed rgba(var(--fg-rgb), 0.15);
-  font-size: 0.76rem;
-  color: rgba(var(--fg-rgb), 0.65);
+.wms-sets { font-size: 0.76rem; color: rgba(var(--fg-rgb), 0.6); font-variant-numeric: tabular-nums; }
+.wms-track {
+  position: relative;
+  height: 8px;
+  margin-top: 11px;
+  border-radius: 8px;
+  background: rgba(var(--fg-rgb), 0.1);
 }
-.wms-part-num { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.wms-part.is-done .wms-part-num { color: #10b981; }
+.wms-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 8px;
+  background: var(--status-color);
+  transition: width 0.5s ease, left 0.5s ease;
+}
+.wms-fill--today {
+  background: repeating-linear-gradient(45deg, var(--status-color) 0 3px, color-mix(in srgb, var(--status-color) 60%, transparent) 3px 6px);
+}
+.wms-optimal {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #10b981;
+}
+.wms-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 9px;
+  font-size: 0.72rem;
+}
+.wms-up { font-weight: 700; color: #34d399; white-space: nowrap; }
+.wms-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: rgba(var(--fg-rgb), 0.7);
+  box-shadow: inset 0 0 0 1px rgba(var(--fg-rgb), 0.18);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.wms-chip.is-done {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
+}
+.wms-goal { margin-left: auto; color: rgba(var(--fg-rgb), 0.55); white-space: nowrap; }
 @keyframes wms-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes wms-fade { from { opacity: 0; } to { opacity: 1; } }

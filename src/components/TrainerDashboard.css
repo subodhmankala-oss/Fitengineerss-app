@@ -1636,7 +1636,8 @@
   }
 
   /* Header as its own card — same surface and border as the tabs band
-     below, so the two read as one set. */
+     below. Under 768px it runs edge to edge instead (useFullBleed adds
+     .is-full-bleed) and joins the tabs band into one panel, below. */
   .client-detail-view .client-detail-header {
     gap: 10px !important;
     padding: 10px 8px 10px 12px;
@@ -2294,4 +2295,31 @@
   .role-toggle-bar.is-client-open {
     display: none !important;
   }
+}
+
+/* Phones: header + tabs as one full-width panel. The header loses its side
+   borders and corners, its bottom edge meets the tabs band (whose top line
+   becomes a light divider), and its content is padded back in line with the
+   cards. With the details card open, the card sits between them, so the
+   header closes with its own bottom line. */
+.client-detail-view .client-detail-header.is-full-bleed {
+  border-left: none;
+  border-right: none;
+  border-top: 1.5px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 0;
+  padding-left: var(--bleed-left, 12px);
+  padding-right: calc(var(--bleed-right, 12px) - 4px);
+}
+
+.client-detail-view:not(.is-card-open) .client-detail-header.is-full-bleed {
+  margin-bottom: 0 !important;
+}
+
+.client-detail-view:not(.is-card-open) .coach-tabs-track.is-full-bleed {
+  border-top: 1px solid var(--border-color);
+}
+
+.client-detail-view.is-card-open .client-detail-header.is-full-bleed {
+  border-bottom: 1.5px solid var(--border-strong);
 }

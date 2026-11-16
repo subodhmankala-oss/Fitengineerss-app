@@ -68,7 +68,10 @@
   min-width: 0;
   max-width: 100%;
 }
-.coach-tab-head svg { flex-shrink: 0; transition: color 0.3s; }
+/* Every tab's icon in its own colour (green plan, orange log, violet
+   history, blue measurements); a touch softer until the tab is active. */
+.coach-tab-head svg { flex-shrink: 0; color: var(--tone); opacity: 0.8; transition: color 0.3s, opacity 0.3s; }
+.coach-tab.active .coach-tab-head svg { opacity: 1; }
 .coach-tab-label {
   font-size: 0.78rem;
   font-weight: 800;

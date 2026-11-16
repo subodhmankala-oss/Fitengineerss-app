@@ -18,8 +18,8 @@ const HistoryIcon = () => <Svg><path d="M12 8v4l2 2" /><path d="M3.05 11a9 9 0 1
 const RulerIcon = () => <Svg><path d="M3 17 17 3l4 4L7 21z" /><path d="m7.5 12.5 2 2M10.5 9.5l2 2M13.5 6.5l2 2" /></Svg>;
 
 const TABS = [
-  { key: 'plans', label: 'Send plan', short: 'Plan', icon: <SendIcon />, tour: 'tc-tab-plans' },
-  { key: 'livelog', label: 'Live Log', short: 'Live', icon: <PulseIcon />, tour: 'tc-tab-livelog' },
+  { key: 'plans', label: 'Send plan', short: 'Send plan', icon: <SendIcon />, tour: 'tc-tab-plans' },
+  { key: 'livelog', label: 'Log', short: 'Log', icon: <PulseIcon />, tour: 'tc-tab-livelog' },
   { key: 'workout', label: 'History', short: 'History', icon: <HistoryIcon />, tour: 'tc-tab-workout' },
   { key: 'measurements', label: 'Measurements', short: 'Measurements', icon: <RulerIcon /> },
 ];

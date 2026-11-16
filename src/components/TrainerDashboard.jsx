@@ -223,6 +223,16 @@ const LIVE_REST_KEY = 'coachLiveRestEndAt';
 // names } — see the save effect next to liveSetTimers and setTimerRestore.js.
 const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
+// Goal → tint (tint + ring chips, never a solid fill): client summary card
+// and the one-line client header.
+const GOAL_TINTS = {
+  'Fat Loss': 'var(--tint-orange)',
+  'Muscle Building': 'var(--tint-blue)',
+  'Gut Fix': 'var(--tint-cyan)',
+  'Gut Health': 'var(--tint-cyan)',
+  'General Fitness': 'var(--tint-violet)'
+};
+
 const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, openTestimonials = false, onTestimonialLinkUsed }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
@@ -8353,15 +8363,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   {/* Phones: goal · weight in place of the email, with a
                       chevron showing the summary card folds open from here. */}
                   <span className="client-detail-live-sub">
+                    {selectedClient.userGoal && (
+                      <span className="client-detail-goal-chip" style={{ '--goal-tint': GOAL_TINTS[selectedClient.userGoal] || 'var(--text-muted)' }}>
+                        {selectedClient.userGoal}
+                      </span>
+                    )}
                     <span className="client-detail-live-sub-text">
-                      {[
-                        selectedClient.userGoal,
-                        (clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight) && `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
-                      ].filter(Boolean).join(' · ') || selectedClient.email}
+                      {(clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight)
+                        ? `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
+                        : (!selectedClient.userGoal ? selectedClient.email : '')}
                     </span>
-                    <svg className={`client-detail-chevron${clientCardOpen ? ' is-open' : ''}`} width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
-                      <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <span className={`client-detail-chevron${clientCardOpen ? ' is-open' : ''}`} aria-hidden="true">
+                      <svg width="12" height="12" viewBox="0 0 14 14">
+                        <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
                   </span>
                 </div>
                 {/* Tappable: opens the same Edit Total Sessions popup as the
@@ -8452,6 +8468,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               {/* Client summary — one card: goal pill + age/height, the three
                   numbers a coach checks (weight, calories, protein), and the
                   compact Program Sessions row below. */}
+              {/* Phones: folds open/closed under the header (height eases
+                  0 → natural via grid rows, card fades and slides in).
+                  Desktop: always open in the sidebar. */}
+              <div className="client-summary-fold">
+              <div className="client-summary-fold-inner">
               <div className="client-summary-card" style={{
                 position: 'relative',
                 padding: '14px',
@@ -8464,13 +8485,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {[selectedClient.userGoal || 'Goal not set', selectedClient.userSecondaryGoal].filter(Boolean).map(goal => {
                       // Distinct tint per goal (tint + ring, not a solid fill).
-                      const tint = {
-                        'Fat Loss': 'var(--tint-orange)',
-                        'Muscle Building': 'var(--tint-blue)',
-                        'Gut Fix': 'var(--tint-cyan)',
-                        'Gut Health': 'var(--tint-cyan)',
-                        'General Fitness': 'var(--tint-violet)'
-                      }[goal] || 'var(--text-muted)';
+                      const tint = GOAL_TINTS[goal] || 'var(--text-muted)';
                       return (
                         <span key={goal} style={{
                           display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -8793,6 +8808,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
                 );
               })()}
+              </div>
+              </div>
               </div>
               </div>
 

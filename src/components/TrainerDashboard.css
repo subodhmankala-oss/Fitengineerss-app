@@ -1441,9 +1441,12 @@
 }
 
 @media (max-width: 899px) {
-  .client-detail-view:not(.is-card-open) .client-summary-card,
   .client-detail-view .client-detail-email {
     display: none;
+  }
+
+  .client-detail-view .client-detail-header {
+    transition: margin-bottom 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .client-detail-view:not(.is-card-open) .client-detail-header {
@@ -1458,33 +1461,120 @@
   .client-detail-view .client-detail-live-sub {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     min-width: 0;
+    margin-top: 3px;
     font-size: 0.8rem;
     color: var(--text-muted);
   }
 
-  .client-detail-live-sub-text {
+  .client-detail-header-info .client-detail-goal-chip {
+    flex-shrink: 0;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--goal-tint);
+    background: color-mix(in srgb, var(--goal-tint) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--goal-tint) 35%, transparent);
+  }
+
+  .client-detail-header-info .client-detail-live-sub-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-main);
+    opacity: 0.85;
   }
 
-  .client-detail-chevron {
+  /* Round fold button: rotates when the card is open. */
+  .client-detail-header-info .client-detail-chevron {
     flex-shrink: 0;
-    transition: transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(var(--fg-rgb), 0.16);
+    color: var(--text-muted);
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.2s, border-color 0.2s, background 0.2s;
   }
 
-  .client-detail-chevron.is-open {
+  .client-detail-header-info:hover .client-detail-chevron,
+  .client-detail-header-info .client-detail-chevron.is-open {
+    color: var(--accent-text);
+    border-color: rgba(var(--accent-soft-rgb), 0.45);
+    background: rgba(var(--accent-soft-rgb), 0.1);
+  }
+
+  .client-detail-header-info .client-detail-chevron.is-open {
     transform: rotate(180deg);
   }
 
-  /* Only while the card is folded — open, the card's own sessions row
-     (with dates and its pencil) is the one place to edit. */
-  .client-detail-view:not(.is-card-open) .client-detail-live-sessions {
+  /* Summary card fold: height eases 0 → natural (grid rows), the card fades
+     and slides down into place. Hidden from taps/focus once folded. */
+  .client-summary-fold {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .client-summary-fold-inner {
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: visibility 0s linear 0.34s;
+  }
+
+  .client-summary-fold .client-summary-card {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+    transform-origin: top center;
+    transition: opacity 0.22s ease, transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .client-detail-view.is-card-open .client-summary-fold {
+    grid-template-rows: 1fr;
+  }
+
+  .client-detail-view.is-card-open .client-summary-fold-inner {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .client-detail-view.is-card-open .client-summary-fold .client-summary-card {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.28s ease 0.06s, transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Sessions badge: fades out while the card is open — the card's own
+     sessions row (with dates and its pencil) is then the one place to edit. */
+  .client-detail-view .client-detail-live-sessions {
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0s;
+  }
+
+  .client-detail-view.is-card-open .client-detail-live-sessions {
+    opacity: 0;
+    transform: scale(0.92);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0.22s;
+  }
+}
+
+@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+  .client-summary-fold,
+  .client-summary-fold .client-summary-card,
+  .client-detail-view .client-detail-header,
+  .client-detail-view .client-detail-live-sessions,
+  .client-detail-header-info .client-detail-chevron {
+    transition: none !important;
   }
 }
 

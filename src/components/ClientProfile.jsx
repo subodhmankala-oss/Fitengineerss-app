@@ -8,6 +8,7 @@ import { SEX_OPTIONS } from '../utils/targets';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
 import { MEAS_INTERVAL_DAYS, measurementChanges } from '../utils/measurementDue';
+import { measUnitFor, storedToDisplay, displayToStored, formatMeas, formatMeasDelta } from '../utils/lengthUnits';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -91,6 +92,16 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [weightUnit, setWeightUnit] = useState(localStorage.getItem('weightUnit') || 'kg');
+  // Body-measurement display unit; values are always stored in cm.
+  const [lengthUnit, setLengthUnit] = useState(() => (localStorage.getItem('lengthUnit') === 'in' ? 'in' : 'cm'));
+  // Raw text of the measurement field being typed in, so "32." isn't
+  // reformatted mid-keystroke by the cm<->in round trip.
+  const [measDraft, setMeasDraft] = useState({});
+  const chooseLengthUnit = (u) => {
+    setLengthUnit(u);
+    setMeasDraft({});
+    try { localStorage.setItem('lengthUnit', u); } catch { /* storage unavailable */ }
+  };
   // form.userWeight is ALWAYS kilograms — it's what saveUserProfile writes to
   // clients.weight_kg and what every calorie/target formula reads. The Units
   // setting used to change only this field's label, so a client on Pounds
@@ -527,8 +538,7 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
     const lastChanges = measHistory.length >= 2
       ? measurementChanges(measHistory[0].measurements, measHistory[1].measurements, measFields.map(f => f.key))
       : [];
-    const unitOf = (key) => measFields.find(f => f.key === key)?.unit || 'cm';
-    const fmtDelta = (d, unit) => `${d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}${unit}`;
+    const units = { length: lengthUnit, weight: weightUnit };
     const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
     const saveMeasurements = async () => {
@@ -626,7 +636,7 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
                         color: 'var(--text-main)'
                       }}>
                         {measFields.find(f => f.key === c.key)?.label}{' '}
-                        <span style={{ color: c.delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>{fmtDelta(c.delta, unitOf(c.key))}</span>
+                        <span style={{ color: c.delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>{formatMeasDelta(c.key, c.delta, units)}</span>
                       </span>
                     ))}
                   </div>
@@ -635,9 +645,32 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
             </>
           )}
 
-          <div className="cp-form-section-label">Body Measurements (cm)</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <div className="cp-form-section-label">Body Measurements ({lengthUnit})</div>
+            <div role="group" aria-label="Measurement unit" style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+              {[['cm', 'cm'], ['in', 'inches']].map(([u, label]) => {
+                const on = lengthUnit === u;
+                return (
+                  <button
+                    key={u}
+                    type="button"
+                    data-length-unit={u}
+                    aria-pressed={on}
+                    onClick={() => chooseLengthUnit(u)}
+                    style={{
+                      padding: '4px 11px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+                      background: on ? 'rgba(var(--accent-rgb), 0.14)' : 'transparent',
+                      border: `1px solid ${on ? 'rgba(var(--accent-rgb), 0.55)' : 'rgba(var(--fg-rgb), 0.14)'}`,
+                      color: on ? 'var(--accent-text)' : 'var(--text-muted)'
+                    }}
+                  >{label}</button>
+                );
+              })}
+            </div>
+          </div>
           <div className="cp-form-card">
-            {measFields.map(({ key, label, unit }, i) => {
+            {measFields.map(({ key, label }, i) => {
+              const unit = measUnitFor(key, units);
               const prevVal = compareEntry?.measurements?.[key];
               const curVal = measurements[key];
               const delta = (prevVal != null && prevVal !== '' && curVal != null && curVal !== '')
@@ -655,7 +688,7 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
                         marginLeft: '7px', fontSize: '0.68rem', fontWeight: 700,
                         color: delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)'
                       }}>
-                        {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}{unit || 'cm'}
+                        {formatMeasDelta(key, delta, units)}
                       </span>
                     )}
                   </label>
@@ -663,10 +696,16 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
                     className="cp-field-input cp-field-input--right"
                     type="number"
                     step="0.1"
-                    placeholder={unit || 'cm'}
-                    value={measurements[key] || ''}
+                    inputMode="decimal"
+                    placeholder={unit}
+                    value={measDraft[key] ?? storedToDisplay(key, measurements[key], units)}
                     disabled={!measCanSave}
-                    onChange={e => setMeasurements(m => ({ ...m, [key]: e.target.value }))}
+                    onChange={e => {
+                      const text = e.target.value;
+                      setMeasDraft(d => ({ ...d, [key]: text }));
+                      setMeasurements(m => ({ ...m, [key]: displayToStored(key, text, units) }));
+                    }}
+                    onBlur={() => setMeasDraft(d => { const n = { ...d }; delete n[key]; return n; })}
                   />
                 </div>
               );
@@ -692,7 +731,7 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
                       </div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
                         {filled.length > 0
-                          ? filled.map(f => `${f.label}: ${entry.measurements[f.key]}${f.unit || 'cm'}`).join(' · ')
+                          ? filled.map(f => `${f.label}: ${formatMeas(f.key, entry.measurements[f.key], units)}`).join(' · ')
                           : 'No values recorded'}
                       </div>
                       {changes.length > 0 && (
@@ -701,7 +740,7 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
                             <span key={c.key}>
                               {ci > 0 && <span style={{ color: 'var(--text-muted)' }}> · </span>}
                               <span style={{ color: 'var(--text-muted)' }}>{measFields.find(f => f.key === c.key)?.label} </span>
-                              <span style={{ color: c.delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>{fmtDelta(c.delta, unitOf(c.key))}</span>
+                              <span style={{ color: c.delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>{formatMeasDelta(c.key, c.delta, units)}</span>
                             </span>
                           ))}
                         </div>
@@ -742,6 +781,25 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
                 <span className="cp-row-label">{label}</span>
                 <span className="cp-row-right">
                   {weightUnit === val && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="cp-form-section-label" style={{ marginTop: '18px' }}>Body measurements</div>
+          <div className="cp-form-card">
+            {[['cm', 'Centimetres (cm)'], ['in', 'Inches (in)']].map(([val, label], i, arr) => (
+              <button
+                key={val}
+                className={`cp-row${i === arr.length - 1 ? ' cp-row--last' : ''}`}
+                onClick={() => chooseLengthUnit(val)}
+              >
+                <span className="cp-row-label">{label}</span>
+                <span className="cp-row-right">
+                  {lengthUnit === val && (
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
@@ -829,7 +887,7 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
       <div className="cp-section-card">
         <SettingsRow icon="🏋️" label="Workouts" onTap={() => setActiveSection('workouts')} />
         <SettingsRow icon="📏" label="Measurements" dot={dotSections.has('measurements')} onTap={() => setActiveSection('measurements')} />
-        <SettingsRow icon="📐" label="Units" value={weightUnit === 'kg' ? 'Metric' : 'Imperial'} onTap={() => setActiveSection('units')} />
+        <SettingsRow icon="📐" label="Units" value={`${weightUnit} · ${lengthUnit === 'in' ? 'inches' : 'cm'}`} onTap={() => setActiveSection('units')} />
         <SettingsRow
           icon="🎨"
           label="Theme"

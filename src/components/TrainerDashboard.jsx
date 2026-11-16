@@ -95,6 +95,7 @@ import PhoneGate from './PhoneGate';
 import CoachFirstClientCard from './CoachFirstClientCard';
 import { hasValidPhone } from '../utils/coachPhone';
 import { MEAS_INTERVAL_DAYS, getMeasurementDueClients } from '../utils/measurementDue';
+import { formatMeas, formatMeasDelta } from '../utils/lengthUnits';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -1803,6 +1804,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Selected client's body-measurement history (read-only for the coach) —
   // loaded when the Measurements tab is opened.
   const [clientMeasurements, setClientMeasurements] = useState([]);
+  // How this coach reads measurements (stored in cm either way), per device.
+  const [coachLengthUnit, setCoachLengthUnit] = useState(() => {
+    try { return localStorage.getItem('coachLengthUnit') === 'in' ? 'in' : 'cm'; } catch { return 'cm'; }
+  });
+  const chooseCoachLengthUnit = (u) => {
+    setCoachLengthUnit(u);
+    try { localStorage.setItem('coachLengthUnit', u); } catch { /* storage unavailable */ }
+  };
   const [loadingMeasurements, setLoadingMeasurements] = useState(false);
 
   // Coach-note composer (top of the client detail view). Lets the coach send
@@ -9387,10 +9396,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
                 const latest = clientMeasurements[0] || null;
                 const previous = clientMeasurements[1] || null;
+                const units = { length: coachLengthUnit, weight: 'kg' };
                 return (
                   <div className="measurements-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                       <h4 className="history-section-title" style={{ margin: 0 }}>📏 Body Measurements</h4>
+                      <div role="group" aria-label="Measurement unit" style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
+                        {[['cm', 'cm'], ['in', 'inches']].map(([u, label]) => {
+                          const on = coachLengthUnit === u;
+                          return (
+                            <button
+                              key={u}
+                              type="button"
+                              data-length-unit={u}
+                              aria-pressed={on}
+                              onClick={() => chooseCoachLengthUnit(u)}
+                              style={{
+                                padding: '4px 11px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+                                background: on ? 'rgba(56,189,248,0.14)' : 'transparent',
+                                border: `1px solid ${on ? 'rgba(56,189,248,0.55)' : 'rgba(var(--fg-rgb), 0.14)'}`,
+                                color: on ? '#38bdf8' : 'var(--text-muted)'
+                              }}
+                            >{label}</button>
+                          );
+                        })}
+                      </div>
                       <button
                         type="button"
                         onClick={handleSendMeasurementReminder}
@@ -9432,7 +9462,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               </tr>
                             </thead>
                             <tbody>
-                              {measFields.map(({ key, label, unit }) => {
+                              {measFields.map(({ key, label }) => {
                                 const cur = latest.measurements?.[key];
                                 if (cur == null || cur === '') return null;
                                 const prev = previous?.measurements?.[key];
@@ -9440,10 +9470,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                 return (
                                   <tr key={key} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)' }}>
                                     <td style={{ fontSize: '0.8rem', color: 'var(--text-main)', padding: '6px 0' }}>{label}</td>
-                                    <td style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 700, textAlign: 'right', padding: '6px 0' }}>{cur}{unit || 'cm'}</td>
+                                    <td style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 700, textAlign: 'right', padding: '6px 0' }}>{formatMeas(key, cur, units)}</td>
                                     {previous && (
                                       <td style={{ textAlign: 'right', padding: '6px 0', fontSize: '0.76rem', fontWeight: 700, color: delta == null ? 'var(--text-muted)' : Math.abs(delta) < 0.001 ? 'var(--text-muted)' : delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>
-                                        {delta == null ? '—' : Math.abs(delta) < 0.001 ? '±0' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}`}
+                                        {delta == null ? '—' : Math.abs(delta) < 0.001 ? '±0' : formatMeasDelta(key, delta, units)}
                                       </td>
                                     )}
                                   </tr>
@@ -9466,7 +9496,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                       {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: '#38bdf8', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
                                     </div>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
-                                      {filled.length > 0 ? filled.map(f => `${f.label}: ${entry.measurements[f.key]}${f.unit || 'cm'}`).join(' · ') : 'No values recorded'}
+                                      {filled.length > 0 ? filled.map(f => `${f.label}: ${formatMeas(f.key, entry.measurements[f.key], units)}`).join(' · ') : 'No values recorded'}
                                     </div>
                                   </div>
                                   <button

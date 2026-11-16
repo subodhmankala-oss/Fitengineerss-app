@@ -16,7 +16,90 @@ const readCollapsed = () => {
   try { return localStorage.getItem(collapsedKey()) === '1'; } catch { return false; }
 };
 
-const MuscleGapHint = ({ logs, level = null, addedNames = [], onAdd, onOpenMuscleMap }) => {
+const LIST_PREVIEW = 3;
+
+/**
+ * Coach Live tab layout ("list"): "Still to train this week" — the muscles
+ * furthest behind as rows with a sets-vs-target bar. Tapping a row opens its
+ * suggested exercise (tap to add it to the live log); "See all" shows every
+ * muscle that's behind.
+ */
+const MuscleGapList = ({ gaps, added, onAdd, onOpenMuscleMap }) => {
+  const [openLabel, setOpenLabel] = useState(null);
+  const [showAll, setShowAll] = useState(false);
+  const sorted = useMemo(
+    () => [...gaps].sort((a, b) => (a.sets / (a.min || 1)) - (b.sets / (b.min || 1))),
+    [gaps]
+  );
+
+  if (!gaps.length) {
+    return (
+      <div className="muscle-gap-list muscle-gap-list--good">
+        <span className="muscle-gap-list-title">Every muscle is on track this week</span>
+        {onOpenMuscleMap && <button type="button" className="muscle-gap-list-link" onClick={onOpenMuscleMap}>Muscle map</button>}
+      </div>
+    );
+  }
+
+  const shown = showAll ? sorted : sorted.slice(0, LIST_PREVIEW);
+  return (
+    <div className="muscle-gap-list">
+      <div className="muscle-gap-list-head">
+        <span className="muscle-gap-list-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.8" fill="currentColor" />
+          </svg>
+          Still to train this week
+        </span>
+        {sorted.length > LIST_PREVIEW && (
+          <button type="button" className="muscle-gap-list-link" onClick={() => setShowAll(s => !s)}>
+            {showAll ? 'Show less' : `See all ${sorted.length}`}
+          </button>
+        )}
+      </div>
+      <div className="muscle-gap-list-rows">
+        {shown.map(g => {
+          const isOpen = openLabel === g.label;
+          const isAdded = added.has(g.suggestion.toLowerCase());
+          const pct = Math.max(4, Math.min(100, Math.round((g.sets / (g.min || 1)) * 100)));
+          return (
+            <div key={g.label} className={`muscle-gap-row${isOpen ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="muscle-gap-row-main"
+                aria-expanded={isOpen}
+                onClick={() => setOpenLabel(isOpen ? null : g.label)}
+              >
+                <span className="muscle-gap-row-top">
+                  <span className="muscle-gap-row-label">{g.label}</span>
+                  <span className="muscle-gap-row-count">{g.sets} / {g.min} sets</span>
+                </span>
+                <span className="muscle-gap-row-bar"><span style={{ width: `${pct}%` }} /></span>
+              </button>
+              {isOpen && (
+                <div className="muscle-gap-row-add">
+                  <button
+                    type="button"
+                    className={`ex-history-rec-chip ex-history-rec-chip--tap ${isAdded ? 'ex-history-rec-chip--added' : ''}`}
+                    disabled={isAdded}
+                    onClick={() => onAdd(g.suggestion)}
+                  >
+                    {isAdded ? '✓' : '+'} {g.suggestion}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {showAll && onOpenMuscleMap && (
+        <button type="button" className="muscle-gap-list-link muscle-gap-list-map" onClick={onOpenMuscleMap}>Open muscle map</button>
+      )}
+    </div>
+  );
+};
+
+const MuscleGapHint = ({ logs, level = null, addedNames = [], onAdd, onOpenMuscleMap, variant = 'cards' }) => {
   const gaps = useMemo(() => getMuscleGaps(logs, undefined, level), [logs, level]);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const toggle = () => {
@@ -26,6 +109,10 @@ const MuscleGapHint = ({ logs, level = null, addedNames = [], onAdd, onOpenMuscl
     });
   };
   const added = new Set(addedNames.map(n => n.toLowerCase()));
+
+  if (variant === 'list') {
+    return <MuscleGapList gaps={gaps} added={added} onAdd={onAdd} onOpenMuscleMap={onOpenMuscleMap} />;
+  }
 
   if (!gaps.length) {
     return (

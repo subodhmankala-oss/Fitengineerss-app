@@ -1290,6 +1290,195 @@
   cursor: pointer;
 }
 
+/* Live tab start card — shown until a plan is loaded or a set is logged. */
+.live-start-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 18px 16px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: rgba(var(--fg-rgb), 0.02);
+  text-align: center;
+}
+
+.live-start-date {
+  position: relative;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.live-start-date:hover {
+  color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.05);
+}
+
+/* Native pickers laid invisibly over their buttons (date + template). */
+.live-start-date input,
+.live-start-btn select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  /* >= 16px so iOS never zooms on focus. */
+  font-size: 16px;
+}
+
+.live-start-date input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.live-start-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.live-start-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--text-on-accent);
+  cursor: pointer;
+  font: inherit;
+}
+
+.live-start-primary:active {
+  transform: scale(0.98);
+}
+
+.live-start-primary-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.live-start-primary-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-start-primary-note {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.live-start-secondary {
+  display: flex;
+  gap: 10px;
+}
+
+.live-start-btn {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.live-start-btn:hover {
+  background: rgba(var(--fg-rgb), 0.04);
+}
+
+.live-start-btn svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.live-start-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+/* Client header on the Live tab (phones): one compact line — name,
+   goal · weight, sessions done — and no summary card, so the start card
+   is the first thing under the tabs. Desktop keeps its sidebar as is. */
+.client-detail-live-sub,
+.client-detail-live-sessions {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .client-detail-view.is-live-tab .client-summary-card,
+  .client-detail-view.is-live-tab .client-detail-email {
+    display: none;
+  }
+
+  .client-detail-view.is-live-tab .client-detail-header {
+    margin-bottom: 12px !important;
+  }
+
+  .client-detail-view.is-live-tab .client-detail-live-sub {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .client-detail-view.is-live-tab .client-detail-live-sessions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    line-height: 1.15;
+  }
+}
+
+.client-detail-live-sessions-num {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.client-detail-live-sessions-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
 /* "Is this <client>'s workout?" — the client is logging on their own phone
    right now, or already did today (utils/liveLogClientCheck.js). */
 .live-wrong-client-warning {

@@ -41,3 +41,27 @@ describe('MuscleGapHint', () => {
     expect(isFolded()).toBe(false);
   });
 });
+
+describe('MuscleGapHint variant="list" (coach Live tab)', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('shows the 3 furthest-behind muscles, opens a row to add its exercise, and See all shows the rest', () => {
+    const onAdd = vi.fn();
+    render(<MuscleGapHint variant="list" logs={logs} onAdd={onAdd} onOpenMuscleMap={() => {}} />);
+    expect(screen.getByText('Still to train this week')).toBeTruthy();
+    const rows = () => document.querySelectorAll('.muscle-gap-row');
+    expect(rows().length).toBe(3);
+
+    // Nothing to add until a row is opened.
+    expect(document.querySelector('.muscle-gap-row-add')).toBeNull();
+    fireEvent.click(rows()[0].querySelector('.muscle-gap-row-main'));
+    const chip = document.querySelector('.muscle-gap-row-add button');
+    expect(chip).toBeTruthy();
+    fireEvent.click(chip);
+    expect(onAdd).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: /See all \d+/ }));
+    expect(rows().length).toBeGreaterThan(3);
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeTruthy();
+  });
+});

@@ -81,7 +81,7 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
 
   it('opens a fresh session with no placeholder exercise and no made-up weight', async () => {
     renderLiveLog();
-    expect(await screen.findByText('No exercises yet. Tap ➕ Add Exercise below to start.', {}, SLOW)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Empty/ }, SLOW)).toBeTruthy();
     expect(screen.queryByText('Shoulders Press')).toBeNull();
     expect(screen.queryByTitle('Mark complete')).toBeNull();
   });

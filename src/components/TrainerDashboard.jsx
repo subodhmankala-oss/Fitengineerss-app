@@ -5416,6 +5416,110 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // already scoped to the one selected client.
   const recentWorkoutPlans = buildRecentWorkoutPlans(workoutLogs, [...CORE_PPL_TEMPLATES, ...clientPlans].map(p => p.planName));
   const { newPlans: liveNewPlans, savedPlans: liveSavedPlans } = splitNewTemplates(clientPlans, workoutLogs);
+  // Live tab start card: the one plan offered as the big "start" button —
+  // a coach plan this client hasn't done yet, else their latest saved plan,
+  // else their last workout.
+  const liveSuggestedPlan = liveNewPlans[0]
+    ? { plan: liveNewPlans[0], note: 'Coach assigned' }
+    : liveSavedPlans[0]
+    ? { plan: liveSavedPlans[0], note: 'Latest plan' }
+    : recentWorkoutPlans[0]
+    ? { plan: recentWorkoutPlans[0], note: `Last done ${formatShortLogDate(recentWorkoutPlans[0].date)}` }
+    : null;
+  // Program sessions done in the current period — same count as the
+  // summary card's ring (see the Program Sessions block).
+  const programSessionsDone = selectedClient?.program_started_on
+    ? workoutLogs.filter(s => s.date >= selectedClient.program_started_on).length
+    : workoutLogs.length;
+  // Nothing logged or loaded yet → the Live tab shows only the start card.
+  const liveNotStarted = liveExercises.length === 0 && liveTimerStatus === 'idle';
+  const onLiveTemplatePick = (e) => {
+    const plan = findLivePlan(e.target.value);
+    if (plan) loadLivePlan(plan);
+    e.target.value = '';
+  };
+  const liveTemplateOptions = (
+    <>
+      <option value="" disabled>Template</option>
+      {/* Plans never logged yet (e.g. an AI draft's days assigned
+          yesterday) — their own group, since the performance ranking
+          below sorts them last and can cut them off. "Saved plans"
+          (bottom group) is only the latest week's plans, newest first.
+          See splitNewTemplates. */}
+      {liveNewPlans.length > 0 && (
+        <optgroup label="Coach assigned">
+          {liveNewPlans.map(p => (
+            <option key={p.id} value={p.id}>{p.planName}</option>
+          ))}
+        </optgroup>
+      )}
+      <optgroup label="Push / Pull / Legs">
+        {CORE_PPL_TEMPLATES.map(p => (
+          <option key={p.id} value={p.id}>{p.planName}</option>
+        ))}
+      </optgroup>
+      {recentWorkoutPlans.length > 0 && (
+        <optgroup label="Recent workouts">
+          {recentWorkoutPlans.map(p => (
+            <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
+          ))}
+        </optgroup>
+      )}
+      {liveSavedPlans.length > 0 && (
+        <optgroup label="Saved plans">
+          {liveSavedPlans.map(p => (
+            <option key={p.id} value={p.id}>{p.planName}</option>
+          ))}
+        </optgroup>
+      )}
+    </>
+  );
+  const findLivePlan = (id) =>[...CORE_PPL_TEMPLATES, ...clientPlans, ...recentWorkoutPlans].find(p => p.id === id);
+  const loadLivePlan = (plan) => {
+    setLivePlanName(plan.planName);
+    // Weights start from the client's PREV values (see
+    // applyPrevWeights), not whatever the saved plan holds —
+    // or, if their history is still loading, as soon as it
+    // lands (applyLivePrev).
+    setLiveExercises(applyLivePrev(applyPrevWeights(plan.exercises).map(ex => ({
+      name: ex.name,
+      ...exerciseIdField(ex.exerciseId),
+      ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
+      // `time` is deliberately NOT carried over from the saved
+      // plan, unlike reps/weight/distanceKm — it's a past
+      // session's actual stopwatch duration, not a reusable
+      // target. Loading it here left a non-empty, non-running
+      // set.time behind, which liveRunningCardioKcal above reads
+      // as a frozen elapsed value — so the calorie total silently
+      // included a stale duration before the coach touched
+      // anything. Reported 2026-08-28 for Plank/Air Rowing.
+      sets: ex.sets.map(s => isCardioExercise(ex.name)
+        // targetTime carries the coach's saved duration through
+        // as a reusable TARGET (read by
+        // handleLiveCardioStopwatchStart to drive the countdown
+        // display) without reintroducing the stale-elapsed-time
+        // bug above — `time` itself still always starts blank.
+        ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
+        : isTimedExercise(ex.name)
+        ? { time: '', targetTime: s.time || '', isCompleted: false }
+        : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false, ...(s.bodyweightMode !== undefined ? { bodyweightMode: s.bodyweightMode } : {}) })
+    }))));
+    // liveSetTimers is keyed purely by "exIdx,setIdx" (see
+    // getSetTimerKey), not by exercise identity — loading a
+    // different plan into the same session left whatever
+    // stopwatch state a PREVIOUS plan's exercise had at that
+    // same index still sitting there. For a timed/cardio
+    // exercise (Plank, etc.) that showed up as a stale
+    // elapsed time or even a still-"running" stopwatch on a
+    // set that was never started in this plan — reported as
+    // "not loading fresh". Clear it on every fresh plan load.
+    setLiveSetTimers({});
+    // Loading the plan is the workout starting, so the clock
+    // starts now (unless it's already running) — see
+    // startLiveWorkoutClock.
+    startLiveWorkoutClock();
+    triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
+  };
 
   // ── Header notification bell (every coach) ──
   // Every "something is waiting" list the dashboard already keeps, as one
@@ -8183,7 +8287,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             </div>
           ) : (
             // Client Detail & Workout Logs Screen
-            <div className="client-detail-view animate-scale-in">
+            <div className={`client-detail-view animate-scale-in${detailTab === 'livelog' ? ' is-live-tab' : ''}`}>
               {/* Back to Dashboard Breadcrumb */}
               <div className="dashboard-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>
                 <button 
@@ -8229,8 +8333,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 />
                 <div className="client-detail-header-info" style={{ minWidth: 0, flex: 1 }}>
                   <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
+                  <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
+                  {/* Live tab on phones: goal · weight in place of the email,
+                      since the summary card below is hidden there. */}
+                  <span className="client-detail-live-sub">
+                    {[
+                      selectedClient.userGoal,
+                      (clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight) && `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
+                    ].filter(Boolean).join(' · ') || selectedClient.email}
+                  </span>
                 </div>
+                {selectedClient.coach_id === loggedInUserId && selectedClient.total_sessions != null && (
+                  <div className="client-detail-live-sessions">
+                    <span className="client-detail-live-sessions-num">{programSessionsDone}/{selectedClient.total_sessions}</span>
+                    <span className="client-detail-live-sessions-label">sessions</span>
+                  </div>
+                )}
                 {/* Deliberately low-key: muted dots, no label, so Remove is
                     there when needed but never a tap-target by accident. */}
                 <div data-client-menu style={{ position: 'relative', flexShrink: 0 }}>
@@ -10391,6 +10509,67 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     </div>
                   )}
 
+                  {/* Before anything is loaded or logged: one start card with
+                      a single obvious next step, instead of the empty name
+                      box, template dropdown, idle timer bar and empty-list
+                      text. The date line and "Other template" are real
+                      inputs laid invisibly over their buttons, so tapping
+                      them opens the phone's own date / list picker. */}
+                  {liveNotStarted ? (
+                    <div className="live-start-card">
+                      <label className="live-start-date" title="Change session date">
+                        <span>
+                          {liveDate === getLocalDateString() ? 'Today · ' : ''}
+                          {parseLocalDateString(liveDate).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <rect x="3.5" y="5" width="17" height="15" rx="2" />
+                          <path d="M3.5 10h17M8 3v4M16 3v4" />
+                        </svg>
+                        <input
+                          type="date"
+                          value={liveDate}
+                          onChange={e => e.target.value && setLiveDate(e.target.value)}
+                          aria-label="Session date"
+                        />
+                      </label>
+                      <div className="live-start-title">
+                        Start {(selectedClient?.userName || 'the').split(/[\s.@]+/)[0]}'s workout
+                      </div>
+                      {liveSuggestedPlan && (
+                        <button
+                          type="button"
+                          className="live-start-primary"
+                          onClick={() => loadLivePlan(liveSuggestedPlan.plan)}
+                        >
+                          <PlayIcon size={18} />
+                          <span className="live-start-primary-text">
+                            <span className="live-start-primary-name">{liveSuggestedPlan.plan.planName}</span>
+                            <span className="live-start-primary-note">{liveSuggestedPlan.note}</span>
+                          </span>
+                        </button>
+                      )}
+                      <div className="live-start-secondary">
+                        <label className="live-start-btn">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+                          </svg>
+                          {liveSuggestedPlan ? 'Other template' : 'Choose a template'}
+                          <select aria-label="Load a template" defaultValue="" onChange={onLiveTemplatePick}>
+                            {liveTemplateOptions}
+                          </select>
+                        </label>
+                        <button type="button" className="live-start-btn" onClick={() => setExercisePickerContext('live')}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                            <path d="M12 5v14M5 12h14" />
+                          </svg>
+                          Empty
+                        </button>
+                      </div>
+                      <div className="live-start-hint">The timer starts when you load a plan or tick the first set</div>
+                    </div>
+                  ) : (
+                  <>
                   {/* Session card, top: who this is for and which day. The
                       calendar button is a real date input laid invisibly over
                       the icon, so tapping it opens the phone's date picker. */}
@@ -10451,90 +10630,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           <select
                             aria-label="Load a template"
                             defaultValue=""
-                            onChange={e => {
-                              const plan = [...CORE_PPL_TEMPLATES, ...clientPlans, ...recentWorkoutPlans]
-                                .find(p => p.id === e.target.value);
-                              if (plan) {
-                                setLivePlanName(plan.planName);
-                                // Weights start from the client's PREV values (see
-                                // applyPrevWeights), not whatever the saved plan holds —
-                                // or, if their history is still loading, as soon as it
-                                // lands (applyLivePrev).
-                                setLiveExercises(applyLivePrev(applyPrevWeights(plan.exercises).map(ex => ({
-                                  name: ex.name,
-                                  ...exerciseIdField(ex.exerciseId),
-                                  ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
-                                  // `time` is deliberately NOT carried over from the saved
-                                  // plan, unlike reps/weight/distanceKm — it's a past
-                                  // session's actual stopwatch duration, not a reusable
-                                  // target. Loading it here left a non-empty, non-running
-                                  // set.time behind, which liveRunningCardioKcal above reads
-                                  // as a frozen elapsed value — so the calorie total silently
-                                  // included a stale duration before the coach touched
-                                  // anything. Reported 2026-08-28 for Plank/Air Rowing.
-                                  sets: ex.sets.map(s => isCardioExercise(ex.name)
-                                    // targetTime carries the coach's saved duration through
-                                    // as a reusable TARGET (read by
-                                    // handleLiveCardioStopwatchStart to drive the countdown
-                                    // display) without reintroducing the stale-elapsed-time
-                                    // bug above — `time` itself still always starts blank.
-                                    ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
-                                    : isTimedExercise(ex.name)
-                                    ? { time: '', targetTime: s.time || '', isCompleted: false }
-                                    : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false, ...(s.bodyweightMode !== undefined ? { bodyweightMode: s.bodyweightMode } : {}) })
-                                }))));
-                                // liveSetTimers is keyed purely by "exIdx,setIdx" (see
-                                // getSetTimerKey), not by exercise identity — loading a
-                                // different plan into the same session left whatever
-                                // stopwatch state a PREVIOUS plan's exercise had at that
-                                // same index still sitting there. For a timed/cardio
-                                // exercise (Plank, etc.) that showed up as a stale
-                                // elapsed time or even a still-"running" stopwatch on a
-                                // set that was never started in this plan — reported as
-                                // "not loading fresh". Clear it on every fresh plan load.
-                                setLiveSetTimers({});
-                                // Loading the plan is the workout starting, so the clock
-                                // starts now (unless it's already running) — see
-                                // startLiveWorkoutClock.
-                                startLiveWorkoutClock();
-                                triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
-                              }
-                              e.target.value = '';
-                            }}
+                            onChange={onLiveTemplatePick}
                           >
-                            <option value="" disabled>Template</option>
-                            {/* "Saved plans" (bottom group) is only the latest week's
-                                plans, newest first — see splitNewTemplates. */}
-                            {/* Plans never logged yet (e.g. an AI draft's days
-                                assigned yesterday) — their own group, since the
-                                performance ranking below sorts them last and can
-                                cut them off. See splitNewTemplates. */}
-                            {liveNewPlans.length > 0 && (
-                              <optgroup label="Coach assigned">
-                                {liveNewPlans.map(p => (
-                                  <option key={p.id} value={p.id}>{p.planName}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                            <optgroup label="Push / Pull / Legs">
-                              {CORE_PPL_TEMPLATES.map(p => (
-                                <option key={p.id} value={p.id}>{p.planName}</option>
-                              ))}
-                            </optgroup>
-                            {recentWorkoutPlans.length > 0 && (
-                              <optgroup label="Recent workouts">
-                                {recentWorkoutPlans.map(p => (
-                                  <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                            {liveSavedPlans.length > 0 && (
-                              <optgroup label="Saved plans">
-                                {liveSavedPlans.map(p => (
-                                  <option key={p.id} value={p.id}>{p.planName}</option>
-                                ))}
-                              </optgroup>
-                            )}
+                            {liveTemplateOptions}
                           </select>
                         </div>
                     </div>
@@ -10584,6 +10682,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
                   </>
                   )}
+                  </>
+                  )}
 
                   {/* Exercise List — edge-to-edge: bleeds past the dashboard's
                       16px outer padding so the table reaches the true screen
@@ -10592,7 +10692,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
                   <SetLiftOverlay undo={liveLiftDrop.undo} onUndo={liveLiftDrop.runUndo} />
                   <div className="live-logger-exercise-list">
-                    {liveExercises.length === 0 && (
+                    {liveExercises.length === 0 && !liveNotStarted && (
                       <div className="wt-empty-state">No exercises yet. Tap ➕ Add Exercise below to start.</div>
                     )}
                     {liveExercises.map((ex, exIdx) => {
@@ -11085,6 +11185,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   {/* What this client is behind on this week — same hint as
                       their own logger; chips add straight into the live log. */}
                   <MuscleGapHint
+                    variant="list"
                     logs={liveGapLogs}
                     level={selectedClientLevel}
                     addedNames={liveExercises.map(le => le.name)}
@@ -11092,14 +11193,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     onOpenMuscleMap={openClientMuscleMap}
                   />
 
-                  {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
-                  <button
+                  {/* Add Exercise — opens the shared Hevy-style picker (same
+                      as client). Hidden while the start card is up: its
+                      "Empty" button is the same action. */}
+                  {!liveNotStarted && <button
                     type="button"
                     className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
                     onClick={() => setExercisePickerContext('live')}
                   >
                     ➕ Add Exercise
-                  </button>
+                  </button>}
 
                   {/* Coach note toggle — the composer below has no Send
                       button of its own: whatever's typed here goes out

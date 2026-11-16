@@ -18,10 +18,10 @@ describe('WorkoutMuscleHeat', () => {
     render(<WorkoutMuscleHeat rows={rows} logDate={DAY} />);
     const btn = screen.getByRole('button', { name: /Muscles worked this workout/ });
     expect(btn.getAttribute('aria-label')).toMatch(/Chest/);
-    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    expect(btn.getAttribute('aria-haspopup')).toBe('dialog');
   });
 
-  it('opens a panel with sets per muscle, and warm-ups do not count', () => {
+  it("opens This week's muscles, and warm-ups do not count", () => {
     const rows = tickedSetRows([bench([
       { weight: '40', reps: '10', isCompleted: true, isWarmup: true },
       { weight: '60', reps: '8', isCompleted: true },
@@ -29,8 +29,9 @@ describe('WorkoutMuscleHeat', () => {
     ])], DAY);
     render(<WorkoutMuscleHeat rows={rows} logDate={DAY} />);
     fireEvent.click(screen.getByRole('button', { name: /Muscles worked this workout/ }));
-    const panel = screen.getByRole('dialog');
-    expect(panel.textContent).toMatch(/Chest\s*2 sets/);
+    const sheet = screen.getByRole('dialog', { name: "This week's muscles" });
+    expect(sheet.textContent).toContain('live · 2 sets today');
+    expect(sheet.textContent).toMatch(/Chest[\s\S]*\+2 today/);
   });
 
   it('shows an empty hint before any set is ticked', () => {

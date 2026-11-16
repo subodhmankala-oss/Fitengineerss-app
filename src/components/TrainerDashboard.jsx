@@ -10662,7 +10662,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         </div>
                         {/* Heat map, stopwatch and Pause flush at the bar's right end, all full height. */}
                         <div className="live-timer-end" style={{ marginLeft: 'auto' }}>
-                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} />
+                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} savedLogs={rawWorkoutLogs} level={selectedClientLevel} />
                           <button
                             type="button"
                             className="btn-timer-stopwatch"

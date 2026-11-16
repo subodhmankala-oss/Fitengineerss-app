@@ -4032,7 +4032,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="timer-controls">
               {workoutTimerStatus !== 'idle' && (
                 <>
-                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} />
+                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} savedLogs={savedSetRows} level={trainingLevel} />
                   <button
                     type="button"
                     className="btn-timer-stopwatch"

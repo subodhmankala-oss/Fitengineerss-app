@@ -8360,7 +8360,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   onClick={() => setClientCardOpen(o => !o)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setClientCardOpen(o => !o); } }}
                 >
-                  <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }}>{selectedClient.userName}</h4>
+                  <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                   {/* Phones: goal · weight in place of the email, with a
                       chevron showing the summary card folds open from here. */}
@@ -8387,37 +8387,38 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 {selectedClient.coach_id === loggedInUserId && (
                   <button
                     type="button"
-                    className="client-detail-live-sessions"
-                    aria-label="Edit program"
+                    className={`client-detail-live-sessions${selectedClient.total_sessions == null ? ' is-unset' : ''}`}
+                    aria-label={selectedClient.total_sessions != null
+                      ? `${programSessionsDone} of ${selectedClient.total_sessions} sessions, ${Math.max(0, selectedClient.total_sessions - programSessionsDone)} left. Edit program`
+                      : 'Set total sessions'}
                     title="Edit total sessions and program dates"
                     onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
                   >
                     {selectedClient.total_sessions != null ? (() => {
                       const total = selectedClient.total_sessions;
                       const pct = total ? Math.min(1, programSessionsDone / total) : 0;
-                      const c = 2 * Math.PI * 10;
+                      const c = 2 * Math.PI * 8;
                       return (
                         <>
-                          <svg className="client-detail-live-sessions-ring" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-                            <circle cx="14" cy="14" r="10" fill="none" stroke="rgba(var(--fg-rgb), 0.12)" strokeWidth="3.5" />
+                          <svg className="client-detail-live-sessions-ring" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                            <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(var(--fg-rgb), 0.14)" strokeWidth="3" />
                             {pct > 0 && (
-                              <circle cx="14" cy="14" r="10" fill="none" stroke="var(--accent-soft)" strokeWidth="3.5" strokeLinecap="round"
-                                strokeDasharray={`${pct * c} ${c}`} transform="rotate(-90 14 14)" />
+                              <circle cx="10" cy="10" r="8" fill="none" stroke="var(--accent-soft)" strokeWidth="3" strokeLinecap="round"
+                                strokeDasharray={`${pct * c} ${c}`} transform="rotate(-90 10 10)" />
                             )}
                           </svg>
-                          <span className="client-detail-live-sessions-text">
-                            <span className="client-detail-live-sessions-num">{programSessionsDone}/{total}</span>
-                            <span className="client-detail-live-sessions-label">{Math.max(0, total - programSessionsDone)} left</span>
-                          </span>
+                          <span className="client-detail-live-sessions-num">{programSessionsDone}/{total}</span>
+                          <PencilIcon size={12} />
                         </>
                       );
                     })() : (
-                      <span className="client-detail-live-sessions-text">
-                        <span className="client-detail-live-sessions-num">Set</span>
-                        <span className="client-detail-live-sessions-label">sessions</span>
-                      </span>
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Sessions
+                      </>
                     )}
-                    <span className="client-detail-live-sessions-edit"><PencilIcon size={13} /></span>
                   </button>
                 )}
                 {/* Deliberately low-key: muted dots, no label, so Remove is

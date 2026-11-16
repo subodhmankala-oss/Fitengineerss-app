@@ -1578,17 +1578,31 @@
   }
 }
 
-/* Sessions pill: progress ring, "12/18" over "6 left", pencil. Tint + ring
-   so it reads as tappable without a solid fill. */
+/* Sessions pill, one line: small ring, "12/18", pencil (the card shows
+   "N left" and dates). Unset: a dashed "+ Sessions". Tint + ring so it
+   reads as tappable without a solid fill. */
 .client-detail-live-sessions {
-  gap: 8px;
-  padding: 4px 10px 4px 5px;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px 0 5px;
   background: rgba(var(--accent-soft-rgb), 0.08);
   border: 1px solid rgba(var(--accent-soft-rgb), 0.3);
   border-radius: 999px;
   font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.client-detail-live-sessions.is-unset {
+  padding: 0 11px 0 9px;
+  gap: 4px;
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(var(--accent-soft-rgb), 0.5);
 }
 
 .client-detail-live-sessions:hover,
@@ -1605,31 +1619,25 @@
   flex-shrink: 0;
 }
 
-.client-detail-live-sessions-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
-}
-
 .client-detail-live-sessions-num {
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   font-weight: 700;
   color: var(--text-main);
   font-variant-numeric: tabular-nums;
 }
 
-.client-detail-header-info span.client-detail-live-sessions-label,
-.client-detail-live-sessions-label {
-  font-size: 0.66rem;
-  color: var(--text-muted);
-}
+/* Long names stay on one line and end in "…" (full name in the card's
+   title tooltip / the client list). */
+@media (max-width: 899px) {
+  .client-detail-header-info .client-detail-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-.client-detail-live-sessions-edit {
-  display: flex;
-  color: var(--accent-text);
-  padding-left: 6px;
-  border-left: 1px solid rgba(var(--accent-soft-rgb), 0.25);
+  .client-detail-view .client-detail-header {
+    gap: 10px !important;
+  }
 }
 
 /* "Is this <client>'s workout?" — the client is logging on their own phone

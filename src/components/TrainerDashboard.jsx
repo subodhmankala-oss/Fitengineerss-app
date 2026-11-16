@@ -1938,6 +1938,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
   // Live Log timer bar spans the screen edge to edge.
   const liveTimerBarRef = useFullBleed();
+  // Phones: the client header runs edge to edge and joins the tabs band
+  // below it into one panel (see .client-detail-header.is-full-bleed).
+  const clientHeaderRef = useFullBleed();
   // Ring beside each ticked set — same as the client's logger (utils/setMuscleRing.js).
   const liveSetRings = useMemo(
     () => getSetRingStates(rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel),
@@ -8342,7 +8345,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               <div className="client-detail-body">
               <div className="client-detail-sidebar">
               {/* Client Profile Title Block */}
-              <div className="client-detail-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div ref={clientHeaderRef} className="client-detail-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                 <Avatar
                   className="client-avatar"
                   email={selectedClient.email}

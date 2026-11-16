@@ -29,4 +29,9 @@ describe('daysAgoLabel', () => {
     expect(daysAgoLabel('2026-11-14', '2026-11-15')).toBe('Yesterday');
     expect(daysAgoLabel('2026-11-01', '2026-11-15')).toBe('2w ago');
   });
+
+  it('shows an overdue measurement check-in instead of the weight', () => {
+    expect(tabStatuses({ latestWeight: 72, measurementDueDays: 70 }).measurements).toBe('Due · 70d');
+    expect(tabStatuses({ latestWeight: 72 }).measurements).toBe('72 kg');
+  });
 });

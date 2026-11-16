@@ -15,7 +15,7 @@ export function daysAgoLabel(dateStr, today = getLocalDateString()) {
 }
 
 // Pure: the small status line under each tab name.
-export function tabStatuses({ coachPlanCount = 0, liveStatus = 'idle', liveElapsedSeconds = 0, liveExerciseCount = 0, lastWorkoutDate = null, latestWeight = null, previousWeight = null, today }) {
+export function tabStatuses({ coachPlanCount = 0, liveStatus = 'idle', liveElapsedSeconds = 0, liveExerciseCount = 0, lastWorkoutDate = null, latestWeight = null, previousWeight = null, measurementDueDays = null, today }) {
   const plans = coachPlanCount > 0 ? `${coachPlanCount} plan${coachPlanCount === 1 ? '' : 's'}` : 'No plan yet';
 
   let live = 'Start session';
@@ -35,5 +35,7 @@ export function tabStatuses({ coachPlanCount = 0, liveStatus = 'idle', liveElaps
       measurements += ` ${d > 0 ? '+' : '−'}${Math.abs(d)}`;
     }
   }
+  // Overdue check-in beats the weight readout — it's what the coach acts on.
+  if (Number.isFinite(measurementDueDays)) measurements = `Due · ${measurementDueDays}d`;
   return { plans, livelog: live, workout: history, measurements };
 }

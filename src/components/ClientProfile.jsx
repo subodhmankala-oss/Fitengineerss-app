@@ -7,6 +7,7 @@ import { kgToDisplayWeight, displayWeightToKg } from '../utils/weightUnits';
 import { SEX_OPTIONS } from '../utils/targets';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
+import { MEAS_INTERVAL_DAYS, measurementChanges } from '../utils/measurementDue';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -110,7 +111,6 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
   // last-saved date (not a spoofable local value).
   const [measHistory, setMeasHistory] = useState([]);
 
-  const MEAS_INTERVAL_DAYS = 15;
   // Days until the next allowed save, based on the newest history entry.
   // 0 = allowed now (or no prior entry). Rounded up so "14.2 days left"
   // reads as 15 remaining, never a misleading 0 while still locked.
@@ -517,8 +517,18 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
       { key: 'forearm',   label: 'Forearm' },
       { key: 'neck',      label: 'Neck' },
     ];
-    // Newest = the previous saved entry to compare the current edits against.
+    // Newest saved entry (drives the lock notice).
     const previousEntry = measHistory[0] || null;
+    // What the arrows compare against. While the client can save, the form
+    // holds new numbers, so compare with the newest entry. Once saved (or
+    // while locked) the form IS the newest entry — compare it with the one
+    // before, otherwise every change reads as zero right after a save.
+    const compareEntry = measCanSave ? measHistory[0] || null : measHistory[1] || null;
+    const lastChanges = measHistory.length >= 2
+      ? measurementChanges(measHistory[0].measurements, measHistory[1].measurements, measFields.map(f => f.key))
+      : [];
+    const unitOf = (key) => measFields.find(f => f.key === key)?.unit || 'cm';
+    const fmtDelta = (d, unit) => `${d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}${unit}`;
     const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
     const saveMeasurements = async () => {
@@ -599,10 +609,36 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
             </div>
           ) : null}
 
+          {/* What changed between the two newest entries — so a client who
+              just saved their second measurement sees the difference. */}
+          {!measCanSave && measHistory.length >= 2 && (
+            <>
+              <div className="cp-form-section-label">Change since {fmtDate(measHistory[1].measuredAt)}</div>
+              <div className="cp-form-card" style={{ padding: '10px 14px' }}>
+                {lastChanges.length === 0 ? (
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>No change from your previous entry.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {lastChanges.map(c => (
+                      <span key={c.key} data-meas-change={c.key} style={{
+                        fontSize: '0.72rem', fontWeight: 700, padding: '4px 9px', borderRadius: '999px',
+                        background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
+                        color: 'var(--text-main)'
+                      }}>
+                        {measFields.find(f => f.key === c.key)?.label}{' '}
+                        <span style={{ color: c.delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>{fmtDelta(c.delta, unitOf(c.key))}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           <div className="cp-form-section-label">Body Measurements (cm)</div>
           <div className="cp-form-card">
             {measFields.map(({ key, label, unit }, i) => {
-              const prevVal = previousEntry?.measurements?.[key];
+              const prevVal = compareEntry?.measurements?.[key];
               const curVal = measurements[key];
               const delta = (prevVal != null && prevVal !== '' && curVal != null && curVal !== '')
                 ? (parseFloat(curVal) - parseFloat(prevVal))
@@ -644,6 +680,8 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
               <div className="cp-form-card" style={{ padding: '4px 0' }}>
                 {measHistory.map((entry, idx) => {
                   const filled = measFields.filter(f => entry.measurements?.[f.key] != null && entry.measurements[f.key] !== '');
+                  const older = measHistory[idx + 1];
+                  const changes = older ? measurementChanges(entry.measurements, older.measurements, measFields.map(f => f.key)) : [];
                   return (
                     <div key={entry.id} style={{
                       padding: '10px 14px',
@@ -657,6 +695,17 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
                           ? filled.map(f => `${f.label}: ${entry.measurements[f.key]}${f.unit || 'cm'}`).join(' · ')
                           : 'No values recorded'}
                       </div>
+                      {changes.length > 0 && (
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, marginTop: '3px', lineHeight: 1.6 }}>
+                          {changes.map((c, ci) => (
+                            <span key={c.key}>
+                              {ci > 0 && <span style={{ color: 'var(--text-muted)' }}> · </span>}
+                              <span style={{ color: 'var(--text-muted)' }}>{measFields.find(f => f.key === c.key)?.label} </span>
+                              <span style={{ color: c.delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>{fmtDelta(c.delta, unitOf(c.key))}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

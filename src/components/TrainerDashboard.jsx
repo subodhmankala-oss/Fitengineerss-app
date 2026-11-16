@@ -94,6 +94,7 @@ import { levelFromHistory } from '../utils/clientTrainingLevel';
 import PhoneGate from './PhoneGate';
 import CoachFirstClientCard from './CoachFirstClientCard';
 import { hasValidPhone } from '../utils/coachPhone';
+import { MEAS_INTERVAL_DAYS, getMeasurementDueClients } from '../utils/measurementDue';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -831,6 +832,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // this list on the next refresh (2026-08-29: "auto renewal once coach
   // updates the payment, no nudge nothing").
   const [renewalDueClients, setRenewalDueClients] = useState([]);
+  // Newest body-measurement date per own client ({ [userId]: ISO }) — feeds
+  // the bell's "measurement due" items, which stay up for as long as a
+  // client is 15+ days past their last entry (the push sweep only fires on
+  // day 15/30/45…, so on any other day the coach had nothing to go on).
+  // null until the first fetch lands, so nobody shows as due by mistake.
+  const [lastMeasuredByClient, setLastMeasuredByClient] = useState(null);
+  // Due items dismissed from the bell, per device, as
+  // `${clientId}|${lastMeasuredAt||'never'}|${cycle}` — a new entry or the
+  // next 15-day cycle brings that client back.
+  const BELL_HIDDEN_MEAS_KEY = 'bellHiddenMeasurementDue';
+  const [bellHiddenMeasDue, setBellHiddenMeasDue] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(BELL_HIDDEN_MEAS_KEY) || '[]') || []; } catch { return []; }
+  });
+  const measDueKey = (d) => `${d.clientId}|${d.lastMeasuredAt || 'never'}|${Math.floor(d.daysSince / MEAS_INTERVAL_DAYS)}`;
+  const hideMeasDueFromBell = (d) => {
+    setBellHiddenMeasDue(prev => {
+      const next = [...prev.filter(k => !k.startsWith(`${d.clientId}|`)), measDueKey(d)];
+      try { localStorage.setItem(BELL_HIDDEN_MEAS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      return next;
+    });
+  };
   // Renewals dismissed from the header notification bell, remembered per
   // device as `${clientId}|${lastPaidAt}` — a new payment (then a new due
   // date) brings that client back. The directory's renewal list is unaffected.
@@ -3797,6 +3819,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     return () => { cancelled = true; };
   }, []);
 
+  // Newest measurement date for each of this coach's own clients. Re-runs
+  // when the roster changes, a "measurements saved" update arrives, or the
+  // coach opens a client's history (which may be fresher).
+  const ownClientIdsKey = resolvedCoachId
+    ? clients.filter(c => c.coach_id === resolvedCoachId).map(c => c.id).sort().join(',')
+    : '';
+  const measSavedSignal = clientNotifications.filter(n => n.type === 'measurements_saved').map(n => n.id).join(',');
+  useEffect(() => {
+    if (!ownClientIdsKey) return undefined;
+    let cancelled = false;
+    databaseService.getLatestMeasurementDates(ownClientIdsKey.split(',')).then(map => {
+      if (!cancelled && map) setLastMeasuredByClient(map);
+    });
+    return () => { cancelled = true; };
+  }, [ownClientIdsKey, measSavedSignal]);
+  useEffect(() => {
+    const newest = clientMeasurements[0];
+    if (!newest?.userId || !newest.measuredAt) return;
+    setLastMeasuredByClient(prev => (!prev || (prev[newest.userId] && prev[newest.userId] >= newest.measuredAt))
+      ? prev : { ...prev, [newest.userId]: newest.measuredAt });
+  }, [clientMeasurements]);
+
   // Fetch all clients on mount and set up real-time listener
   useEffect(() => {
     const fetchClients = async () => {
@@ -5463,6 +5507,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       });
     });
 
+    const measurementDue = (lastMeasuredByClient ? getMeasurementDueClients(myClients, lastMeasuredByClient) : [])
+      .filter(d => !bellHiddenMeasDue.includes(measDueKey(d)));
+    // The sweep's push copy is the same check-in as the due item below.
+    measurementDue.forEach(d => foldedTypes.add(`${d.clientId}|measurement_reminder_coach`));
+
     clientNotifications
       .filter(n => !foldedTypes.has(`${n.clientId}|${n.type}`))
       .forEach(n => {
@@ -5552,6 +5601,48 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         dismiss: () => dismissSignupAlerts([a.id])
       });
     });
+
+    // Measurement check-ins that are due — computed from the clients' own
+    // history, so they show on every day a client is overdue, not just the
+    // day the push sweep fires. The sweep's push copy folds into this item.
+    measurementDue.forEach(d => {
+        const first = d.clientName.trim().split(/\s+/)[0] || 'there';
+        const clear = () => { markPushCopiesRead(d.clientId, 'measurement_reminder_coach'); hideMeasDueFromBell(d); };
+        bellItems.push({
+          key: `measdue-${d.clientId}`, tone: 'amber', icon: 'ruler',
+          sortAt: d.dueAt,
+          title: `Measurement time for ${d.clientName}`,
+          body: d.lastMeasuredAt
+            ? `Last logged ${d.daysSince} days ago`
+            : `No measurements yet — joined ${d.daysSince} days ago`,
+          actions: [{
+            label: 'Send reminder',
+            flash: `Measurement reminder sent to ${first}`,
+            run: () => {
+              notifyEvent('measurement_reminder_manual', { clientUserId: d.clientId });
+              triggerLiveToast(`✅ Measurement reminder sent to ${first}.`);
+              clear();
+            }
+          }],
+          compose: {
+            label: 'Send note',
+            placeholder: `Note to ${first}…`,
+            flash: `Note sent to ${first}`,
+            suggestions: [
+              `Hey ${first}, it's measurement time! Could you log your weight and measurements today? Takes 2 minutes 📏`,
+              `Quick one ${first} — weight and waist when you get a sec, please!`
+            ],
+            send: async (message) => {
+              const ok = await sendCoachNoteTo(d.clientId, message, undefined, 'Note');
+              if (ok) clear();
+              return ok;
+            }
+          },
+          open: () => { markPushCopiesRead(d.clientId, 'measurement_reminder_coach'); openClient(d.clientId, 'measurements'); },
+          openLabel: 'View measurements',
+          dismiss: clear
+        });
+      });
 
     renewalDueClients
       .filter(r => !bellHiddenRenewals.includes(`${r.clientId}|${r.lastPaidAt}`))
@@ -8537,6 +8628,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   lastWorkoutDate: workoutLogs[0]?.date || null,
                   latestWeight: ms[0]?.measurements?.weight ?? selectedClient?.userWeight ?? null,
                   previousWeight: ms[1]?.measurements?.weight ?? null,
+                  measurementDueDays: selectedClient && lastMeasuredByClient
+                    ? getMeasurementDueClients([selectedClient], lastMeasuredByClient)[0]?.daysSince ?? null
+                    : null,
                 });
                 return (
                   <CoachDetailTabs

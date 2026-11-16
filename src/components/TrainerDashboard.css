@@ -1479,7 +1479,9 @@
     transform: rotate(180deg);
   }
 
-  .client-detail-view .client-detail-live-sessions {
+  /* Only while the card is folded — open, the card's own sessions row
+     (with dates and its pencil) is the one place to edit. */
+  .client-detail-view:not(.is-card-open) .client-detail-live-sessions {
     display: flex;
     align-items: center;
     flex-shrink: 0;

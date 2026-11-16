@@ -8358,7 +8358,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   onClick={() => setClientCardOpen(o => !o)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setClientCardOpen(o => !o); } }}
                 >
-                  <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
+                  <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }}>{selectedClient.userName}</h4>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                   {/* Phones: goal · weight in place of the email, with a
                       chevron showing the summary card folds open from here. */}

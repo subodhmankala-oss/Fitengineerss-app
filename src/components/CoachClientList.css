@@ -1,0 +1,104 @@
+/* Coach client list — "coach's glance" (CoachClientList.jsx). */
+.ccl-wrap { padding: 12px 0 16px; }
+
+.ccl-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 0 4px 8px; font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+}
+.ccl-head-key { font-weight: 500; }
+
+.ccl-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ccl-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.06);
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.ccl-row:last-child { border-bottom: none; }
+.ccl-row:hover { background: rgba(var(--fg-rgb), 0.03); }
+.ccl-row:active { background: rgba(var(--fg-rgb), 0.06); }
+.ccl-row:focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.6); outline-offset: -2px; }
+.ccl-row.needs { background: rgba(239, 68, 68, 0.07); }
+.ccl-row.needs:hover { background: rgba(239, 68, 68, 0.1); }
+.ccl-row.paused { cursor: not-allowed; opacity: 0.55; }
+.ccl-row.demo { background: rgba(var(--accent-rgb), 0.06); }
+
+.ccl-avatar { position: relative; display: inline-flex; flex-shrink: 0; }
+.ccl-unread { position: absolute; top: 0; right: 0; }
+.ccl-app-dot {
+  position: absolute; bottom: 0; right: 0;
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid var(--bg-card);
+}
+
+.ccl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ccl-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.ccl-name {
+  font-size: 0.9rem; font-weight: 650; color: var(--text-main);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.ccl-tags { display: flex; gap: 4px; flex-shrink: 0; }
+
+.ccl-pill {
+  font-size: 0.66rem; font-weight: 600; line-height: 1.5;
+  padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.ccl-pill.fat    { background: rgba(239, 68, 68, 0.1);  color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+.ccl-pill.muscle { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-color: rgba(59, 130, 246, 0.3); }
+.ccl-pill.gut    { background: rgba(20, 184, 166, 0.1); color: #14b8a6; border-color: rgba(20, 184, 166, 0.3); }
+.ccl-pill.other  { background: rgba(var(--accent-rgb), 0.1); color: var(--accent-text); border-color: rgba(var(--accent-rgb), 0.3); }
+.ccl-pill.new    { background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
+.ccl-pill.muted  { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); border-color: rgba(148, 163, 184, 0.3); }
+
+.ccl-sub { display: flex; align-items: center; gap: 8px; min-height: 18px; }
+.ccl-sub-text { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+
+.ccl-week { display: inline-flex; gap: 3px; }
+.ccl-day {
+  width: 17px; height: 17px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.56rem; font-weight: 700; line-height: 1;
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.06);
+}
+.ccl-day.future { background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--fg-rgb), 0.08); opacity: 0.7; }
+.ccl-day.on { background: rgba(16, 185, 129, 0.16); color: #10b981; box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.45); }
+.ccl-day.today { box-shadow: inset 0 0 0 1.5px var(--text-main); color: var(--text-main); }
+.ccl-day.today.on { box-shadow: inset 0 0 0 1.5px #10b981; color: #10b981; }
+
+.ccl-week-skeleton {
+  width: 140px; height: 12px; border-radius: 6px;
+  background: rgba(var(--fg-rgb), 0.06);
+}
+
+.ccl-alert {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.74rem; font-weight: 600; color: #ef4444;
+}
+
+.ccl-chev { color: var(--text-muted); opacity: 0.6; display: inline-flex; flex-shrink: 0; }
+
+.ccl-wa {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(37, 211, 102, 0.12); color: #25d366;
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  cursor: pointer; padding: 0;
+}
+.ccl-wa:active { transform: scale(0.96); }
+
+/* "Needs you" filter chip (TrainerDashboard filter row): sits right after
+   "All" and reads red, matching the red rows it filters to. */
+.filter-tags > .filter-tag { order: 2; }
+.filter-tags > .filter-tag:first-child { order: 0; }
+.filter-tags > .filter-tag-needs { order: 1; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.06); }
+.filter-tags > .filter-tag-needs.active { color: #ef4444; background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.6); }

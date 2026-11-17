@@ -1437,8 +1437,7 @@
    opens on tapping the name (.is-card-open). Desktop sidebar unchanged. */
 .client-detail-live-sub,
 .client-detail-live-sessions,
-.client-detail-back,
-.client-detail-name-chevron {
+.client-detail-back {
   display: none;
 }
 
@@ -2355,7 +2354,7 @@
 }
 
 /* Phones: the client header IS the top bar — back arrow, avatar, name
-   (chevron = tap to open the details card), sessions ring. The separate
+   (tap it to open the details card), sessions ring. The separate
    "Dashboard / Manage Client" breadcrumb row is hidden. */
 @media (max-width: 899px) {
   .client-detail-view .dashboard-breadcrumb {
@@ -2394,17 +2393,6 @@
     font-size: 1rem !important;
   }
 
-  .client-detail-view .client-detail-name-chevron {
-    display: block;
-    flex-shrink: 0;
-    color: var(--text-muted);
-    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .client-detail-view .client-detail-name-chevron.is-open {
-    transform: rotate(180deg);
-  }
-
   .client-detail-view .client-detail-live-sub {
     margin-top: 1px;
     font-size: 0.74rem;
@@ -2413,12 +2401,6 @@
   /* Just "11/16" beside the ring; "sessions" is in the details card. */
   .client-detail-view .client-detail-live-sessions-label {
     display: none;
-  }
-}
-
-@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
-  .client-detail-view .client-detail-name-chevron {
-    transition: none;
   }
 }
 

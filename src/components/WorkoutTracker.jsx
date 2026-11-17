@@ -21,7 +21,7 @@ import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon, SaveIcon } from './TimerIcons';
+import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useLiveTick } from '../hooks/useLiveTick';
@@ -4791,7 +4791,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 <TrashIcon size={28} />
               </button>
               <button type="submit" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
-                <SaveIcon /> Save Workout Session
+                Save Workout Session
               </button>
             </div>
 

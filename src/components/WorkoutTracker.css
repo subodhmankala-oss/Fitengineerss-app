@@ -3840,7 +3840,7 @@ html.keyboard-open .rest-timer-floating-card {
   width: 100%;
   padding: 14px;
   margin-top: 4px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: var(--primary-accent, #4364bd);
   border: none;
   border-radius: var(--radius-md);
   color: #fff;
@@ -3860,7 +3860,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .btn-save-workout-session:disabled {
-  background: rgba(37, 99, 235, 0.35);
+  background: rgba(var(--accent-rgb, 67, 100, 189), 0.4);
   cursor: default;
 }
 

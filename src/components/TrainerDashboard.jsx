@@ -57,7 +57,7 @@ import SwapExerciseSheet from './SwapExerciseSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon, SaveIcon } from './TimerIcons';
+import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -11184,7 +11184,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       disabled={liveSaving}
                       style={{ width: 'auto', flex: 1 }}
                     >
-                      {liveSaving ? 'Saving…' : <><SaveIcon /> Save Workout Session</>}
+                      {liveSaving ? 'Saving…' : 'Save Workout Session'}
                       {!liveSaving && coachNoteText.trim() && <span className="btn-save-note-badge">+ note</span>}
                     </button>
                   </div>

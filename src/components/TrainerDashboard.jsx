@@ -8069,6 +8069,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 >
                   <div className="client-detail-name-row">
                     <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
+                    {/* Phones: down arrow beside the name — tap to open the
+                        details card; flips when open. */}
+                    <svg className={`client-detail-name-chevron${clientCardOpen ? ' is-open' : ''}`} width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                      <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                   {/* Phones: "● Fat loss · 86 kg" in place of the email. */}

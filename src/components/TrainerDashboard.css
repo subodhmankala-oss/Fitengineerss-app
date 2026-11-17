@@ -2308,8 +2308,11 @@
   border-top: 1.5px solid var(--border-strong);
   border-bottom: none;
   border-radius: 0;
-  padding-left: var(--bleed-left, 12px);
-  padding-right: var(--bleed-right, 12px);
+  /* The page insets rows with their own --screen-gutter padding (not the
+     parent's), so the bleed measured here is often 0 — keep the gutter and
+     add whatever the bar was pulled out by, or the avatar hits the edge. */
+  padding-left: calc(var(--bleed-left, 0px) + var(--screen-gutter, 16px));
+  padding-right: calc(var(--bleed-right, 0px) + var(--screen-gutter, 16px));
 }
 
 .client-detail-view:not(.is-card-open) .client-detail-header.is-full-bleed {

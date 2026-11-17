@@ -22,7 +22,7 @@ describe('CoachFirstClientCard', () => {
     expect(decodeURIComponent(link.getAttribute('href'))).toContain('invitation code: ABC123');
   });
 
-  it('builds the same share text the Invite Clients card uses', () => {
+  it('builds the same share text the Invite sheet uses', () => {
     expect(buildInviteShareText(' Asha ', 'https://x', 'Q1')).toBe(
       "Hi! I'm Asha from Fitengineers. Join my coaching program here: https://x — use invitation code: Q1"
     );

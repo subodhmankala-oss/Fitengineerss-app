@@ -5,6 +5,8 @@ import Avatar from './Avatar';
 import { getLocalDateString, parseLocalDateString, isLocalToday, } from '../utils/dateUtils';
 import { findWrongClientSignal, describeWrongClientSignal } from '../utils/liveLogClientCheck';
 import CoachQuietClients from './CoachQuietClients';
+import CoachReplyCard from './CoachReplyCard';
+import CoachInviteSheet from './CoachInviteSheet';
 import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
@@ -713,7 +715,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // code here anymore — the coach asked for the "Active Code" panel to start
   // empty on every fresh app open (see generatedInviteCode's comment above)
   // rather than resurrecting whatever code is still technically valid in the
-  // DB from a previous session. "Generate Code" always deactivates any old
+  // DB from a previous session. The Invite sheet always deactivates any old
   // code and mints a new one regardless, so nothing is lost by not showing it.
 
   useEffect(() => {
@@ -747,11 +749,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // "Active Code" panel to only ever show a code that was generated in the
   // current app session, not whatever's still technically active in the DB
   // from before the app was closed. Closing and reopening should show
-  // nothing here until "Generate Code" is pressed again (2026-08-09).
+  // nothing here until the Invite sheet is opened again (2026-08-09).
   const [generatedInviteCode, setGeneratedInviteCode] = useState('');
   const [generatingCode, setGeneratingCode] = useState(false);
   // The zero-clients card's "Create my invite code" button. Same
-  // deactivate-then-generate as the Invite Clients card, minus the confirm
+  // deactivate-then-generate as the Invite sheet (makeInviteCode), minus the confirm
   // (the card only offers it while no code has been made this session).
   const createFirstInviteCode = async () => {
     if (generatingCode) return;
@@ -764,6 +766,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       try { localStorage.setItem('coachInviteCodeCreated', 'true'); } catch { /* storage blocked */ }
     } catch (err) {
       console.error('Error generating code:', err);
+      alert(err.message || 'Could not generate an invitation code. Please try again.');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  // Coach home Invite button -> bottom sheet (CoachInviteSheet). Same
+  // deactivate-then-generate as before; the sheet asks before replacing a
+  // code it is already showing.
+  const [inviteSheetOpen, setInviteSheetOpen] = useState(false);
+  const makeInviteCode = async () => {
+    if (generatingCode) return;
+    setGeneratingCode(true);
+    try {
+      // resolvedCoachId (repaired by resolveCanonicalUserId at mount) over
+      // the raw localStorage 'userId'. Deactivate first so an old code that
+      // is still active in the DB can never keep working.
+      const coachId = resolvedCoachId || loggedInEmail;
+      await databaseService.deactivateActiveCoachInviteCodes(coachId);
+      const code = await databaseService.generateCoachInviteCode(coachId);
+      setGeneratedInviteCode(code);
+      try { localStorage.setItem('coachInviteCodeCreated', 'true'); } catch { /* storage blocked */ }
+    } catch (err) {
+      console.error('Error generating code:', err);
+      setGeneratedInviteCode('');
       alert(err.message || 'Could not generate an invitation code. Please try again.');
     } finally {
       setGeneratingCode(false);
@@ -798,8 +825,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // link RPC itself. Same fallback role as pendingClientReplies: the
   // client_connected push/email fire the moment the client connects, this is
   // what shows it in-app until the coach opens that client or dismisses the
-  // card. Also drives the "New" chip on the directory row and the "Used by"
-  // line on the Invite Clients card.
+  // card. Also drives the "New" chip on the directory row.
   const [newClientNotifications, setNewClientNotifications] = useState([]);
   // Every other unread notification about a client — the in-app copy of each
   // push api/push.js sent this coach ("Updated body measurements", "workout
@@ -3571,6 +3597,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     await databaseService.markClientReplySeen(replyId);
   };
 
+  // Reply typed on the home reply card: same path as the bell's Reply
+  // (saved coach note + coach_note push), then the card clears.
+  const handleReplyToClient = async (reply, message) => {
+    const res = await databaseService.saveCoachNote(reply.clientId, resolvedCoachId, message,
+      reply.workoutName ? { workoutName: reply.workoutName, workoutDate: reply.workoutDate } : undefined);
+    if (!res.success) { triggerLiveToast(`⚠️ Couldn't send: ${res.error || 'unknown error'}`); return false; }
+    notifyEvent('coach_note', { clientUserId: reply.clientId, message });
+    const name = clients.find(c => c.id === reply.clientId)?.userName || 'client';
+    triggerLiveToast(`✅ Reply sent to ${name.split(/\s+/)[0]}.`);
+    handleDismissClientReply(reply.id);
+    return true;
+  };
+
   // null (fetch failed) keeps whatever was already on screen — same rule as
   // refreshRenewalDueClients.
   const fetchClientsRef = useRef(null);
@@ -6155,7 +6194,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 only, like its server — shows today's unread stories (red). */}
             <RoleTab
               kind="clients"
-              label="My Clients"
+              label="Clients"
               active={viewMode === 'coach'}
               onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
               count={myClientsCount}
@@ -6168,7 +6207,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             )}
             <RoleTab
               kind="admin"
-              label="Super-Admin"
+              label="Admin"
               active={viewMode === 'admin'}
               onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
               dot={signupAlerts.length > 0 || unreadReplyIds.size > 0}
@@ -7552,50 +7591,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       ? `${reply.workoutName || 'Workout'} · ${fmtDay(reply.workoutDate)}`
                       : (reply.noteSentAt ? `Note sent ${fmtDay(getLocalDateString(new Date(reply.noteSentAt)))}` : '');
                     return (
-                      <div
+                      <CoachReplyCard
                         key={reply.id}
-                        style={{
-                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px',
-                          background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)',
-                          borderRadius: '12px', padding: '12px 14px', cursor: replyClient ? 'pointer' : 'default'
-                        }}
-                        onClick={() => { if (replyClient) handleSelectClient(replyClient); }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
-                          <span style={{ fontSize: '1.3rem' }}>💬</span>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-violet)' }}>
-                              Reply from {replyClient?.userName || 'a client'}
-                            </div>
-                            {contextLabel && (
-                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px' }}>
-                                {contextLabel}
-                              </div>
-                            )}
-                            {reply.noteMessage && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic', wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                You: “{reply.noteMessage}”
-                              </div>
-                            )}
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', marginTop: '4px', wordBreak: 'break-word' }}>
-                              {reply.message}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          title="Dismiss"
-                          onClick={(e) => { e.stopPropagation(); handleDismissClientReply(reply.id); }}
-                          style={{
-                            background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
-                            color: 'var(--text-muted)', borderRadius: '50%', width: '26px', height: '26px',
-                            fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', flexShrink: 0
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
+                        clientName={replyClient?.userName}
+                        contextLabel={contextLabel}
+                        noteMessage={reply.noteMessage}
+                        message={reply.message}
+                        canOpen={!!replyClient}
+                        onOpen={() => { if (replyClient) handleSelectClient(replyClient); }}
+                        onDismiss={() => handleDismissClientReply(reply.id)}
+                        onSend={(msg) => handleReplyToClient(reply, msg)}
+                      />
                     );
                   })}
                 </div>
@@ -7916,176 +7922,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 );
               })()}
 
-              <div style={{
-                background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)',
-                borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex',
-                flexDirection: 'column', gap: '12px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h5 style={{ margin: '0 0 8px 0', color: 'var(--text-main)' }}>Invite Clients</h5>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate a unique code for your clients to link their accounts to you during sign up.</p>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (generatingCode) return;
-
-                      // resolvedCoachId (repaired by resolveCanonicalUserId at
-                      // mount) over the raw localStorage 'userId' — see its
-                      // definition above for why.
-                      const coachId = resolvedCoachId || loggedInEmail;
-
-                      if (generatedInviteCode) {
-                        const confirmRegen = window.confirm(
-                          `You already have an active invitation code (${generatedInviteCode}).\n\n` +
-                          "Generating a new code will automatically deactivate the old one. " +
-                          "Clients attempting to link using the previous code will be rejected.\n\n" +
-                          "Do you want to proceed and generate a new code?"
-                        );
-                        if (!confirmRegen) return;
-                      }
-
-                      setGeneratingCode(true);
-                      try {
-                        // Deactivate old active invitation codes first — this
-                        // still runs even if this session never displayed one
-                        // (e.g. it was generated before the app was closed and
-                        // reopened), so an old, still-DB-active code can never
-                        // keep working after a new one is generated.
-                        await databaseService.deactivateActiveCoachInviteCodes(coachId);
-
-                        const code = await databaseService.generateCoachInviteCode(coachId);
-                        setGeneratedInviteCode(code);
-                        try { localStorage.setItem('coachInviteCodeCreated', 'true'); } catch { /* storage blocked */ }
-                      } catch (err) {
-                        console.error('Error generating code:', err);
-                        setGeneratedInviteCode('');
-                        alert(err.message || 'Could not generate an invitation code. Please try again.');
-                      } finally {
-                        setGeneratingCode(false);
-                      }
-                    }}
-                    disabled={generatingCode}
-                    style={{
-                      background: 'var(--primary-accent-light)', border: 'none', color: '#fff',
-                      padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer',
-                      whiteSpace: 'nowrap', marginLeft: '12px', opacity: generatingCode ? 0.6 : 1
-                    }}
-                  >
-                    {generatingCode ? 'Generating...' : 'Generate Code'}
-                  </button>
-                </div>
-
-                {generatedInviteCode && (
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    padding: '12px',
-                    background: 'rgba(var(--fg-rgb), 0.02)',
-                    border: '1px dashed rgba(var(--fg-rgb), 0.1)',
-                    borderRadius: '8px',
-                    marginTop: '4px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Active Code:</span>
-                      <strong style={{
-                        fontSize: '1.25rem',
-                        color: 'var(--accent-text)',
-                        letterSpacing: '0.1em',
-                        background: 'rgba(59, 130, 246, 0.1)',
-                        padding: '2px 8px',
-                        borderRadius: '4px'
-                      }}>{generatedInviteCode}</strong>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {/* Copy Button */}
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedInviteCode);
-                          alert('Code copied to clipboard!');
-                        }}
-                        style={{
-                          background: 'rgba(var(--fg-rgb), 0.1)',
-                          border: 'none',
-                          color: 'var(--text-main)',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        📋 Copy Code
-                      </button>
-
-                      {/* WhatsApp Share Button */}
-                      <a
-                        href={`https://wa.me/?text=${encodeURIComponent(
-                          `Hi! I'm ${(localStorage.getItem('userName') || 'your coach').trim()} from Fitengineers. Join my coaching program here: ${window.location.origin} — use invitation code: ${generatedInviteCode}`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          background: '#25D366',
-                          color: 'var(--text-main)',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          boxShadow: '0 2px 5px rgba(37, 211, 102, 0.2)'
-                        }}
-                      >
-                        {/* Inline WhatsApp SVG Icon */}
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.135-3.834c1.674.993 3.502 1.517 5.38 1.519 5.867 0 10.638-4.771 10.642-10.639.002-2.842-1.102-5.514-3.109-7.524C17.1 1.512 14.428.406 11.587.406 5.72 1.406.953 6.177.949 12.045c-.001 1.99.524 3.931 1.519 5.626L1.519 22l4.673-1.226zM17.43 14.73c-.296-.149-1.758-.868-2.03-.967-.272-.099-.47-.149-.667.149-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.174.2-.298.3-.496.099-.198.05-.371-.025-.521-.075-.148-.667-1.609-.914-2.203-.241-.579-.487-.501-.668-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/>
-                        </svg>
-                        Share via WhatsApp
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {/* Closes the loop right where the coach generated the code:
-                    the most recent unread redemption(s) of THIS coach's
-                    invites, shown until acknowledged (same rows as the 🎉
-                    card above). */}
-                {newClientNotifications.length > 0 && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--tint-emerald)', fontWeight: 700, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
-                    {newClientNotifications.slice(0, 3).map(n => {
-                      const joinedClient = clients.find(c => c.id === n.clientId);
-                      const displayName = joinedClient?.userName || n.clientName || (n.clientEmail ? n.clientEmail.split('@')[0] : 'a client');
-                      return (
-                        <span key={n.id}>
-                          ✓ {n.inviteCode ? `${n.inviteCode} used by ` : 'Used by '}{displayName}
-                        </span>
-                      );
-                    })}
-                    {newClientNotifications.length > 3 && (
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>+{newClientNotifications.length - 3} more</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
+              <CoachInviteSheet
+                open={inviteSheetOpen}
+                onClose={() => setInviteSheetOpen(false)}
+                code={generatedInviteCode}
+                generating={generatingCode}
+                onGenerate={makeInviteCode}
+                coachName={localStorage.getItem('userName')}
+                origin={window.location.origin}
+              />
               <div className="search-filter-box">
+                <div className="chr-search-row">
                 <div className="trainer-search-wrap">
+                  <span className="chr-search-icon" aria-hidden="true">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  </span>
                   <input
                     ref={searchInputRef}
                     type="text"
                     className="trainer-search-input"
-                    placeholder="🔍 Search client by name or email..."
+                    placeholder="Search name or email"
+                    aria-label="Search clients"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                   />
@@ -8103,16 +7960,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     </button>
                   )}
                 </div>
+                {viewMode === 'coach' && (
+                  <button type="button" className="chr-invite-btn" onClick={() => { setInviteSheetOpen(true); if (!generatedInviteCode) makeInviteCode(); }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></svg>
+                    Invite
+                  </button>
+                )}
+                </div>
                 <div className="filter-tags">
-                  {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
-                    <button
-                      key={goal}
-                      className={`filter-tag ${goalFilter === goal ? 'active' : ''}`}
-                      onClick={() => setGoalFilter(goal)}
-                    >
-                      {goal}
-                    </button>
-                  ))}
+                  {[['All', 'All'], ['Fat Loss', 'Fat loss'], ['Muscle Building', 'Muscle'], ['Gut Fix', 'Gut fix']].map(([goal, label]) => {
+                    // Count over this coach's own clients (same scope as the list).
+                    const active = myClients.filter(c => !c.paused_at);
+                    const n = goal === 'All' ? active.length : active.filter(c => c.userGoal === goal).length;
+                    return (
+                      <button
+                        key={goal}
+                        className={`filter-tag ${goalFilter === goal ? 'active' : ''}`}
+                        onClick={() => setGoalFilter(goal)}
+                      >
+                        {label}{viewMode === 'coach' && <span className="chr-chip-count">{n}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

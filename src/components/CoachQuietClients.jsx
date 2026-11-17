@@ -3,6 +3,9 @@ import { toWhatsappNumber, openWhatsapp } from '../utils/whatsappNudge';
 import { QUIET_DAYS, RECAP_DAYS, getQuietClients, buildQuietMessage, summarizeRecentSessions } from '../utils/quietClients';
 import { getLocalDateString, shiftLocalDateString } from '../utils/dateUtils';
 import databaseService from '../services/databaseService';
+import './CoachHomeTop.css';
+
+const initialsOf = (name) => (name || '?').trim().split(/[\s@]+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
 // Coach home card: "N clients have gone quiet". Lists the coach's own
 // (un-paused) clients who haven't opened the app in QUIET_DAYS+ days, or
@@ -80,30 +83,32 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
   const shown = expanded ? quiet : quiet.slice(0, 3);
 
   return (
-    <div style={{
-      marginBottom: '16px', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
-      background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)',
-      display: 'flex', flexDirection: 'column', gap: '8px'
-    }}>
+    <div className="cqc-card">
       <button
         type="button"
         onClick={toggleOpen}
         aria-expanded={open}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%',
-          background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-          fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)'
-        }}
+        className="cqc-head"
       >
-        <span>👀 {quiet.length} {quiet.length === 1 ? 'client has' : 'clients have'} gone quiet</span>
-        <span aria-hidden="true" style={{
-          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b'
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-            <polyline points="6 9 12 15 18 9" />
+        <span className="cqc-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" /></svg>
+        </span>
+        <span className="cqc-titles">
+          <span className="cqc-title">{quiet.length} {quiet.length === 1 ? 'client' : 'clients'} gone quiet</span>
+          <span className="cqc-sub">No app open in {QUIET_DAYS}+ days</span>
+        </span>
+        {!open && (
+          <span className="cqc-faces" aria-hidden="true">
+            {quiet.slice(0, 2).map(({ client }) => (
+              <span key={client.id} className="cqc-face">{initialsOf(client.userName || client.email)}</span>
+            ))}
+            {quiet.length > 2 && <span className="cqc-face cqc-face-more">+{quiet.length - 2}</span>}
+          </span>
+        )}
+        <span className="cqc-chev" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>
+            <polyline points="9 6 15 12 9 18" />
           </svg>
         </span>
       </button>

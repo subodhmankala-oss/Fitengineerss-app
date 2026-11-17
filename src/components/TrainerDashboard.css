@@ -573,11 +573,11 @@
 }
 
 .filter-tag.active {
-  background: var(--primary-accent);
-  border-color: var(--primary-accent-light);
-  color: #fff;
-  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.3);
+  background: rgba(var(--accent-rgb), 0.14);
+  border-color: rgba(var(--accent-rgb), 0.55);
+  color: var(--accent-text);
 }
+[data-theme="light"] .filter-tag.active { color: #2f4da3; }
 
 /* Directory Listing */
 .client-directory-title {
@@ -2216,16 +2216,17 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 3px;
-  padding: 8px 4px 7px;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
-  color: rgba(148, 163, 184, 0.75);
+  color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
@@ -2244,22 +2245,19 @@
 .role-tab-icon { position: relative; display: inline-flex; }
 .role-tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .role-tab-bubble {
-  position: absolute;
-  top: -7px;
-  left: 13px;
-  min-width: 18px;
+  flex-shrink: 0;
+  min-width: 20px;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 6px;
   border-radius: 9px;
   box-sizing: border-box;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 10.5px;
   font-weight: 800;
   line-height: 1;
   color: #fff;
-  box-shadow: 0 0 0 2px var(--bg-app);
 }
 .role-tab-bubble-info { background: #378add; }
 .role-tab-bubble-alert { background: #e24b4a; }

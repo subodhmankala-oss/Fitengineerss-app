@@ -41,7 +41,7 @@ import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
 import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, remapSetTimersForSetInsert, remapSetTimersForSetMove, moveItem, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, buildSessionStatPhrase, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, remapSetTimersForSetInsert, remapSetTimersForSetMove, moveItem, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { notifyEvent } from '../utils/pushNotify';
 import { getActivityStatus } from '../utils/activityStatus';
@@ -3835,10 +3835,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // that session's actual stats so the first chip feels personal.
   const buildSessionNoteSuggestions = (session) => {
     const firstName = (session.clientName || '').trim().split(/\s+/)[0] || 'there';
-    const statBits = [
-      session.durationSeconds != null ? formatDuration(session.durationSeconds) : null,
-      session.caloriesBurned != null ? `${session.caloriesBurned} kcal` : null
-    ].filter(Boolean).join(', ');
+    const statBits = buildSessionStatPhrase(session.durationSeconds, session.caloriesBurned);
     const opener = statBits
       ? `Great session, ${firstName}! ${statBits} — solid work 💪`
       : `Great work today, ${firstName}! Really solid session 💪`;
@@ -5416,9 +5413,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const coachNoteSuggestions = (() => {
     const firstName = (selectedClient?.userName || '').trim().split(/\s+/)[0] || 'there';
     const s = latestClientSession;
-    const statBits = s
-      ? [s.durationSeconds != null ? `${formatDuration(s.durationSeconds)}` : null, s.caloriesBurned != null ? `${s.caloriesBurned} kcal` : null].filter(Boolean).join(', ')
-      : '';
+    const statBits = s ? buildSessionStatPhrase(s.durationSeconds, s.caloriesBurned) : '';
     const opener = statBits
       ? `Great session, ${firstName}! ${statBits} — solid work 💪`
       : `Great work today, ${firstName}! Really solid session 💪`;
@@ -5437,7 +5432,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const liveCoachNoteSuggestions = (() => {
     const firstName = (selectedClient?.userName || '').trim().split(/\s+/)[0] || 'there';
     const statBits = liveTimerStartedAt
-      ? [formatDuration(liveElapsedSeconds), `${liveCalories.totalKcal} kcal`].join(', ')
+      ? buildSessionStatPhrase(liveElapsedSeconds, liveCalories.totalKcal)
       : '';
     const opener = statBits
       ? `Great session, ${firstName}! ${statBits} — solid work 💪`

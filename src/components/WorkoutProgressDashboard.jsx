@@ -954,7 +954,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
 
       {/* Unread notes from the coach — the fallback if the client missed the
           push notification when the coach sent it. */}
-      <CoachNoteBanner userId={userId} />
+      <CoachNoteBanner userId={userId} coachName={coachName} />
 
       {/* Unread monthly progress reports from the coach — the missed-push
           fallback, same idea as the coach note banner above. "Got it"

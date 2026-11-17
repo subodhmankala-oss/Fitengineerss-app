@@ -8,7 +8,8 @@ import { summarizeRecentSessions } from '../utils/quietClients';
 // for these clients and returns
 //   { glances: { [id]: clientGlance } | null while loading, recaps }.
 // recaps feed the WhatsApp check-in text (same as CoachQuietClients).
-export function useClientWeekGlance(clients) {
+// breaksByClient: { [client id]: breaks } ("Taking a break"), optional.
+export function useClientWeekGlance(clients, breaksByClient = null) {
   const [fetched, setFetched] = useState(null); // { rows, today, now }
   const idsKey = clients.map(c => c.id).sort().join(',');
   useEffect(() => {
@@ -31,6 +32,6 @@ export function useClientWeekGlance(clients) {
   // joined changes on the client objects current without refetching.
   if (!byClient) return { glances: null, recaps: {} };
   const glances = {};
-  clients.forEach(c => { glances[c.id] = clientGlance(c, byClient.dates[c.id], fetched.today, fetched.now); });
+  clients.forEach(c => { glances[c.id] = clientGlance(c, byClient.dates[c.id], fetched.today, fetched.now, breaksByClient?.[c.id] || []); });
   return { glances, recaps: byClient.recaps };
 }

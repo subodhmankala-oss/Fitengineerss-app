@@ -8,6 +8,9 @@ import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
 import WelcomeBanner from './WelcomeBanner';
 import NotificationPrompt from './NotificationPrompt';
 import NextWorkoutBanner from './NextWorkoutBanner';
+import ClientBreakCard from './ClientBreakCard';
+import useClientBreaks from '../hooks/useClientBreaks';
+import { activeBreak, recentlyEndedBreak, lastWorkoutDateOf } from '../utils/clientBreaks';
 import CoachPlanHomeCard from './CoachPlanHomeCard';
 import WorkoutStreakCard from './WorkoutStreakCard';
 import WelcomeBackScreen from './WelcomeBackScreen';
@@ -104,6 +107,11 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // silently lost just because the client was away from the app/tab for a
   // while (backgrounded, switched apps, closed the browser).
   const [activeDraft, setActiveDraft] = useState(null);
+  // Taking a break: the next-workout card hides while away, and turns into
+  // an Easy restart (2 sets each) for the first workout back.
+  const { ownBreaks: clientBreaks } = useClientBreaks();
+  const breakRunning = !!activeBreak(clientBreaks, getLocalDateString());
+  const backFromBreak = !!recentlyEndedBreak(clientBreaks, getLocalDateString(), lastWorkoutDateOf(logs));
   const [, forceDraftTick] = useState(0);
   // Coach-sent monthly progress reports (monthly_progress_reports), newest
   // first. Fetched once here and shared by the home-screen "new report" card
@@ -963,6 +971,20 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         <MonthlyReportCard key={r.id} report={r} coachName={coachName} isNew onDismiss={() => dismissMonthlyReport(r)} />
       ))}
 
+      {/* Taking a break (Profile → Taking a break): "On holiday · back
+          Mon 23 Nov" while away, then "Welcome back" until the first
+          workout after it. Self-directed clients start from the Easy
+          restart card below instead of a button here. */}
+      {!loading && (
+        <ClientBreakCard
+          logs={logs}
+          userName={userName}
+          coachName={coachName}
+          hasCoach={isLinkedToCoach}
+          onNavigateToWorkouts={isLinkedToCoach ? onNavigateToWorkouts : undefined}
+        />
+      )}
+
       {/* Resume in-progress workout — a draft survives being away from the
           app/device (backgrounded, closed the tab, switched apps) via
           workout_drafts, so it's never silently lost. A 'coach' draft means
@@ -1064,8 +1086,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           both resolved — and hidden whenever a session is already in
           progress (the banner above already covers that case) so the two
           never stack. */}
-      {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && (
-        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
+      {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && !breakRunning && (
+        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} easyRestart={backFromBreak} />
       )}
 
       {/* A plan the coach just assigned — shown here until the client starts

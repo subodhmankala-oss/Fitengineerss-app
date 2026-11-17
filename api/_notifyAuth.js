@@ -16,6 +16,7 @@ const FROM_CLIENT_EVENTS = new Set([
   'measurements_saved',
   'workout_finished',
   'client_reply',
+  'client_break',
   'client_disconnected',
   'client_connected',
   'new_client_signup',

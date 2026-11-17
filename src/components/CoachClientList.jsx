@@ -3,6 +3,8 @@ import Avatar from './Avatar';
 import { getActivityStatus, daysSinceLogin } from '../utils/activityStatus';
 import { buildQuietMessage } from '../utils/quietClients';
 import { toWhatsappNumber, openWhatsapp } from '../utils/whatsappNudge';
+import { BREAK_REASONS } from '../utils/clientBreaks';
+import { BreakReasonIcon } from './ClientBreakIcons';
 import './CoachClientList.css';
 
 const GOAL_CLASS = (goal = '') => {
@@ -24,7 +26,7 @@ function WeekDots({ glance, live = false }) {
           key={i}
           className={live && i === glance.todayIndex
             ? 'ccl-day live'
-            : `ccl-day${on ? ' on' : ''}${i === glance.todayIndex ? ' today' : ''}${i > glance.todayIndex ? ' future' : ''}`}
+            : `ccl-day${on ? ' on' : ''}${glance.offDays?.[i] ? ' off' : ''}${i === glance.todayIndex ? ' today' : ''}${i > glance.todayIndex ? ' future' : ''}`}
           aria-hidden="true"
         >{DAY_LETTERS[i]}</span>
       ))}
@@ -124,6 +126,18 @@ export default function CoachClientList({
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>
                       {glance.label}
                     </span>
+                  ) : glance.away && !live ? (
+                    <>
+                      <WeekDots glance={glance} />
+                      <span
+                        className="ccl-away"
+                        style={{ '--c': BREAK_REASONS[glance.away.reason]?.color, '--c-rgb': BREAK_REASONS[glance.away.reason]?.rgb }}
+                        title={`${BREAK_REASONS[glance.away.reason]?.label || 'Break'}: ${glance.away.note}`}
+                      >
+                        <BreakReasonIcon reason={glance.away.reason} size={11} strokeWidth={2.6} />
+                        {glance.label}
+                      </span>
+                    </>
                   ) : live ? (
                     <>
                       <WeekDots glance={glance} live />

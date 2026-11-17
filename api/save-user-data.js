@@ -15,10 +15,13 @@
 //   action=testimonials        (client testimonials — the ONLY path to
 //                               coach_testimonials, which has no RLS policies;
 //                               see sql/coach_testimonials.sql)
+//   action=client-break        ("Taking a break" — the only path to
+//                               client_breaks; see sql/client_breaks.sql)
 
 import {
   cleanTestimonialInput, shortClientName, monthsTrained, TESTIMONIAL_STATUSES, cleanGoogleReviewUrl,
 } from '../src/utils/testimonials.js';
+import { cleanBreakInput } from '../src/utils/clientBreaks.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -419,12 +422,168 @@ async function handleTestimonials(req, res) {
   }
 }
 
+// ─── client-break ───
+// "Taking a break" (see sql/client_breaks.sql, src/utils/clientBreaks.js).
+// One action, `op` in the body:
+//   list    client: their own breaks from the last 120 days
+//           coach:  their clients' breaks that end no earlier than 30 days ago
+//   start   client only — { reason, note, startDate, backDate }. Replaces a
+//           break already running today (so "Extend" can also use it).
+//   update  client only — { id, reason, note, backDate } on their own row
+//   end     client only — { id, today }: back today, so back_date = today
+// client_user_id / coach_id always come from the caller's clients row.
+const BREAK_SELECT = 'id,client_user_id,reason,note,start_date,back_date,created_at,updated_at';
+
+// The server's idea of the client's local date — the app is IST-first
+// (see api/push.js getIstWeekBounds); cleanBreakInput allows a day either side.
+const istToday = () => new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+const shiftIso = (date, days) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+async function listBreaksForClient(callerId) {
+  return svcGet(
+    `client_breaks?client_user_id=eq.${encodeURIComponent(callerId)}` +
+    `&back_date=gte.${shiftIso(istToday(), -120)}&select=${BREAK_SELECT}&order=start_date.desc`
+  );
+}
+
+async function listBreaksForCoach(callerId) {
+  const clients = await svcGet(`clients?coach_id=eq.${encodeURIComponent(callerId)}&select=user_id`);
+  const ids = clients.map(c => c.user_id).filter(Boolean);
+  if (ids.length === 0) return [];
+  return svcGet(
+    `client_breaks?client_user_id=in.(${ids.map(encodeURIComponent).join(',')})` +
+    `&back_date=gte.${shiftIso(istToday(), -30)}&select=${BREAK_SELECT}&order=start_date.desc`
+  );
+}
+
+async function handleClientBreak(req, res) {
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { op } = req.body || {};
+  try {
+    const callerId = await resolveOwnUserId(verifiedEmail);
+    if (!callerId) return res.status(403).json({ error: 'No matching account for your session.' });
+
+    const [clientRows, coachRows] = await Promise.all([
+      svcGet(`clients?user_id=eq.${encodeURIComponent(callerId)}&select=coach_id&limit=1`),
+      svcGet(`coaches?user_id=eq.${encodeURIComponent(callerId)}&select=id&limit=1`),
+    ]);
+    const clientRow = clientRows[0] || null;
+    const isCoach = coachRows.length > 0;
+
+    if (op === 'list') {
+      if (isCoach) return res.status(200).json({ role: 'coach', breaks: await listBreaksForCoach(callerId) });
+      return res.status(200).json({ role: 'client', breaks: clientRow ? await listBreaksForClient(callerId) : [] });
+    }
+
+    if (!clientRow) return res.status(403).json({ error: 'Only a client can set a break.' });
+    const today = istToday();
+    const writeHeaders = { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' };
+    const done = async () => res.status(200).json({ role: 'client', breaks: await listBreaksForClient(callerId) });
+
+    if (op === 'start' || op === 'update') {
+      const breakInput = req.body || {};
+      let existing = null;
+      if (op === 'update') {
+        if (!req.body?.id) return res.status(400).json({ error: 'id is required.' });
+        existing = (await svcGet(
+          `client_breaks?id=eq.${encodeURIComponent(req.body.id)}&client_user_id=eq.${encodeURIComponent(callerId)}&select=${BREAK_SELECT}`
+        ))[0];
+        if (!existing) return res.status(404).json({ error: 'Break not found.' });
+      }
+      // An update keeps the break's own start date; only the rest can change.
+      const checked = cleanBreakInput(
+        { ...breakInput, startDate: existing ? existing.start_date : breakInput.startDate },
+        existing ? existing.start_date : today
+      );
+      if (!checked.ok) return res.status(400).json({ error: checked.error });
+      const v = checked.value;
+      // Days already away can't be taken back; ending early is op=end.
+      if (existing && v.backDate <= shiftIso(today, -1)) {
+        return res.status(400).json({ error: 'The back date must be after today.' });
+      }
+
+      if (op === 'start') {
+        // One break at a time: a break still running today ends where this
+        // one starts.
+        await fetch(
+          `${supabaseUrl}/rest/v1/client_breaks?client_user_id=eq.${encodeURIComponent(callerId)}` +
+          `&start_date=lt.${v.startDate}&back_date=gt.${v.startDate}`,
+          { method: 'PATCH', headers: writeHeaders, body: JSON.stringify({ back_date: v.startDate, updated_at: new Date().toISOString() }) }
+        );
+        await fetch(
+          `${supabaseUrl}/rest/v1/client_breaks?client_user_id=eq.${encodeURIComponent(callerId)}&start_date=eq.${v.startDate}`,
+          { method: 'DELETE', headers: writeHeaders }
+        );
+        const resp = await fetch(`${supabaseUrl}/rest/v1/client_breaks`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify({
+            client_user_id: callerId,
+            coach_id: clientRow.coach_id || null,
+            reason: v.reason,
+            note: v.note,
+            start_date: v.startDate,
+            back_date: v.backDate,
+          })
+        });
+        if (!resp.ok) {
+          console.error('save-user-data client-break start failed:', resp.status, await resp.text().catch(() => ''));
+          return res.status(502).json({ error: 'Could not save your break.' });
+        }
+        return done();
+      }
+
+      const resp = await fetch(
+        `${supabaseUrl}/rest/v1/client_breaks?id=eq.${encodeURIComponent(existing.id)}&client_user_id=eq.${encodeURIComponent(callerId)}`,
+        { method: 'PATCH', headers: writeHeaders, body: JSON.stringify({ reason: v.reason, note: v.note, back_date: v.backDate, updated_at: new Date().toISOString() }) }
+      );
+      if (!resp.ok) return res.status(502).json({ error: 'Could not update your break.' });
+      return done();
+    }
+
+    if (op === 'end') {
+      const { id } = req.body || {};
+      if (!id) return res.status(400).json({ error: 'id is required.' });
+      const existing = (await svcGet(
+        `client_breaks?id=eq.${encodeURIComponent(id)}&client_user_id=eq.${encodeURIComponent(callerId)}&select=${BREAK_SELECT}`
+      ))[0];
+      if (!existing) return res.status(404).json({ error: 'Break not found.' });
+      // The client's own date, within a day of ours.
+      const theirToday = /^\d{4}-\d{2}-\d{2}$/.test(req.body?.today || '') && Math.abs(new Date(req.body.today) - new Date(today)) <= 86_400_000
+        ? req.body.today : today;
+      const resp = theirToday <= existing.start_date
+        // Ended the day it started: it never really happened.
+        ? await fetch(`${supabaseUrl}/rest/v1/client_breaks?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: writeHeaders })
+        : theirToday >= existing.back_date
+          ? { ok: true }
+          : await fetch(`${supabaseUrl}/rest/v1/client_breaks?id=eq.${encodeURIComponent(id)}`, {
+            method: 'PATCH', headers: writeHeaders,
+            body: JSON.stringify({ back_date: theirToday, updated_at: new Date().toISOString() })
+          });
+      if (!resp.ok) return res.status(502).json({ error: 'Could not end your break.' });
+      return done();
+    }
+
+    return res.status(400).json({ error: `Unknown client-break op: ${op}` });
+  } catch (err) {
+    console.error('save-user-data client-break error:', err);
+    return res.status(500).json({ error: 'Could not load breaks.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'body-measurement': handleBodyMeasurement,
   'tracker-log': handleTrackerLog,
   'progress-history': handleProgressHistory,
   'chat-message': handleChatMessage,
-  'testimonials': handleTestimonials
+  'testimonials': handleTestimonials,
+  'client-break': handleClientBreak
 };
 
 export default async function handler(req, res) {

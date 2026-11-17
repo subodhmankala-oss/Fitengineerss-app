@@ -1504,18 +1504,25 @@
     opacity: 0.85;
   }
 
-  /* Plain chevron beside the name: rotates when the card is open. */
+  /* Round fold button beside the name: rotates when the card is open. */
   .client-detail-header-info .client-detail-chevron {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(var(--fg-rgb), 0.16);
     color: var(--text-muted);
-    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.2s;
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.2s, border-color 0.2s, background 0.2s;
   }
 
   .client-detail-header-info:hover .client-detail-chevron,
   .client-detail-header-info .client-detail-chevron.is-open {
     color: var(--accent-text);
+    border-color: rgba(var(--accent-soft-rgb), 0.45);
+    background: rgba(var(--accent-soft-rgb), 0.1);
   }
 
   .client-detail-header-info .client-detail-chevron.is-open {

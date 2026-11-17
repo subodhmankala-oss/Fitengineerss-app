@@ -5586,6 +5586,22 @@ const databaseService = {
     return body;
   },
 
+  // "Taking a break" — every op goes through the server (client_breaks has
+  // no RLS policies; see api/save-user-data.js's handleClientBreak). Ops:
+  // list | start { reason, note, startDate, backDate } |
+  // update { id, reason, note, backDate } | end { id, today }.
+  // Returns { role, breaks: [raw rows] }; throws with the server's message.
+  async clientBreaks(op, payload = {}) {
+    if (!isSupabaseConfigured) throw new Error('Breaks need an internet connection.');
+    const { headers } = await serverFallbackAuth();
+    const resp = await fetch('/api/save-user-data?action=client-break', {
+      method: 'POST', headers, body: JSON.stringify({ op, ...payload })
+    });
+    const body = await resp.json().catch(() => null);
+    if (!resp.ok) throw new Error(body?.error || 'Could not reach the server. Try again.');
+    return body;
+  },
+
   async getCoachDetailsById(_coachId) {
     if (!isSupabaseConfigured) return null;
     return await getCoachDetailsViaServer();

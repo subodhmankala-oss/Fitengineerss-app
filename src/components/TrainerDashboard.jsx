@@ -7,6 +7,8 @@ import { findWrongClientSignal, describeWrongClientSignal } from '../utils/liveL
 import CoachQuietClients from './CoachQuietClients';
 import CoachClientList from './CoachClientList';
 import { useClientWeekGlance } from '../hooks/useClientWeekGlance';
+import useClientBreaks from '../hooks/useClientBreaks';
+import { activeBreak } from '../utils/clientBreaks';
 import { useLiveClientIds } from '../hooks/useLiveClientIds';
 import CoachReplyCard from './CoachReplyCard';
 import CoachInviteSheet from './CoachInviteSheet';
@@ -5484,7 +5486,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
   // This week's workout days + "needs you" flag per client, for the client
   // list rows and its "Needs you" filter chip (CoachClientList).
-  const { glances: clientGlances, recaps: clientGlanceRecaps } = useClientWeekGlance(viewMode === 'coach' ? myClients : []);
+  // Clients' "Taking a break" breaks: "Back 23 Nov" on the list instead of
+  // the red line, and away clients drop out of the quiet card.
+  const { breaks: coachClientBreaks, role: breaksRole, refresh: refreshClientBreaks } = useClientBreaks();
+  // A new break / back-early push arrived: re-read so the list matches it.
+  const breakNoticeKey = clientNotifications.filter(n => n.type === 'client_break').map(n => n.id).join(',');
+  useEffect(() => { if (breakNoticeKey) refreshClientBreaks(); }, [breakNoticeKey, refreshClientBreaks]);
+  const breaksByClient = useMemo(() => {
+    const out = {};
+    if (breaksRole !== 'coach') return out;
+    (coachClientBreaks || []).forEach(b => { (out[b.clientUserId] || (out[b.clientUserId] = [])).push(b); });
+    return out;
+  }, [coachClientBreaks, breaksRole]);
+  const { glances: clientGlances, recaps: clientGlanceRecaps } = useClientWeekGlance(viewMode === 'coach' ? myClients : [], breaksByClient);
   // Clients training right now → pulsing green today dot on their row.
   const liveClientIds = useLiveClientIds(viewMode === 'coach' && myClients.length > 0 ? resolvedCoachId : null);
   const needsYouCount = clientGlances ? myClients.filter(c => clientGlances[c.id]?.needsYou).length : 0;
@@ -5761,13 +5775,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
           workout_finished: [
             `Great session, ${first}! Solid work`,
             `How did that feel? Let me know if anything was too easy or too tough.`
+          ],
+          client_break: [
+            `Thanks for letting me know, ${first}. Enjoy the break, see you when you're back!`,
+            `Take care ${first}, rest up. We'll ease back in when you return.`,
+            `Noted ${first}! Your level won't drop while you're away.`
           ]
         };
         const canNote = n.type === 'client_reply' || NOTE_SUGGESTIONS[n.type];
         bellItems.push({
           key: `notif-${n.id}`,
           tone: n.clientTab === 'measurements' ? 'amber' : 'blue',
-          icon: n.clientTab === 'measurements' ? 'ruler' : (n.clientTab === 'workout' || n.clientTab === 'livelog') ? 'workout' : 'bell',
+          icon: n.type === 'client_break' ? 'plane'
+            : n.clientTab === 'measurements' ? 'ruler' : (n.clientTab === 'workout' || n.clientTab === 'livelog') ? 'workout' : 'bell',
           at: n.createdAt,
           title: n.title || `Update from ${nameOf(n.clientId, n.clientName)}`,
           body: n.body,
@@ -7688,7 +7708,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
               {/* This coach's clients who haven't opened the app in 3+ days
                   (or ever), each with a pre-written WhatsApp check-in. */}
-              <CoachQuietClients clients={myClients} onOpenClient={handleSelectClient} />
+              <CoachQuietClients
+                clients={myClients.filter(c => !activeBreak(breaksByClient[c.id], getLocalDateString()))}
+                onOpenClient={handleSelectClient}
+              />
 
               {/* Client finished a workout, no coach note sent yet — fallback
                   for a missed "workout completed" push. Lives on the home

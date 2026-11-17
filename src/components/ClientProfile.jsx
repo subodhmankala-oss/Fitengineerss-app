@@ -10,6 +10,11 @@ import WhatsNewList from './WhatsNewList';
 import { MEAS_INTERVAL_DAYS, measurementChanges } from '../utils/measurementDue';
 import { measUnitFor, storedToDisplay, displayToStored, formatMeas, formatMeasDelta } from '../utils/lengthUnits';
 import useFieldAboveKeyboard from '../hooks/useFieldAboveKeyboard';
+import useClientBreaks from '../hooks/useClientBreaks';
+import { activeBreak, formatBreakDateShort } from '../utils/clientBreaks';
+import { getLocalDateString } from '../utils/dateUtils';
+import ClientBreakSheet from './ClientBreakSheet';
+import { BreakCalendarIcon } from './ClientBreakIcons';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -73,6 +78,10 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
     if (activeSection && dotSections.has(activeSection)) onSectionOpen?.(activeSection);
   }, [activeSection, dotSections, onSectionOpen]);
   const { preference: themePreference, setTheme } = useTheme();
+  // Taking a break: the row shows "Back 23 Nov" while one is running.
+  const { ownBreaks: breaks, startBreak, updateBreak, endBreak } = useClientBreaks();
+  const runningBreak = activeBreak(breaks, getLocalDateString());
+  const [breakSheetOpen, setBreakSheetOpen] = useState(false);
 
   const readProfile = () => ({
     userName: localStorage.getItem('userName') || '',
@@ -889,6 +898,12 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
       <div className="cp-section-label">Preferences</div>
       <div className="cp-section-card">
         <SettingsRow icon="🏋️" label="Workouts" onTap={() => setActiveSection('workouts')} />
+        <SettingsRow
+          icon={<span className="cp-row-svg"><BreakCalendarIcon /></span>}
+          label="Taking a break"
+          value={runningBreak ? `Back ${formatBreakDateShort(runningBreak.backDate)}` : undefined}
+          onTap={() => setBreakSheetOpen(true)}
+        />
         <SettingsRow icon="📏" label="Measurements" dot={dotSections.has('measurements')} onTap={() => setActiveSection('measurements')} />
         <SettingsRow icon="📐" label="Units" value={`${weightUnit} · ${lengthUnit === 'in' ? 'inches' : 'cm'}`} onTap={() => setActiveSection('units')} />
         <SettingsRow
@@ -910,6 +925,16 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
       <button className="cp-logout-btn" onClick={handleLogout}>Log Out</button>
 
       <div className="cp-app-version">Fitengineers · v3</div>
+
+      {breakSheetOpen && (
+        <ClientBreakSheet
+          existing={runningBreak}
+          hasCoach={!!localStorage.getItem('userCoachId')}
+          onSave={runningBreak ? updateBreak : startBreak}
+          onEnd={endBreak}
+          onClose={() => setBreakSheetOpen(false)}
+        />
+      )}
     </div>
   );
 }

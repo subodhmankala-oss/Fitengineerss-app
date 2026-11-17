@@ -9,6 +9,7 @@ import { applyWeeklySwaps, countPriorRuns } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import { getPlanCardMeta } from '../utils/planCardMeta';
+import { easyRestartProgram } from '../utils/clientBreaks';
 import { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 
@@ -46,7 +47,9 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program, pr
 // themselves.
 // Renders nothing once the client has logged enough sessions, or if no
 // Workout Library programs are configured for either category at all.
-export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }) {
+// easyRestart: back from a break ("Taking a break") — every exercise capped
+// at 2 sets for the first workout back.
+export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, easyRestart = false }) {
   const [library, setLibrary] = useState(null); // null = still loading
   const [pref, setPref] = useState(undefined); // undefined = still loading
   // The ✕ on the first-workout picker hides it until the app is next opened
@@ -167,7 +170,8 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     );
   }
 
-  const { category, level, program, reason } = guidance;
+  const { category, level, reason } = guidance;
+  const program = easyRestart ? easyRestartProgram(guidance.program) : guidance.program;
   const levelLabel = level.charAt(0).toUpperCase() + level.slice(1);
 
   const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, logs);
@@ -216,7 +220,9 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          {reason === 'leveled-up' ? (
+          {easyRestart ? (
+            <span style={{ color: '#10b981', fontWeight: 700 }}>Easy restart · 2 sets each</span>
+          ) : reason === 'leveled-up' ? (
             <span style={{ color: '#22c55e', fontWeight: 700 }}>{levelLabel} unlocked</span>
           ) : reason === 'rotation' && position ? (
             <>

@@ -30,6 +30,7 @@ import { runFinishSignupReminders } from './_signupReminders.js';
 // runtime, confirmed 2026-08-11.
 import { getWeeklyMuscleStats, RECOMMENDED_EXERCISES } from '../src/utils/muscleAnalytics.js';
 import { decayWarningMessage } from '../src/utils/trainingLevelDecay.js';
+import { normalizeBreak, coachBreakTitle, activeBreak } from '../src/utils/clientBreaks.js';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '../src/utils/dateUtils.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -331,6 +332,34 @@ async function pushToUserId(supabaseClient, userId, title, body, event = 'inacti
   return { sent, failed };
 }
 
+// user_id → that client's breaks ("Taking a break", sql/client_breaks.sql)
+// from the last 120 days. Empty map if the table isn't there or the read
+// fails — the sweeps then behave as before.
+async function loadBreaksByUser(supabaseClient) {
+  const out = new Map();
+  try {
+    const since = shiftLocalDateString(getLocalDateString(new Date(), 'Asia/Kolkata'), -120);
+    const { data, error } = await supabaseClient
+      .from('client_breaks')
+      .select('id,client_user_id,reason,note,start_date,back_date')
+      .gte('back_date', since);
+    if (error) throw error;
+    (data || []).forEach((row) => {
+      const b = normalizeBreak(row);
+      (out.get(b.clientUserId) || out.set(b.clientUserId, []).get(b.clientUserId)).push(b);
+    });
+  } catch (e) {
+    console.warn('client_breaks read failed, sweeping without breaks:', e.message || e);
+  }
+  return out;
+}
+
+// True when a break covers today (IST) for this client: no reminders then.
+function onBreakToday(breaksByUser, userId) {
+  const breaks = breaksByUser.get(userId);
+  return !!breaks && !!activeBreak(breaks, getLocalDateString(new Date(), 'Asia/Kolkata'));
+}
+
 async function runInactivitySweep(supabaseClient, res) {
   try {
     const users = await rpcAll(supabaseClient, 'get_users_for_server');
@@ -338,10 +367,15 @@ async function runInactivitySweep(supabaseClient, res) {
     const coachRows = await rpcAll(supabaseClient, 'get_coaches_for_server');
     const usersById = new Map((users || []).map((u) => [u.id, u]));
     const lastWorkoutByUser = await rpcLastWorkoutDates(supabaseClient);
+    const breaksByUser = await loadBreaksByUser(supabaseClient);
 
-    let clientNudges = 0, coachNudges = 0, coachAlerts = 0, decayWarnings = 0, skipped = 0;
+    let clientNudges = 0, coachNudges = 0, coachAlerts = 0, decayWarnings = 0, skipped = 0, onBreak = 0;
 
     for (const u of users || []) {
+      // On a break the client set: no nudge, no decay warning, and no
+      // "gone quiet" alert to the coach — the coach already knows.
+      if (onBreakToday(breaksByUser, u.id)) { onBreak++; continue; }
+
       // Training Level decay: on each day a point drops (7, 14, 21… days
       // since the last logged workout) the client gets this warning instead
       // of the generic nudge below. Keyed on workouts, not last_login — a
@@ -349,7 +383,7 @@ async function runInactivitySweep(supabaseClient, res) {
       const decayClientRow = (clientRows || []).find((c) => c.user_id === u.id);
       if (decayClientRow) {
         const decayName = decayClientRow.full_name || u.full_name || 'there';
-        const warning = decayWarningMessage(decayName, lastWorkoutByUser.get(u.id));
+        const warning = decayWarningMessage(decayName, lastWorkoutByUser.get(u.id), Date.now(), breaksByUser.get(u.id) || []);
         if (warning) {
           const result = await pushToUserId(supabaseClient, u.id, warning.title, warning.body, 'training_level_decay', '/?tab=workouts', { email: u.email, name: decayName });
           if (result.sent > 0) decayWarnings++;
@@ -402,7 +436,7 @@ async function runInactivitySweep(supabaseClient, res) {
 
     return res.status(200).json({
       success: true,
-      message: `Inactivity sweep complete. Training Level decay warnings: ${decayWarnings}, client nudges: ${clientNudges}, coach self-nudges: ${coachNudges}, coach alerts about inactive clients: ${coachAlerts}, skipped (active/never logged in/unmatched): ${skipped}.`
+      message: `Inactivity sweep complete. Training Level decay warnings: ${decayWarnings}, client nudges: ${clientNudges}, coach self-nudges: ${coachNudges}, coach alerts about inactive clients: ${coachAlerts}, on a break: ${onBreak}, skipped (active/never logged in/unmatched): ${skipped}.`
     });
   } catch (error) {
     console.error('Inactivity nudge sweep error:', error);
@@ -465,9 +499,11 @@ async function runMuscleBalanceSweep(supabaseClient, res) {
     const usersRows = await rpcAll(supabaseClient, 'get_users_for_server');
     const logs = await rpcRecentWorkoutLogs(supabaseClient, weekStart);
     const usersById = new Map((usersRows || []).map((u) => [u.id, u]));
+    const breaksByUser = await loadBreaksByUser(supabaseClient);
 
     let notified = 0, skipped = 0;
     for (const client of clientRows || []) {
+      if (onBreakToday(breaksByUser, client.user_id)) { skipped++; continue; }
       const clientLogs = logs.filter((l) => l.user_id === client.user_id);
       const stats = getWeeklyMuscleStats(clientLogs, weekStart, weekEnd);
       const hasTrainedThisWeek = stats.some((m) => m.sets > 0);
@@ -531,6 +567,7 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
       if (!existing || at > existing) lastMeasuredByUser.set(m.user_id, at);
     });
     const usersById = new Map(usersRows.map((u) => [u.id, u]));
+    const breaksByUser = await loadBreaksByUser(supabaseClient);
 
     const now = new Date();
     let clientsNotified = 0, coachesNotified = 0, skipped = 0;
@@ -540,6 +577,7 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
       const daysSince = Math.floor((now.getTime() - anchor.getTime()) / 86_400_000);
 
       if (daysSince < 15 || daysSince % 15 !== 0) { skipped++; continue; }
+      if (onBreakToday(breaksByUser, client.user_id)) { skipped++; continue; }
 
       const clientName = client.full_name || 'there';
       const clientUser = usersById.get(client.user_id);
@@ -1029,6 +1067,28 @@ async function handleNotifyUser(req, res) {
         replyContext = `Re: ${workoutName}`;
       }
       body = replyContext ? `${replyContext} — ${message.trim()}` : message.trim();
+      url = `/?viewClient=${clientUserId}`;
+    } else if (event === 'client_break') {
+      // "Taking a break" (Profile → Taking a break). The text comes from the
+      // saved client_breaks row, not the request: breakOp is 'start' |
+      // 'update' (the latest break) or 'end' (back early).
+      if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
+      const { data: rows } = await supabase
+        .from('client_breaks')
+        .select('reason,note,start_date,back_date,updated_at')
+        .eq('client_user_id', clientUserId)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      const latest = rows?.[0];
+      if (!latest) return res.status(200).json({ success: true, message: 'No break to tell the coach about.' });
+      targetUserId = client.coach_id;
+      if (req.body?.breakOp === 'end') {
+        title = `${clientName} is back early`;
+        body = 'Ended their break today and is training again.';
+      } else {
+        title = coachBreakTitle(clientName, normalizeBreak(latest));
+        body = latest.note;
+      }
       url = `/?viewClient=${clientUserId}`;
     } else if (event === 'session_reminder') {
       targetUserId = clientUserId;

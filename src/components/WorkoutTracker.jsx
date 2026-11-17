@@ -62,6 +62,7 @@ import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps, countPriorRuns } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { idleDecayPoints } from '../utils/trainingLevelDecay';
+import useClientBreaks from '../hooks/useClientBreaks';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -254,6 +255,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const [ownUserId, setOwnUserId] = useState(null);
   // Experience level → the weekly set targets the "behind this week" hint uses.
   const savedTrainingLevel = useClientTrainingLevel(ownUserId);
+  // Days on a break ("Taking a break") don't count toward the Training
+  // Level's weekly idle drop.
+  const { ownBreaks } = useClientBreaks();
 
   // Custom on-screen number pad for the set-logging table's weight/reps/km/
   // time fields — see utils/setInputUtils.js for why this replaced the
@@ -1628,7 +1632,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
     // 1 point off per full week with no workout logged (see
     // utils/trainingLevelDecay — the inactivity push warns on each drop).
-    const decay = idleDecayPoints(clientSessions[clientSessions.length - 1].date);
+    const decay = idleDecayPoints(clientSessions[clientSessions.length - 1].date, Date.now(), ownBreaks || []);
     const earnedScore = Math.max(0, consistencyPct * 50 + overloadPct * 50); // 0–100, before the idle drop
     const score = Math.max(0, earnedScore - decay);
     const tenureTierIndex = weeksActive >= 36 ? 3 : weeksActive >= 24 ? 2 : weeksActive >= 12 ? 1 : 0;

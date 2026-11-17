@@ -5742,24 +5742,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         // button); the rest get a note with suggestions that fit.
         const NOTE_SUGGESTIONS = {
           measurement_reminder_coach: [
-            `Hey ${first}, could you log your measurements today? Takes 2 minutes and helps me tune your plan 📏`,
+            `Hey ${first}, could you log your measurements today? Takes 2 minutes and helps me tune your plan`,
             `Quick one ${first} — weight and waist when you get a sec, please!`
           ],
           coach_inactive_client_alert: [
             `Hi ${first}, just checking in — how's your week going? Tell me your goal and which days you can train, and I'll set you up.`,
-            `${first}, try one of the ready-made workouts in the Workout Library today — there are Gym and Home ones 💪`,
-            `Quick one ${first} — could you log your weight under Measurements when you get a sec? It gives us a starting point 📏`
+            `${first}, try one of the ready-made workouts in the Workout Library today — there are Gym and Home ones`,
+            `Quick one ${first} — could you log your weight under Measurements when you get a sec? It gives us a starting point`
           ],
           measurements_saved: [
-            `Thanks for logging your measurements, ${first}! Progress is looking good 📈`,
-            `Nice work ${first} — consistency like this is what moves the numbers 💪`
+            `Thanks for logging your measurements, ${first}! Progress is looking good`,
+            `Nice work ${first} — consistency like this is what moves the numbers`
           ],
           workout_started: [
-            `Have a great session, ${first}! 💪`,
-            `Go get it ${first} — focus on form today 🔥`
+            `Have a great session, ${first}!`,
+            `Go get it ${first} — focus on form today`
           ],
           workout_finished: [
-            `Great session, ${first}! Solid work 💪`,
+            `Great session, ${first}! Solid work`,
             `How did that feel? Let me know if anything was too easy or too tough.`
           ]
         };

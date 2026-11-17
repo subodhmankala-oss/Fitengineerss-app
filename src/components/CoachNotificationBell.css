@@ -410,3 +410,44 @@
   outline: none;
   border-color: var(--cnb-tone);
 }
+
+/* Note composer in a bell item — same look as CoachNoteComposer: short
+   quick-reply pills (tint + ring when picked) and one rounded note box with
+   the blue paper-plane send. */
+.cnb-compose-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 7px; }
+.cnb-compose .cnb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.cnb-compose .cnb-chip {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(var(--fg-rgb), 0.14);
+  background: rgba(var(--fg-rgb), 0.04); color: var(--text-main); font-size: 0.78rem; font-weight: 500;
+}
+.cnb-compose .cnb-chip.is-on {
+  background: rgba(var(--accent-rgb), 0.16); border: 1px solid rgba(var(--accent-rgb), 0.6); color: var(--accent-soft);
+}
+.cnb-box {
+  display: flex; align-items: flex-end; gap: 8px; padding: 5px 5px 5px 14px;
+  background: rgba(var(--fg-rgb), 0.04); border: 1px solid rgba(var(--fg-rgb), 0.14);
+  border-radius: 20px; transition: border-color 0.15s ease;
+}
+.cnb-box.has-text, .cnb-box:focus-within { border-color: rgba(var(--accent-rgb), 0.6); }
+.cnb-box .cnb-textarea {
+  flex: 1; min-width: 0; background: transparent; border: none; outline: none; resize: none;
+  padding: 6px 0; line-height: 1.45; font-size: 16px; field-sizing: content; max-height: 140px; color: var(--text-main);
+}
+.cnb-send {
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; border: none;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: rgba(var(--accent-rgb), 0.12); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.22);
+  color: var(--accent-soft); transition: background 0.15s ease, opacity 0.15s ease;
+}
+.cnb-send.is-ready { background: rgba(var(--accent-rgb), 0.22); }
+.cnb-send:disabled { opacity: 0.5; cursor: default; }
+.cnb-spinner {
+  width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent;
+  animation: cnb-spin 0.7s linear infinite;
+}
+@keyframes cnb-spin { to { transform: rotate(360deg); } }
+.cnb-compose-cancel {
+  display: block; margin: 8px 0 0 auto; padding: 2px 4px; background: none; border: none;
+  color: var(--text-muted); font: inherit; font-size: 0.74rem; cursor: pointer;
+}

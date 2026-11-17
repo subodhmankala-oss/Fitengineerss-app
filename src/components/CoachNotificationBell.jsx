@@ -105,27 +105,34 @@ function BellItem({ item, index, onDone, onFlash }) {
       {composing && (
         <div className="cnb-compose">
           {item.compose.suggestions?.length > 0 && (
-            <div className="cnb-chips">
-              {item.compose.suggestions.map(s => (
-                <button key={s} type="button" className="cnb-chip" onClick={() => setText(s)}>{s}</button>
-              ))}
-            </div>
+            <>
+              <div className="cnb-compose-label">Quick reply</div>
+              <div className="cnb-chips">
+                {item.compose.suggestions.map(s => (
+                  <button key={s} type="button" className={`cnb-chip${text === s ? ' is-on' : ''}`} title={s} onClick={() => setText(s)}>{s}</button>
+                ))}
+              </div>
+            </>
           )}
-          <textarea
-            className="cnb-textarea"
-            rows={3}
-            autoFocus
-            value={text}
-            placeholder={item.compose.placeholder || 'Write a message…'}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } }}
-          />
-          <div className="cnb-actions">
-            <button type="button" className="cnb-btn cnb-btn-primary" disabled={!text.trim() || sending} onClick={send}>
-              {sending ? 'Sending…' : 'Send'}
+          <div className={`cnb-box${text.trim() ? ' has-text' : ''}`}>
+            <textarea
+              className="cnb-textarea"
+              rows={1}
+              autoFocus
+              value={text}
+              placeholder={item.compose.placeholder || 'Write a message…'}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } }}
+            />
+            <button type="button" className={`cnb-send${text.trim() ? ' is-ready' : ''}`} disabled={!text.trim() || sending} onClick={send} aria-label="Send" title="Send">
+              {sending ? <span className="cnb-spinner" aria-hidden="true" /> : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10 14L21 3" /><path d="M21 3l-6.5 18a.55 .55 0 0 1-1 0L10 14l-7-3.5a.55 .55 0 0 1 0-1L21 3" />
+                </svg>
+              )}
             </button>
-            <button type="button" className="cnb-btn" onClick={() => { setComposing(false); setText(''); }}>Cancel</button>
           </div>
+          <button type="button" className="cnb-compose-cancel" onClick={() => { setComposing(false); setText(''); }}>Cancel</button>
         </div>
       )}
     </li>

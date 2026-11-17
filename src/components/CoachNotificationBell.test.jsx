@@ -37,7 +37,7 @@ describe('CoachNotificationBell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Notifications, 1 new' }));
     fireEvent.click(screen.getByText('Send note'));
     fireEvent.click(screen.getByText('Great session!'));
-    fireEvent.click(screen.getByText('Send'));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(send).toHaveBeenCalledWith('Great session!'));
     await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull());
   });
@@ -79,7 +79,7 @@ describe('CoachNotificationBell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Notifications, 1 new' }));
     fireEvent.click(screen.getByText('Send note'));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Everything okay?' } });
-    fireEvent.click(screen.getByText('Send'));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(screen.getByRole('status').textContent).toBe("Couldn't send — try again"));
     expect(screen.getByRole('textbox').value).toBe('Everything okay?');
   });

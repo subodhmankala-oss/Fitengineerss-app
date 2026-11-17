@@ -8391,10 +8391,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   onClick={() => setClientCardOpen(o => !o)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setClientCardOpen(o => !o); } }}
                 >
-                  <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
+                  <div className="client-detail-name-row">
+                    <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
+                    {/* Phones: plain chevron beside the name — the details
+                        card folds open from here. */}
+                    <span className={`client-detail-chevron${clientCardOpen ? ' is-open' : ''}`} aria-hidden="true">
+                      <svg width="12" height="12" viewBox="0 0 14 14">
+                        <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                  </div>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
-                  {/* Phones: goal · weight in place of the email, with a
-                      chevron showing the summary card folds open from here. */}
+                  {/* Phones: "● Fat loss · 86 kg" in place of the email. */}
                   <span className="client-detail-live-sub">
                     {selectedClient.userGoal && (
                       <span className="client-detail-goal-chip" style={{ '--goal-tint': GOAL_TINTS[selectedClient.userGoal] || 'var(--text-muted)' }}>
@@ -8403,13 +8411,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     )}
                     <span className="client-detail-live-sub-text">
                       {(clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight)
-                        ? `${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
+                        ? `${selectedClient.userGoal ? '· ' : ''}${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
                         : (!selectedClient.userGoal ? selectedClient.email : '')}
-                    </span>
-                    <span className={`client-detail-chevron${clientCardOpen ? ' is-open' : ''}`} aria-hidden="true">
-                      <svg width="12" height="12" viewBox="0 0 14 14">
-                        <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
                     </span>
                   </span>
                 </div>
@@ -8438,8 +8441,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                 strokeDasharray={`${pct * c} ${c}`} transform="rotate(-90 10 10)" />
                             )}
                           </svg>
-                          <span className="client-detail-live-sessions-num">{programSessionsDone}/{total}</span>
-                          <PencilIcon size={12} />
+                          <span className="client-detail-live-sessions-text">
+                            <span className="client-detail-live-sessions-num">{programSessionsDone}/{total}</span>
+                            <span className="client-detail-live-sessions-label">sessions</span>
+                          </span>
                         </>
                       );
                     })() : (

@@ -158,3 +158,18 @@
   padding-left: var(--bleed-left, 8px);
   padding-right: var(--bleed-right, 8px);
 }
+
+/* Phones: the selected tab is marked by a coloured underline that slides
+   between tabs (same pill element, reshaped) instead of a tinted box — the
+   client header above has no boxes either. */
+@media (max-width: 899px) {
+  .coach-tabs-pill {
+    top: auto;
+    bottom: 0;
+    height: 2.5px;
+    border-radius: 2px 2px 0 0;
+    background: var(--tone);
+    box-shadow: none;
+  }
+}
+

@@ -1615,7 +1615,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const [showTotalSessionsModal, setShowTotalSessionsModal] = useState(false);
   // Phones: the client summary card (goal, stats, sessions ring) is folded
   // under a one-line header on every tab; tapping the name opens it.
-  const [clientCardOpen, setClientCardOpen] = useState(false);
+  // Remembered per client: the id of the client whose card is open, so
+  // opening any client (or coming back to one) always starts folded.
+  const [clientCardOpenId, setClientCardOpenId] = useState(null);
+  const clientCardOpen = !!selectedClient && clientCardOpenId === selectedClient.id;
+  const toggleClientCard = () => setClientCardOpenId(id => (selectedClient && id !== selectedClient.id ? selectedClient.id : null));
   // Inline confirmation for the Program Total Sessions save — the panel sits
   // above the tab bar and is visible on every tab, but `liveToast` only
   // renders inside the Live Log tab, so a save on another tab looked like it
@@ -4219,6 +4223,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Fetch client workout logs when a client is selected
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
+    // Details card starts folded every time a client is opened.
+    setClientCardOpenId(null);
     setDetailTab('plans');
     // This client's history hasn't loaded yet — see liveHistoryRef.
     liveHistoryRef.current = { clientId: client.id, sessions: null };
@@ -8391,7 +8397,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   className={`client-detail-corner-tab${clientCardOpen ? ' is-open' : ''}`}
                   aria-expanded={clientCardOpen}
                   aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
-                  onClick={() => setClientCardOpen(o => !o)}
+                  onClick={toggleClientCard}
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
                     <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -8411,8 +8417,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   tabIndex={0}
                   aria-expanded={clientCardOpen}
                   aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
-                  onClick={() => setClientCardOpen(o => !o)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setClientCardOpen(o => !o); } }}
+                  onClick={toggleClientCard}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleClientCard(); } }}
                 >
                   <div className="client-detail-name-row">
                     <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>

@@ -1436,7 +1436,8 @@
    goal · weight ▾, sessions done. The summary card folds under it and
    opens on tapping the name (.is-card-open). Desktop sidebar unchanged. */
 .client-detail-live-sub,
-.client-detail-live-sessions {
+.client-detail-live-sessions,
+.client-detail-chevron {
   display: none;
 }
 
@@ -1468,15 +1469,30 @@
     color: var(--text-muted);
   }
 
+  /* Goal: coloured dot + coloured text — no chip box. */
   .client-detail-header-info .client-detail-goal-chip {
     flex-shrink: 0;
-    padding: 1px 8px;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.78rem;
+    font-weight: 600;
     color: var(--goal-tint);
-    background: color-mix(in srgb, var(--goal-tint) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--goal-tint) 35%, transparent);
+  }
+
+  .client-detail-header-info .client-detail-goal-chip::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--goal-tint);
+  }
+
+  .client-detail-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
   }
 
   .client-detail-header-info .client-detail-live-sub-text {
@@ -1488,7 +1504,7 @@
     opacity: 0.85;
   }
 
-  /* Round fold button: rotates when the card is open. */
+  /* Round fold button beside the name: rotates when the card is open. */
   .client-detail-header-info .client-detail-chevron {
     flex-shrink: 0;
     display: inline-flex;
@@ -1578,16 +1594,14 @@
   }
 }
 
-/* Sessions pill, one line: small ring, "12/18", pencil (the card shows
-   "N left" and dates). Unset: a dashed "+ Sessions". Tint + ring so it
-   reads as tappable without a solid fill. */
+/* Sessions, no box: small ring, "11/16" over "sessions" (tap to edit; the
+   card shows "N left" and dates). Unset: a plain "+ Sessions" link. */
 .client-detail-live-sessions {
-  gap: 6px;
-  height: 30px;
-  padding: 0 10px 0 5px;
-  background: rgba(var(--accent-soft-rgb), 0.08);
-  border: 1px solid rgba(var(--accent-soft-rgb), 0.3);
-  border-radius: 999px;
+  gap: 7px;
+  padding: 4px 0 4px 6px;
+  background: none;
+  border: none;
+  border-radius: 10px;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 600;
@@ -1598,17 +1612,25 @@
 }
 
 .client-detail-live-sessions.is-unset {
-  padding: 0 11px 0 9px;
   gap: 4px;
-  background: transparent;
-  border-style: dashed;
-  border-color: rgba(var(--accent-soft-rgb), 0.5);
 }
 
 .client-detail-live-sessions:hover,
 .client-detail-live-sessions:focus-visible {
-  background: rgba(var(--accent-soft-rgb), 0.14);
-  border-color: rgba(var(--accent-soft-rgb), 0.5);
+  background: rgba(var(--accent-soft-rgb), 0.08);
+}
+
+.client-detail-live-sessions-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.client-detail-live-sessions-label {
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .client-detail-live-sessions:active {
@@ -1630,6 +1652,7 @@
    title tooltip / the client list). */
 @media (max-width: 899px) {
   .client-detail-header-info .client-detail-name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2298,8 +2321,9 @@
 }
 
 /* Phones: header + tabs as one full-width panel. The header loses its side
-   borders and corners, its bottom edge meets the tabs band (whose top line
-   becomes a light divider), and its content is padded back in line with the
+   borders and corners, its bottom edge meets the tabs band (whose usual top
+   line is the divider — kept full strength so the active tab's pill never
+   looks like it spills into the header, esp. in light mode), and its content is padded back in line with the
    cards. With the details card open, the card sits between them, so the
    header closes with its own bottom line. */
 .client-detail-view .client-detail-header.is-full-bleed {
@@ -2317,10 +2341,6 @@
 
 .client-detail-view:not(.is-card-open) .client-detail-header.is-full-bleed {
   margin-bottom: 0 !important;
-}
-
-.client-detail-view:not(.is-card-open) .coach-tabs-track.is-full-bleed {
-  border-top: 1px solid var(--border-color);
 }
 
 .client-detail-view.is-card-open .client-detail-header.is-full-bleed {

@@ -1,8 +1,8 @@
 import { useUnreadNewsCount } from './useAdminNews';
 
 // One tab in the founder's phone bar (My Clients / News / Super-Admin) in
-// TrainerDashboard.jsx: line icon on top, label below, optional corner
-// bubble. Tint + ring when active (no solid fill), each tab its own hue.
+// TrainerDashboard.jsx: line icon and label side by side, optional count
+// pill after the label (2026-11-17 redesign). Tint + ring when active (no solid fill), each tab its own hue.
 
 const ICONS = {
   clients: (
@@ -31,15 +31,15 @@ export default function RoleTab({ kind, label, active, onClick, count = 0, count
       aria-pressed={active}
     >
       <span className="role-tab-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           {ICONS[kind]}
         </svg>
-        {count > 0 && (
-          <span className={`role-tab-bubble role-tab-bubble-${countTone}`} aria-label={`${count}`}>{count > 99 ? '99+' : count}</span>
-        )}
         {dot && <span className="role-tab-dot" aria-label={dotLabel} />}
       </span>
       <span className="role-tab-label">{label}</span>
+      {count > 0 && (
+        <span className={`role-tab-bubble role-tab-bubble-${countTone}`} aria-label={`${count}`}>{count > 99 ? '99+' : count}</span>
+      )}
     </button>
   );
 }

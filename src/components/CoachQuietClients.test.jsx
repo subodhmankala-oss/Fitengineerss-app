@@ -77,7 +77,7 @@ describe('CoachQuietClients', () => {
   it('opens WhatsApp to the client and ticks them as messaged', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     render(<CoachQuietClients clients={clients} />);
-    expect(screen.getByText('👀 3 clients have gone quiet')).toBeTruthy();
+    expect(screen.getByText('3 clients gone quiet')).toBeTruthy();
     fireEvent.click(screen.getAllByText('WhatsApp')[0]);
     const url = new URL(openSpy.mock.calls[0][0]);
     expect(url.searchParams.get('phone')).toBe('919000000020');
@@ -94,13 +94,13 @@ describe('CoachQuietClients', () => {
   it('collapses and expands from the header, and remembers the choice', () => {
     render(<CoachQuietClients clients={clients} />);
     expect(screen.getByText(/Inactive for 3\+ days/)).toBeTruthy();
-    fireEvent.click(screen.getByText('👀 3 clients have gone quiet'));
+    fireEvent.click(screen.getByText('3 clients gone quiet'));
     expect(screen.queryByText('Twenty Days')).toBeNull();
-    expect(screen.getByText('👀 3 clients have gone quiet')).toBeTruthy();
+    expect(screen.getByText('3 clients gone quiet')).toBeTruthy();
     cleanup();
     render(<CoachQuietClients clients={clients} />);
     expect(screen.queryByText('Twenty Days')).toBeNull();
-    fireEvent.click(screen.getByText('👀 3 clients have gone quiet'));
+    fireEvent.click(screen.getByText('3 clients gone quiet'));
     expect(screen.getByText('Twenty Days')).toBeTruthy();
   });
 

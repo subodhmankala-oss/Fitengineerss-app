@@ -225,6 +225,15 @@ const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
 // Goal → tint (tint + ring chips, never a solid fill): client summary card
 // and the one-line client header.
+// Short goal names for the one-line client header (phones).
+const GOAL_SHORT = {
+  'Fat Loss': 'Fat loss',
+  'Muscle Building': 'Muscle',
+  'Gut Fix': 'Gut',
+  'Gut Health': 'Gut',
+  'General Fitness': 'Fitness'
+};
+
 const GOAL_TINTS = {
   'Fat Loss': 'var(--tint-orange)',
   'Muscle Building': 'var(--tint-blue)',
@@ -8411,11 +8420,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                   {/* Phones: "● Fat loss · 86 kg" in place of the email. */}
                   <span className="client-detail-live-sub">
-                    {selectedClient.userGoal && (
-                      <span className="client-detail-goal-chip" style={{ '--goal-tint': GOAL_TINTS[selectedClient.userGoal] || 'var(--text-muted)' }}>
-                        {selectedClient.userGoal}
+                    {/* Both goals (primary + secondary), short names so they fit
+                        the line; the details card shows the full names. */}
+                    {[selectedClient.userGoal, selectedClient.userSecondaryGoal].filter(Boolean).map(goal => (
+                      <span key={goal} className="client-detail-goal-chip" title={goal} style={{ '--goal-tint': GOAL_TINTS[goal] || 'var(--text-muted)' }}>
+                        {GOAL_SHORT[goal] || goal}
                       </span>
-                    )}
+                    ))}
                     <span className="client-detail-live-sub-text">
                       {(clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight)
                         ? `${selectedClient.userGoal ? '· ' : ''}${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`

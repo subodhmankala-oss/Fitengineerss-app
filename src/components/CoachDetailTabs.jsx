@@ -4,7 +4,7 @@ import './CoachDetailTabs.css';
 
 // Coach client-detail tab bar ("status tabs"): each tab shows its name plus a
 // small live line — plans sent, the running Live Log clock, when the client
-// last trained, latest weight (desktop only; phones show the name alone).
+// last trained, latest weight (desktop only; phones: icon over a short name).
 // A tinted pill slides under the active tab.
 
 const Svg = ({ children }) => (
@@ -19,10 +19,10 @@ const HistoryIcon = () => <Svg><path d="M12 8v4l2 2" /><path d="M3.05 11a9 9 0 1
 const RulerIcon = () => <Svg><path d="M3 17 17 3l4 4L7 21z" /><path d="m7.5 12.5 2 2M10.5 9.5l2 2M13.5 6.5l2 2" /></Svg>;
 
 const TABS = [
-  { key: 'plans', label: 'Send plan', short: 'Send plan', icon: <SendIcon />, tour: 'tc-tab-plans' },
+  { key: 'plans', label: 'Send plan', short: 'Plan', icon: <SendIcon />, tour: 'tc-tab-plans' },
   { key: 'livelog', label: 'Log', short: 'Log', icon: <PulseIcon />, tour: 'tc-tab-livelog' },
   { key: 'workout', label: 'History', short: 'History', icon: <HistoryIcon />, tour: 'tc-tab-workout' },
-  { key: 'measurements', label: 'Measurements', short: 'Measurements', icon: <RulerIcon /> },
+  { key: 'measurements', label: 'Measurements', short: 'Body', icon: <RulerIcon /> },
 ];
 
 export default function CoachDetailTabs({ active, onSelect, statuses, liveRunning, hasDot }) {

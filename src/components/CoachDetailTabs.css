@@ -174,12 +174,39 @@
   }
 }
 
-/* Phones: one line per tab — icon + name, no status line under it ("36
-   plans", "Yesterday"… are inside each tab already). Tabs share the width
-   as before (sized to their names); the Log tab keeps its pulsing dot by the
-   name while the clock runs. */
+/* Phones: each tab is an equal column — icon over a short name ("Plan",
+   "Log", "History", "Body"), no status line. Icons are grey until the tab
+   is active, then take its colour with the name; the sliding underline
+   spans the whole tab. The Log tab keeps its pulsing dot while the clock
+   runs. */
 @media (max-width: 899px) {
   .coach-tab-status { display: none; }
-  .coach-tab-live-head { display: block; }
-  .coach-tabs .coach-tab { padding: 11px 6px 10px; }
+  .coach-tab-label .long { display: none; }
+  .coach-tab-label .short { display: inline; }
+  .coach-tabs-track { gap: 0; }
+  .coach-tabs .coach-tab {
+    flex: 1 1 0;
+    align-items: center;
+    padding: 10px 4px 9px;
+  }
+  .coach-tab-head {
+    flex-direction: column;
+    gap: 5px;
+  }
+  .coach-tabs .coach-tab-head svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    opacity: 1;
+  }
+  .coach-tabs .coach-tab.active .coach-tab-head svg { color: var(--tone); }
+  .coach-tab-label { font-size: 0.8rem; font-weight: 600; }
+  .coach-tab.active .coach-tab-label { color: var(--tone); }
+  .coach-tab-live-head {
+    display: block;
+    position: absolute;
+    top: 0;
+    right: calc(50% - 16px);
+  }
 }

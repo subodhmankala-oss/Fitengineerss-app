@@ -8069,18 +8069,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 >
                   <div className="client-detail-name-row">
                     <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
-                    {/* Phones: small chevron after the name — the hint that
-                        tapping it opens the details card; flips when open. */}
-                    <svg className={`client-detail-name-chevron${clientCardOpen ? ' is-open' : ''}`} width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+                    {/* Phones: down arrow beside the name — tap to open the
+                        details card; flips when open. */}
+                    <svg className={`client-detail-name-chevron${clientCardOpen ? ' is-open' : ''}`} width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
                       <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                   {/* Phones: "● Fat loss · 86 kg" in place of the email. */}
                   <span className="client-detail-live-sub">
-                    {/* Both goals (primary + secondary), short names so they fit
-                        the line; the details card shows the full names. */}
-                    {[selectedClient.userGoal, selectedClient.userSecondaryGoal].filter(Boolean).map(goal => (
+                    {/* Primary goal only, short name, so the line stays calm;
+                        the details card shows both goals in full. */}
+                    {[selectedClient.userGoal].filter(Boolean).map(goal => (
                       <span key={goal} className="client-detail-goal-chip" title={goal} style={{ '--goal-tint': GOAL_TINTS[goal] || 'var(--text-muted)' }}>
                         {GOAL_SHORT[goal] || goal}
                       </span>

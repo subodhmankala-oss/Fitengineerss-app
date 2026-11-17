@@ -1561,6 +1561,7 @@
 }
 
 @media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+  .client-detail-view .client-detail-name-chevron,
   .client-summary-fold,
   .client-summary-fold .client-summary-card,
   .client-detail-view .client-detail-header,
@@ -2355,7 +2356,7 @@
 }
 
 /* Phones: the client header IS the top bar — back arrow, avatar, name
-   (chevron = tap to open the details card), sessions ring. The separate
+   (down arrow = tap to open the details card), sessions ring + label. The separate
    "Dashboard / Manage Client" breadcrumb row is hidden. */
 @media (max-width: 899px) {
   .client-detail-view .dashboard-breadcrumb {
@@ -2394,6 +2395,11 @@
     font-size: 1rem !important;
   }
 
+  .client-detail-view .client-detail-live-sub {
+    margin-top: 1px;
+    font-size: 0.74rem;
+  }
+
   .client-detail-view .client-detail-name-chevron {
     display: block;
     flex-shrink: 0;
@@ -2403,22 +2409,6 @@
 
   .client-detail-view .client-detail-name-chevron.is-open {
     transform: rotate(180deg);
-  }
-
-  .client-detail-view .client-detail-live-sub {
-    margin-top: 1px;
-    font-size: 0.74rem;
-  }
-
-  /* Just "11/16" beside the ring; "sessions" is in the details card. */
-  .client-detail-view .client-detail-live-sessions-label {
-    display: none;
-  }
-}
-
-@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
-  .client-detail-view .client-detail-name-chevron {
-    transition: none;
   }
 }
 

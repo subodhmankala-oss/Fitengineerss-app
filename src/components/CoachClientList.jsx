@@ -3,7 +3,7 @@ import Avatar from './Avatar';
 import { getActivityStatus, daysSinceLogin } from '../utils/activityStatus';
 import { buildQuietMessage } from '../utils/quietClients';
 import { toWhatsappNumber, openWhatsapp } from '../utils/whatsappNudge';
-import { BREAK_REASONS } from '../utils/clientBreaks';
+import { BREAK_REASONS, formatBreakDateShort } from '../utils/clientBreaks';
 import { BreakReasonIcon } from './ClientBreakIcons';
 import './CoachClientList.css';
 
@@ -90,11 +90,17 @@ export default function CoachClientList({
             : `App: ${activity.label}`;
           const goal = client.userGoal;
           const open = () => { if (!paused) onOpen(client); };
+          // On a break the whole row takes the reason's colour (Holiday blue,
+          // Illness violet, Emergency red, Other amber).
+          const away = glance?.away && !live ? glance.away : null;
+          const awayMeta = away ? (BREAK_REASONS[away.reason] || BREAK_REASONS.other) : null;
+          const awayTitle = away ? `${awayMeta.label}: ${away.note}` : undefined;
 
           return (
             <div
               key={client.id}
-              className={`ccl-row${needs ? ' needs' : ''}${paused ? ' paused' : ''}`}
+              className={`ccl-row${needs ? ' needs' : ''}${paused ? ' paused' : ''}${away ? ' away' : ''}`}
+              style={away ? { '--c': awayMeta.color, '--c-rgb': awayMeta.rgb } : undefined}
               role="button"
               tabIndex={paused ? -1 : 0}
               aria-disabled={paused || undefined}
@@ -105,16 +111,10 @@ export default function CoachClientList({
               <span className="ccl-avatar">
                 <Avatar className="client-avatar" email={client.email} name={client.userName} avatarUrl={client.avatarUrl} size={40} />
                 {hasUnread(client.id) && <span className="unread-dot ccl-unread" aria-label="New update" />}
-                {glance?.away && !live ? (
+                {away ? (
                   // On a break: the reason's icon sits where the app dot is.
-                  <span
-                    className="ccl-app-dot ccl-break-badge"
-                    role="img"
-                    title={`${BREAK_REASONS[glance.away.reason]?.label || 'Break'}: ${glance.away.note}`}
-                    aria-label={`${BREAK_REASONS[glance.away.reason]?.label || 'On a break'}, ${glance.label}`}
-                    style={{ '--c': BREAK_REASONS[glance.away.reason]?.color, '--c-rgb': BREAK_REASONS[glance.away.reason]?.rgb }}
-                  >
-                    <BreakReasonIcon reason={glance.away.reason} size={10} strokeWidth={2.8} />
+                  <span className="ccl-app-dot ccl-break-badge" role="img" title={awayTitle} aria-label={`${awayMeta.status}, ${glance.label}`}>
+                    <BreakReasonIcon reason={away.reason} size={14} strokeWidth={2.4} />
                   </span>
                 ) : (
                   <span className="ccl-app-dot" role="img" title={activityLabel} aria-label={activityLabel} style={{ background: activity.color }} />
@@ -139,15 +139,11 @@ export default function CoachClientList({
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>
                       {glance.label}
                     </span>
-                  ) : glance.away && !live ? (
+                  ) : away ? (
                     <>
                       <WeekDots glance={glance} />
-                      <span
-                        className="ccl-away"
-                        style={{ '--c': BREAK_REASONS[glance.away.reason]?.color, '--c-rgb': BREAK_REASONS[glance.away.reason]?.rgb }}
-                        title={`${BREAK_REASONS[glance.away.reason]?.label || 'Break'}: ${glance.away.note}`}
-                      >
-                        {glance.label}
+                      <span className="ccl-away" title={awayTitle}>
+                        {awayMeta.short} · back {formatBreakDateShort(away.backDate)}
                       </span>
                     </>
                   ) : live ? (

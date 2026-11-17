@@ -8,10 +8,10 @@
 import { shiftLocalDateString, parseLocalDateString } from './dateUtils.js';
 
 export const BREAK_REASONS = {
-  holiday: { label: 'Holiday', status: 'On holiday', coachVerb: 'is on holiday', color: '#38bdf8', rgb: '56,189,248' },
-  illness: { label: 'Illness / injury', status: 'Off sick', coachVerb: 'is off sick or injured', color: '#a78bfa', rgb: '167,139,250' },
-  emergency: { label: 'Emergency', status: 'Away: emergency', coachVerb: 'is away for an emergency', color: '#f87171', rgb: '248,113,113' },
-  other: { label: 'Other', status: 'On a break', coachVerb: 'is taking a break', color: '#f59e0b', rgb: '245,158,11' },
+  holiday: { label: 'Holiday', status: 'On holiday', short: 'On holiday', coachVerb: 'is on holiday', color: '#38bdf8', rgb: '56,189,248' },
+  illness: { label: 'Illness / injury', status: 'Off sick', short: 'Off sick', coachVerb: 'is off sick or injured', color: '#a78bfa', rgb: '167,139,250' },
+  emergency: { label: 'Emergency', status: 'Away: emergency', short: 'Emergency', coachVerb: 'is away for an emergency', color: '#f87171', rgb: '248,113,113' },
+  other: { label: 'Other', status: 'On a break', short: 'On a break', coachVerb: 'is taking a break', color: '#f59e0b', rgb: '245,158,11' },
 };
 export const BREAK_REASON_KEYS = Object.keys(BREAK_REASONS);
 

@@ -16,13 +16,15 @@ const GOAL_SHORT = { 'Fat Loss': 'Fat loss', 'Muscle Building': 'Muscle', 'Gut F
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-function WeekDots({ glance }) {
+function WeekDots({ glance, live = false }) {
   return (
     <span className="ccl-week" aria-label={`${glance.weekCount} workout day${glance.weekCount === 1 ? '' : 's'} this week`}>
       {glance.days.map((on, i) => (
         <span
           key={i}
-          className={`ccl-day${on ? ' on' : ''}${i === glance.todayIndex ? ' today' : ''}${i > glance.todayIndex ? ' future' : ''}`}
+          className={live && i === glance.todayIndex
+            ? 'ccl-day live'
+            : `ccl-day${on ? ' on' : ''}${i === glance.todayIndex ? ' today' : ''}${i > glance.todayIndex ? ' future' : ''}`}
           aria-hidden="true"
         >{DAY_LETTERS[i]}</span>
       ))}
@@ -45,13 +47,15 @@ const Chevron = () => (
 
 // Coach's client list (option 2, "coach's glance"): one card, a row per
 // client with this week's Mon–Sun workout dots. Clients with no workout for
-// NEEDS_YOU_DAYS+ days get a red row and a WhatsApp button with a check-in
-// message already written. Email and phone are deliberately not shown — the
+// NEEDS_YOU_DAYS+ days get a red "since last workout" line (the only red on
+// the list) and a WhatsApp button with a check-in message already written.
+// A client training right now (liveIds) gets a pulsing green today dot. Email and phone are deliberately not shown — the
 // search box still matches email, and contact lives in the client's details.
 export default function CoachClientList({
   clients,
   glances,
   recaps = {},
+  liveIds = null,
   demoRow = null,
   onOpen,
   hasUnread,
@@ -75,7 +79,9 @@ export default function CoachClientList({
         {clients.map(client => {
           const glance = glances?.[client.id];
           const paused = !!client.paused_at;
-          const needs = !!glance?.needsYou;
+          const live = !!liveIds?.has(client.id) && !paused;
+          // Training right now beats "needs you" — they're back.
+          const needs = !!glance?.needsYou && !live;
           const activity = getActivityStatus(client.last_login);
           const activityLabel = client.last_login
             ? `App: ${activity.label} · last seen ${new Date(client.last_login).toLocaleString()}`
@@ -107,7 +113,7 @@ export default function CoachClientList({
                     {isNewConnection(client.id) && <span className="ccl-pill new">New</span>}
                     {paused && <span className="ccl-pill muted">Paused</span>}
                     {showGenericTag && !client.coach_id && <span className="ccl-pill muted">Generic</span>}
-                    {goal && <span className={`ccl-pill ${GOAL_CLASS(goal)}`}>{GOAL_SHORT[goal] || goal}</span>}
+                    {goal && <span className={`ccl-pill goal ${GOAL_CLASS(goal)}`}>{GOAL_SHORT[goal] || goal}</span>}
                   </span>
                 </span>
                 <span className="ccl-sub">
@@ -115,9 +121,14 @@ export default function CoachClientList({
                     !glances && <span className="ccl-week-skeleton" aria-hidden="true" />
                   ) : needs ? (
                     <span className="ccl-alert">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="12" y1="8" x2="12" y2="12.5" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>
                       {glance.label}
                     </span>
+                  ) : live ? (
+                    <>
+                      <WeekDots glance={glance} live />
+                      <span className="ccl-sub-text live">Training now</span>
+                    </>
                   ) : (
                     <>
                       <WeekDots glance={glance} />

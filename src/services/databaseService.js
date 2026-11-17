@@ -4659,6 +4659,35 @@ const databaseService = {
     }
   },
 
+  // Ids of this coach's clients training right now (client's own session or
+  // the coach's Live Log) — api/data-read.js 'coach-live-clients'. [] on any
+  // failure: the list just shows no pulse; never throws.
+  async getCoachLiveClientIds(coachId) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(coachId || '');
+    if (!isSupabaseConfigured || !isUuid) return [];
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), adaptiveTimeout(6000));
+      try {
+        const resp = await fetch('/api/data-read?resource=coach-live-clients', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ coachId, email }),
+          signal: controller.signal
+        });
+        if (!resp.ok) return [];
+        const data = await resp.json().catch(() => null);
+        return Array.isArray(data?.liveUserIds) ? data.liveUserIds : [];
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (e) {
+      console.warn('getCoachLiveClientIds failed (non-fatal):', e?.message || e);
+      return [];
+    }
+  },
+
   // Deletes only this source's draft — finishing or discarding the client's
   // own session must never take the coach's Live Log with it, or vice versa.
   async deleteWorkoutDraft(userId, source) {

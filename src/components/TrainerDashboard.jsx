@@ -7,6 +7,7 @@ import { findWrongClientSignal, describeWrongClientSignal } from '../utils/liveL
 import CoachQuietClients from './CoachQuietClients';
 import CoachClientList from './CoachClientList';
 import { useClientWeekGlance } from '../hooks/useClientWeekGlance';
+import { useLiveClientIds } from '../hooks/useLiveClientIds';
 import CoachReplyCard from './CoachReplyCard';
 import CoachInviteSheet from './CoachInviteSheet';
 import './TrainerDashboard.css';
@@ -5484,6 +5485,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // This week's workout days + "needs you" flag per client, for the client
   // list rows and its "Needs you" filter chip (CoachClientList).
   const { glances: clientGlances, recaps: clientGlanceRecaps } = useClientWeekGlance(viewMode === 'coach' ? myClients : []);
+  // Clients training right now → pulsing green today dot on their row.
+  const liveClientIds = useLiveClientIds(viewMode === 'coach' && myClients.length > 0 ? resolvedCoachId : null);
   const needsYouCount = clientGlances ? myClients.filter(c => clientGlances[c.id]?.needsYou).length : 0;
 
   const filteredClients = clients.filter(c => {
@@ -7956,6 +7959,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   clients={filteredClients}
                   glances={clientGlances}
                   recaps={clientGlanceRecaps}
+                  liveIds={liveClientIds}
                   onOpen={handleSelectClient}
                   hasUnread={id => hasClientDot(id) || newClientNotifications.some(n => n.clientId === id)}
                   isNewConnection={id => newClientNotifications.some(n => n.clientId === id)}

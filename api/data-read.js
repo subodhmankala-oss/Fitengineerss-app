@@ -14,6 +14,7 @@
 
 import { getAdminNews } from './_adminNews.js';
 import { getNewsArticle } from './_newsArticle.js';
+import { liveSince, liveUserIds } from './_liveClients.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -777,12 +778,52 @@ async function handleAdminNewsArticle(req, res) {
   }
 }
 
+// ─── coach-live-clients ───
+// Which of this coach's clients are training right now (see
+// api/_liveClients.js for the rule). RLS hides a client's own ('self') draft
+// from their coach, so this goes through the service role — and returns only
+// user ids, never the sets.
+async function handleCoachLiveClients(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const { coachId } = req.body || {};
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(coachId || '');
+  if (!isUuid) return res.status(400).json({ error: 'coachId must be a UUID' });
+
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  try {
+    if (!isSuperAdminEmail(verifiedEmail)) {
+      const owner = await svcSelect(`users?id=eq.${encodeURIComponent(coachId)}&select=email`, 'coach-live-clients owner');
+      const ownerEmail = (owner[0]?.email || '').trim().toLowerCase();
+      if (!ownerEmail || ownerEmail !== verifiedEmail) {
+        return res.status(403).json({ error: 'You are not authorized to read this roster.' });
+      }
+    }
+    const roster = await svcSelect(`clients?select=user_id&coach_id=eq.${encodeURIComponent(coachId)}`, 'coach-live-clients roster');
+    const ids = roster.map(r => r.user_id).filter(Boolean);
+    if (ids.length === 0) return res.status(200).json({ liveUserIds: [] });
+    const rows = await svcSelect(
+      `workout_drafts?select=user_id,timer_status,updated_at&timer_status=eq.running`
+      + `&updated_at=gte.${encodeURIComponent(liveSince())}&user_id=in.(${ids.map(encodeURIComponent).join(',')})`,
+      'coach-live-clients drafts'
+    );
+    return res.status(200).json({ liveUserIds: liveUserIds(rows) });
+  } catch (err) {
+    console.error('coach-live-clients error:', err);
+    return res.status(502).json({ error: 'Could not read live sessions.' });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
   'workout-plans': handleWorkoutPlans,
   'profile': handleLookupProfile,
   'workout-draft': handleWorkoutDraft,
+  'coach-live-clients': handleCoachLiveClients,
   'custom-exercises-list': handleCustomExercisesList,
   'custom-exercises-create': handleCreateCustomExercise,
   'admin-coaches': handleAdminCoaches,

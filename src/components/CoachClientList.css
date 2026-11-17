@@ -81,7 +81,7 @@
 
 /* Training right now (open workout_drafts row, timer running, saved in the
    last few minutes): today's dot goes solid green and pulses. */
-.ccl-day.live { position: relative; background: #10b981; color: #06281d; box-shadow: none; }
+.ccl-day.live { position: relative; background: #10b981; color: #fff; box-shadow: none; }
 .ccl-day.live::after {
   content: ""; position: absolute; inset: 0; border-radius: 50%;
   animation: ccl-live-pulse 1.6s ease-out infinite;

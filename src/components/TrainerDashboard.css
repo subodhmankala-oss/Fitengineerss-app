@@ -2298,8 +2298,9 @@
 }
 
 /* Phones: header + tabs as one full-width panel. The header loses its side
-   borders and corners, its bottom edge meets the tabs band (whose top line
-   becomes a light divider), and its content is padded back in line with the
+   borders and corners, its bottom edge meets the tabs band (whose usual top
+   line is the divider — kept full strength so the active tab's pill never
+   looks like it spills into the header, esp. in light mode), and its content is padded back in line with the
    cards. With the details card open, the card sits between them, so the
    header closes with its own bottom line. */
 .client-detail-view .client-detail-header.is-full-bleed {
@@ -2317,10 +2318,6 @@
 
 .client-detail-view:not(.is-card-open) .client-detail-header.is-full-bleed {
   margin-bottom: 0 !important;
-}
-
-.client-detail-view:not(.is-card-open) .coach-tabs-track.is-full-bleed {
-  border-top: 1px solid var(--border-color);
 }
 
 .client-detail-view.is-card-open .client-detail-header.is-full-bleed {

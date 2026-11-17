@@ -9,6 +9,7 @@ import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
 import { MEAS_INTERVAL_DAYS, measurementChanges } from '../utils/measurementDue';
 import { measUnitFor, storedToDisplay, displayToStored, formatMeas, formatMeasDelta } from '../utils/lengthUnits';
+import useFieldAboveKeyboard from '../hooks/useFieldAboveKeyboard';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -91,6 +92,8 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
   const [form, setForm] = useState(readProfile);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  // Keep the focused field (measurements, profile) above the phone keyboard.
+  useFieldAboveKeyboard('.cp-form-scroll');
   const [weightUnit, setWeightUnit] = useState(localStorage.getItem('weightUnit') || 'kg');
   // Body-measurement display unit; values are always stored in cm.
   const [lengthUnit, setLengthUnit] = useState(() => (localStorage.getItem('lengthUnit') === 'in' ? 'in' : 'cm'));

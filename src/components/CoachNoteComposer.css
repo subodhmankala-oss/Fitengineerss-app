@@ -24,6 +24,7 @@
   background: #fff;
 }
 .cnx--send { margin: 0 var(--screen-gutter, 16px) 16px; }
+.cnx--send.cnx--flush { margin: 0; }
 .cnx--live { margin-top: 16px; }
 
 .cnx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

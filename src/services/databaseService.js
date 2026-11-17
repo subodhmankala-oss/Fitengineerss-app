@@ -4,6 +4,7 @@ import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
 import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 import { adaptiveTimeout, uploadTimeout } from '../utils/networkQuality';
 import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
+import { splitLogRowsForRecap } from '../utils/coachNoteRecap';
 import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
 import { setCatalogMuscles } from '../utils/muscleGroups';
 import { withExerciseIds } from '../utils/exerciseName';
@@ -3857,11 +3858,13 @@ const databaseService = {
       //    onto every set row — pick the first non-null duration/calories per
       //    session, same as groupLogs in TrainerDashboard).
       const logs = await restSelect(
-        `workout_logs?select=user_id,log_date,plan_name,duration_seconds,calories_burned,created_at` +
+        `workout_logs?select=user_id,log_date,plan_name,duration_seconds,calories_burned,created_at,exercise_name,set_number,reps,weight_kg,set_type,distance_km,cardio_duration_seconds` +
         `&user_id=in.(${idList})&order=log_date.desc,created_at.desc`
       );
       const latestByClient = {};
+      const rowsByClient = {};
       (logs || []).forEach(r => {
+        (rowsByClient[r.user_id] = rowsByClient[r.user_id] || []).push(r);
         const cur = latestByClient[r.user_id];
         // Rows are already date-desc, created_at-desc, so the first row seen
         // for a client is their latest session; later rows only backfill the
@@ -3907,6 +3910,11 @@ const databaseService = {
         const lastNote = lastNoteByClient[s.clientId];
         if (!lastNote) return true;
         return new Date(lastNote) < new Date(s.sessionAt || `${s.date}T00:00:00`);
+      }).map(s => {
+        // What the home card's recap needs: this session's exercises, its
+        // rows (heat map) and the earlier sessions (PR check).
+        const split = splitLogRowsForRecap(rowsByClient[s.clientId]);
+        return { ...s, exercises: split.exercises, rows: split.latestRows, priorSessions: split.priorSessions };
       });
     } catch (e) {
       // BUG FIX 2026-08-18: this used to return [] on any failure (a slow/

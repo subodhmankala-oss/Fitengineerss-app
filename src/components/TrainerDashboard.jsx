@@ -7709,7 +7709,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     s.caloriesBurned != null ? `🔥 ${s.caloriesBurned} kcal` : null
                   ].filter(Boolean).join('  •  ');
                 };
-                const statBits = buildAwaitingStatBits(session);
                 const isSending = sendingNoteFor === session.clientId;
                 const hasMultiple = homeSessionsAwaitingNote.length > 1;
                 // Which neighbor is peeking in from the side, based on which
@@ -7734,7 +7733,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       {peekSession && (
                         <div
                           key={`peek-${peekSession.clientId}|${peekSession.date}`}
-                          className="coach-note-card"
+                          className="cnx cnx--send cnx--flush"
                           aria-hidden="true"
                           style={{
                             // top+bottom (not just top) makes this box span
@@ -7751,30 +7750,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             pointerEvents: 'none'
                           }}
                         >
-                          <div className="coach-note-head">
-                            <span className="coach-note-title">
-                              ✅ {(peekSession.clientName || 'Client').split(/\s+/)[0]} finished a workout
+                          <div className="cnx-head">
+                            <span className="cnx-avatar">{(peekSession.clientName || 'C').trim()[0].toUpperCase()}</span>
+                            <span className="cnx-head-text">
+                              <span className="cnx-title">
+                                {(peekSession.clientName || 'Client').split(/\s+/)[0]} finished {peekSession.workoutName && peekSession.workoutName !== 'Custom Routine' ? peekSession.workoutName : 'a workout'}
+                              </span>
+                              {buildAwaitingStatBits(peekSession) && <span className="cnx-sub">{buildAwaitingStatBits(peekSession)}</span>}
                             </span>
                           </div>
-                          {(peekSession.workoutName || buildAwaitingStatBits(peekSession)) && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-                              {peekSession.workoutName && (
-                                <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', fontWeight: 700, lineHeight: 1.3 }}>
-                                  {peekSession.workoutName}
-                                </div>
-                              )}
-                              {buildAwaitingStatBits(peekSession) && (
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
-                                  {buildAwaitingStatBits(peekSession)}
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       )}
                       <div
                         key={`${session.clientId}|${session.date}`}
-                        className={`coach-note-card awaiting-slide-${awaitingSlideDir > 0 ? 'next' : 'prev'}`}
+                        className={`awaiting-slide-${awaitingSlideDir > 0 ? 'next' : 'prev'}`}
                         style={{
                           width: '100%', margin: 0, boxSizing: 'border-box', position: 'relative',
                           // Follows the finger 1:1 while dragging (no
@@ -7795,98 +7784,42 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         onTouchMove={hasMultiple ? handleAwaitingSlideTouchMove : undefined}
                         onTouchEnd={hasMultiple ? (e) => handleAwaitingSlideTouchEnd(e, homeSessionsAwaitingNote.length) : undefined}
                       >
-                        <div className="coach-note-head">
-                          <span className="coach-note-title">
-                            ✅ {(session.clientName || 'Client').split(/\s+/)[0]} finished a workout
-                          </span>
-                          <button
-                            type="button"
-                            title={hasMultiple ? 'Close all' : 'Dismiss'}
-                            onClick={handleCloseHomeSessionCards}
-                            style={{
-                              background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
-                              color: 'var(--text-muted)', borderRadius: '50%', width: '24px', height: '24px',
-                              fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                              justifyContent: 'center', flexShrink: 0
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                        {/* Workout name + date/duration/calories, sitting
-                            under the client's name. Arrows are back at the
-                            bottom-right (next to Send note). marginBottom
-                            widened further (14px -> 24px) — still not
-                            enough breathing room before the AI-note chips
-                            right under it, per follow-up request 2026-08-18. */}
-                        {(session.workoutName || statBits) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', marginBottom: '24px' }}>
-                            {session.workoutName && (
-                              <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', fontWeight: 700, lineHeight: 1.3 }}>
-                                {session.workoutName}
-                              </div>
-                            )}
-                            {statBits && (
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
-                                {statBits}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="coach-note-suggestions">
-                          {buildSessionNoteSuggestions(session).map((sug, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              className="coach-note-chip"
-                              disabled={isSending}
-                              onClick={() => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: sug }))}
-                              title="Tap to use — you can still edit before sending"
-                            >
-                              {sug}
-                            </button>
-                          ))}
-                        </div>
-                        <textarea
-                          className="coach-note-textarea"
-                          placeholder={`Write a note to ${(session.clientName || 'client').split(/\s+/)[0]}…`}
+                        <CoachNoteComposer
+                          mode="send"
+                          flush
+                          clientLabel={noteFirstName(session.clientName) || (session.clientName || 'Client').trim().split(/\s+/)[0]}
+                          title={`${(session.clientName || 'Client').trim().split(/\s+/)[0]} finished ${session.workoutName && session.workoutName !== 'Custom Routine' ? session.workoutName : 'a workout'}`}
+                          subtitle={session.date ? (isLocalToday(session.date) ? 'Today' : parseLocalDateString(session.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })) : ''}
+                          durationLabel={session.durationSeconds != null ? formatNoteDuration(session.durationSeconds) : null}
+                          kcalLabel={roundKcal(session.caloriesBurned)}
+                          recap={buildSessionRecap(session.exercises || [], session.priorSessions || [])}
+                          quickReplies={buildQuickReplies(noteFirstName(session.clientName), buildSessionStatPhrase(session.durationSeconds, session.caloriesBurned))}
+                          rows={session.rows || []}
+                          date={session.date}
                           value={coachNoteDrafts[session.clientId] || ''}
-                          onChange={(e) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: e.target.value }))}
-                          rows={2}
-                          disabled={isSending}
+                          onChange={(text) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: text }))}
+                          onSend={() => handleSendSessionNote(session)}
+                          sending={isSending}
+                          onDismiss={handleCloseHomeSessionCards}
+                          dismissTitle={hasMultiple ? 'Close all' : 'Dismiss'}
                         />
-                        {/* Send note + the slide dots on the left; the
-                            prev/"2/3"/next arrows back at the bottom-right,
-                            level with Send note — per request 2026-08-18. */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '10px', marginTop: '8px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                            <button
-                              type="button"
-                              className="coach-note-send"
-                              disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
-                              onClick={() => handleSendSessionNote(session)}
-                            >
-                              {isSending ? '⏳ Sending…' : '💬 Send note'}
-                            </button>
-                            {hasMultiple && (
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                {homeSessionsAwaitingNote.map((s, i) => (
-                                  <button
-                                    key={`${s.clientId}|${s.date}`}
-                                    type="button"
-                                    title={s.clientName}
-                                    onClick={() => goToAwaitingSlide(i, homeSessionsAwaitingNote.length)}
-                                    style={{
-                                      width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
-                                      border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
-                                      background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(var(--fg-rgb), 0.18)'
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {hasMultiple && (
+                        {hasMultiple && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {homeSessionsAwaitingNote.map((s, i) => (
+                                <button
+                                  key={`${s.clientId}|${s.date}`}
+                                  type="button"
+                                  title={s.clientName}
+                                  onClick={() => goToAwaitingSlide(i, homeSessionsAwaitingNote.length)}
+                                  style={{
+                                    width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
+                                    border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
+                                    background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(var(--fg-rgb), 0.18)'
+                                  }}
+                                />
+                              ))}
+                            </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                               <button
                                 type="button"
@@ -7916,8 +7849,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                 ›
                               </button>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

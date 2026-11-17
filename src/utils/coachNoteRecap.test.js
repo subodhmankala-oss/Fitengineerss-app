@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSessionRecap, noteFirstName, buildQuickReplies } from './coachNoteRecap';
+import { buildSessionRecap, noteFirstName, buildQuickReplies, splitLogRowsForRecap } from './coachNoteRecap';
 
 const prior = [{
   date: '2026-11-10',
@@ -57,5 +57,25 @@ describe('buildQuickReplies', () => {
     const [noName] = buildQuickReplies(null, '');
     expect(noName.text).toBe('Great work today! Really solid session.');
     buildQuickReplies('A', 'x').forEach(r => expect(r.text).not.toMatch(/\p{Extended_Pictographic}/u));
+  });
+});
+
+describe('splitLogRowsForRecap', () => {
+  it('splits the newest session from earlier ones and feeds the PR check', () => {
+    const rows = [
+      { log_date: '2026-11-17', exercise_name: 'Bench Press', set_number: 2, reps: 5, weight_kg: 62.5 },
+      { log_date: '2026-11-17', exercise_name: 'Bench Press', set_number: 1, reps: 5, weight_kg: 60 },
+      { log_date: '2026-11-10', exercise_name: 'Bench Press', set_number: 1, reps: 8, weight_kg: 60 },
+    ];
+    const s = splitLogRowsForRecap(rows);
+    expect(s.latestDate).toBe('2026-11-17');
+    expect(s.exercises[0].sets.map(x => x.weight)).toEqual([60, 62.5]);
+    expect(s.latestRows).toHaveLength(2);
+    expect(s.priorSessions).toHaveLength(1);
+    const [bench] = buildSessionRecap(s.exercises, s.priorSessions);
+    expect(bench.isPR).toBe(true);
+  });
+  it('handles no rows', () => {
+    expect(splitLogRowsForRecap([])).toMatchObject({ latestDate: null, exercises: [], priorSessions: [] });
   });
 });

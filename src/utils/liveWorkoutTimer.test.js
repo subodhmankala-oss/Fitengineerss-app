@@ -97,9 +97,9 @@ describe('loaded carry calories (reps field holds meters)', () => {
   });
 
   it('leaves regular strength sets priced as strength', () => {
-    // 10 reps x 3 s at 6.0 MET, 70 kg body + 50 kg bar, minus resting:
-    // (6 x 120 - 70) x 3.5 / 200 x 0.5 = 5.7, no rest credit
-    expect(kcalFor('Bench Press', { reps: '10', weight: '50' })).toBeCloseTo(5.7, 1);
+    // 10 reps x 3 s at 6.0 MET (35 kg = full load at 70 kg), minus resting:
+    // (6 x 105 - 70) x 3.5 / 200 x 0.5 = 4.9, no rest credit
+    expect(kcalFor('Bench Press', { reps: '10', weight: '35' })).toBeCloseTo(4.9, 1);
   });
 });
 
@@ -156,9 +156,9 @@ describe('light core vs vigorous bodyweight vs weight training', () => {
   });
 
   it('counts only the logged reps of a weighted set, with no rest credit', () => {
-    const set = (reps) => (6 * (70 + 40) - 70) * 3.5 / 200 * (reps * 3 / 60);
-    expect(kcalFor('Lat Pulldown', { reps: '8', weight: '40' })).toBeCloseTo(set(8), 1);
-    expect(kcalFor('Lat Pulldown', { reps: '15', weight: '40' })).toBeCloseTo(set(15), 1);
+    const set = (reps) => (6 * (70 + 35) - 70) * 3.5 / 200 * (reps * 3 / 60);
+    expect(kcalFor('Lat Pulldown', { reps: '8', weight: '35' })).toBeCloseTo(set(8), 1);
+    expect(kcalFor('Lat Pulldown', { reps: '15', weight: '35' })).toBeCloseTo(set(15), 1);
   });
 
   it('counts nothing for a weighted set with 0 reps', () => {
@@ -231,27 +231,28 @@ describe('recovery between sets', () => {
   const set = (completedSec, fields) => ({ isCompleted: true, completedAt: at(completedSec), ...fields });
   // 70 kg, 3.5 MET recovery (2.5 active): 2.5 x 3.5 x 70 / 200 = 3.0625 kcal/min
   const recoveryKcal = (seconds) => 3.0625 * seconds / 60;
-  const bench = (reps) => (6 * (70 + 50) - 70) * 3.5 / 200 * (reps * 3 / 60);
+  // 35 kg = a full working load at 70 kg: 6.0 MET work, 3.5 MET recovery
+  const bench = (reps) => (6 * (70 + 35) - 70) * 3.5 / 200 * (reps * 3 / 60);
   const kcal = (exercises, pauses = []) => computeLiveCalories(exercises, at(0), pauses, 70).totalKcal;
 
   it('credits the real gap between two sets, minus the next set\'s own work', () => {
     // 10 reps = 30 s of work; next tick 90 s later -> 60 s recovery
-    const sets = [set(30, { reps: '10', weight: '50' }), set(120, { reps: '10', weight: '50' })];
+    const sets = [set(30, { reps: '10', weight: '35' }), set(120, { reps: '10', weight: '35' })];
     expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(60), 1);
   });
 
   it('caps recovery at 180 s however long the break was', () => {
-    const sets = [set(30, { reps: '10', weight: '50' }), set(30 + 600, { reps: '10', weight: '50' })];
+    const sets = [set(30, { reps: '10', weight: '35' }), set(30 + 600, { reps: '10', weight: '35' })];
     expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(180), 1);
   });
 
   it('credits nothing after the last set or for sets ticked back to back', () => {
-    const sets = [set(30, { reps: '10', weight: '50' }), set(31, { reps: '10', weight: '50' })];
+    const sets = [set(30, { reps: '10', weight: '35' }), set(31, { reps: '10', weight: '35' })];
     expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10), 1);
   });
 
   it('excludes paused time from the gap', () => {
-    const sets = [set(30, { reps: '10', weight: '50' }), set(630, { reps: '10', weight: '50' })];
+    const sets = [set(30, { reps: '10', weight: '35' }), set(630, { reps: '10', weight: '35' })];
     // paused for 560 of the 600 s -> 40 s active, minus 30 s work = 10 s
     const pauses = [{ pausedAt: at(40), resumedAt: at(600) }];
     expect(kcal([{ name: 'Bench Press', sets }], pauses)).toBeCloseTo(2 * bench(10) + recoveryKcal(10), 1);
@@ -260,7 +261,7 @@ describe('recovery between sets', () => {
   // 2026-10-27: a 57-minute leg day read 239 kcal ticked all at
   // once, 241 ticked quickly one after another, and up to 423 ticked set by set.
   it('gives the same total however the sets were ticked', () => {
-    const lifts = [[15, 40], [15, 60], [15, 90], [15, 90], [10, 60], [15, 40]];
+    const lifts = [[15, 35], [15, 35], [15, 35], [15, 35], [10, 35], [15, 35]];
     const day = (tickAt) => [
       { name: 'Leg Press', sets: lifts.map(([r, w], i) => set(tickAt(i), { reps: String(r), weight: String(w) })) },
       { name: 'Incline Walk', sets: [set(tickAt(lifts.length), { distanceKm: '0.75', time: '10:00' })] },
@@ -274,13 +275,13 @@ describe('recovery between sets', () => {
     // 30 min clock - 10 min walk - 255 s lifting = 945 s of recovery, under
     // the 6 sets x 180 s cap.
     const workOnly = computeLiveCalories(day(() => end), 0, [], 70).totalKcal;
-    expect(allAtOnce).toBeCloseTo(workOnly + recoveryKcal(945), 1);
+    expect(allAtOnce).toBeCloseTo(workOnly + recoveryKcal(945), 0); // both totals are rounded to 0.1
   });
 
   it('gives no recovery after a cardio set', () => {
     const exercises = [
       { name: 'Cycling', sets: [set(600, { distanceKm: '3', time: '10:00' })] },
-      { name: 'Bench Press', sets: [set(700, { reps: '10', weight: '50' })] },
+      { name: 'Bench Press', sets: [set(700, { reps: '10', weight: '35' })] },
     ];
     const cardioOnly = computeLiveCalories([exercises[0]], at(0), [], 70).totalKcal;
     expect(kcal(exercises)).toBeCloseTo(cardioOnly + bench(10), 0);
@@ -461,8 +462,8 @@ describe('strength effort follows the load', () => {
 
   it('prices a full working load as before (6.0 MET)', () => {
     // half of bodyweight on a multi-joint lift, a fifth on a single-joint one
-    expect(one('Barbell Squat', 10, 60)).toBeCloseTo((6 * 130 - 70) * 3.5 / 200 * 0.5, 1);
-    expect(one('Triceps Pushdown', 10, 20)).toBeCloseTo((6 * 90 - 70) * 3.5 / 200 * 0.5, 1);
+    expect(one('Barbell Squat', 10, 35)).toBeCloseTo((6 * 105 - 70) * 3.5 / 200 * 0.5, 1);
+    expect(one('Triceps Pushdown', 10, 14)).toBeCloseTo((6 * 84 - 70) * 3.5 / 200 * 0.5, 1);
   });
 
   it('prices a near-empty bar as light lifting (about 3 MET)', () => {
@@ -473,7 +474,7 @@ describe('strength effort follows the load', () => {
 
   it('gives less recovery after a light set than after a heavy one', () => {
     const light = computeLiveCalories(session(times(2, ['Wrist Curl', 15, 2.5]), 240), start, [], 80);
-    const heavy = computeLiveCalories(session(times(2, ['Barbell Squat', 15, 60]), 240), start, [], 80);
+    const heavy = computeLiveCalories(session(times(2, ['Barbell Squat', 15, 40]), 240), start, [], 80);
     // same 150 s of recovery in both: 2.2 MET after the curl, 3.5 after the squat
     expect(heavy.restKcal).toBe(8.8); // 2.5 active MET x 80 kg x 3.5 / 200 x 2.5 min
     expect(light.restKcal).toBe(4.3); // 1.234 active MET
@@ -493,7 +494,9 @@ describe('strength effort follows the load', () => {
     expect(total).toBeLessThan(258);
   });
 
-  it('keeps the real 80-minute heavy leg day close to its saved 450 kcal', () => {
+  // Saved as 450 before heavy sets earned more (2026-11-18); its 110-125 kg
+  // leg presses are well past a full load for 86 kg, so it now reads higher.
+  it('keeps the real 80-minute heavy leg day a little above its saved 450 kcal', () => {
     const rows = [
       ['Barbell Squat', 15, 0], ['Barbell Squat', 15, 20], ['Barbell Squat', 15, 40], ['Barbell Squat', 15, 50], ['Barbell Squat', 10, 60],
       ['Step-up', 15, 10], ['Step-up', 10, 20],
@@ -504,8 +507,40 @@ describe('strength effort follows the load', () => {
     const exercises = session(rows, 3886);
     exercises.push({ name: 'Incline Walk', sets: [{ isCompleted: true, completedAt: start + 4786000, distanceKm: '1.13', time: '15:00' }] });
     const total = computeLiveCalories(exercises, start, [], 86).totalKcal;
-    expect(total).toBeGreaterThan(450 * 0.9);
-    expect(total).toBeLessThan(450 * 1.02);
+    expect(total).toBeGreaterThan(450);
+    expect(total).toBeLessThan(450 * 1.2);
+  });
+});
+
+// 2026-11-18: the MET stopped at a full working load, so for an 80 kg client
+// a 140 kg squat set read barely more than 40 kg (+1 kcal per extra 20 kg).
+describe('heavy sets keep earning more past a full working load', () => {
+  const one = (name, weight, kg = 80) =>
+    computeLiveCalories([{ name, sets: [{ isCompleted: true, completedAt: 1, reps: '10', weight: String(weight) }] }], 1, [], kg).totalKcal;
+  const work = (met, bar, kg = 80) => (met * (kg + bar) - kg) * 3.5 / 200 * 0.5;
+
+  it('climbs from 6.0 MET at a full load to 8.0 at twice it', () => {
+    expect(one('Barbell Squat', 40)).toBeCloseTo(work(6, 40), 1); // full load: unchanged
+    expect(one('Barbell Squat', 60)).toBeCloseTo(work(7, 60), 1); // 1.5x
+    expect(one('Barbell Squat', 80)).toBeCloseTo(work(8, 80), 1); // 2x (bodyweight)
+    expect(one('Barbell Squat', 140)).toBeCloseTo(work(8, 140), 1); // MET capped, mass still counts
+    expect(one('Barbell Curl', 32)).toBeCloseTo(work(8, 32), 1); // 2x a single-joint full load
+  });
+
+  it('rises every time the weight goes up', () => {
+    const totals = [40, 60, 80, 100, 120, 140].map(w => one('Barbell Squat', w));
+    totals.slice(1).forEach((t, i) => expect(t).toBeGreaterThan(totals[i]));
+  });
+
+  it('gives more recovery after a heavy set, up to 4.5 MET', () => {
+    const start = 1_000_000;
+    const rest = (weight) => computeLiveCalories([{ name: 'Barbell Squat', sets: [
+      { isCompleted: true, completedAt: start + 120000, reps: '10', weight: String(weight) },
+      { isCompleted: true, completedAt: start + 240000, reps: '10', weight: String(weight) },
+    ] }], start, [], 80).restKcal;
+    // 240 s clock - 60 s of reps = 180 s, capped at 180 s for the one recovering set
+    expect(rest(40)).toBeCloseTo(2.5 * 80 * 3.5 / 200 * 3, 1);
+    expect(rest(80)).toBeCloseTo(3.5 * 80 * 3.5 / 200 * 3, 1);
   });
 });
 

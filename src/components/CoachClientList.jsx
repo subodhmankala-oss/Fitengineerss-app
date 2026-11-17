@@ -14,7 +14,7 @@ const GOAL_CLASS = (goal = '') => {
   if (g.includes('gut')) return 'gut';
   return 'other';
 };
-const GOAL_SHORT = { 'Fat Loss': 'Fat loss', 'Muscle Building': 'Muscle', 'Gut Fix': 'Gut fix' };
+const GOAL_SHORT = { 'Fat Loss': 'Fat loss', 'Muscle Building': 'Muscle', 'Gut Fix': 'Gut fix', 'Gut Health': 'Gut fix', 'General Fitness': 'Fitness' };
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -88,7 +88,8 @@ export default function CoachClientList({
           const activityLabel = client.last_login
             ? `App: ${activity.label} · last seen ${new Date(client.last_login).toLocaleString()}`
             : `App: ${activity.label}`;
-          const goal = client.userGoal;
+          // Main goal first, then the second goal if the client picked one.
+          const goals = [...new Set([client.userGoal, client.userSecondaryGoal].filter(Boolean))];
           const open = () => { if (!paused) onOpen(client); };
           // On a break the whole row takes the reason's colour (Holiday blue,
           // Illness violet, Emergency red, Other amber).
@@ -123,12 +124,16 @@ export default function CoachClientList({
 
               <span className="ccl-body">
                 <span className="ccl-top">
-                  <span className="ccl-name">{client.userName}</span>
+                  <span className="ccl-name-line">
+                    <span className="ccl-name">{client.userName}</span>
+                    {goals.map(g => (
+                      <span key={g} className={`ccl-goal ${GOAL_CLASS(g)}`}>{GOAL_SHORT[g] || g}</span>
+                    ))}
+                  </span>
                   <span className="ccl-tags">
                     {isNewConnection(client.id) && <span className="ccl-pill new">New</span>}
                     {paused && <span className="ccl-pill muted">Paused</span>}
                     {showGenericTag && !client.coach_id && <span className="ccl-pill muted">Generic</span>}
-                    {goal && <span className={`ccl-pill goal ${GOAL_CLASS(goal)}`}>{GOAL_SHORT[goal] || goal}</span>}
                   </span>
                 </span>
                 <span className="ccl-sub">

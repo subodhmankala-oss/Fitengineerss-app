@@ -58,16 +58,18 @@
   padding: 1px 8px; border-radius: 999px; white-space: nowrap;
   border: 1px solid transparent;
 }
-/* Goal pills are information, not alarm: grey pill, coloured dot. Red is
-   kept for the "needs you" line only, so it stands out on a long list. */
-.ccl-pill.goal {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: rgba(var(--fg-rgb), 0.05); color: var(--text-muted); border-color: rgba(var(--fg-rgb), 0.1);
+/* Goals sit right after the name: coloured dot + word, no pill. Grey text so
+   red stays reserved for the "needs you" line. The name shortens with "…"
+   before a goal is dropped. */
+.ccl-name-line { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ccl-goal {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-size: 0.7rem; font-weight: 500; color: var(--text-muted); white-space: nowrap;
 }
-.ccl-pill.goal::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--goal-dot, var(--accent-text)); flex-shrink: 0; }
-.ccl-pill.goal.fat    { --goal-dot: #fb923c; }
-.ccl-pill.goal.muscle { --goal-dot: #60a5fa; }
-.ccl-pill.goal.gut    { --goal-dot: #14b8a6; }
+.ccl-goal::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--goal-dot, var(--accent-text)); flex-shrink: 0; }
+.ccl-goal.fat    { --goal-dot: #fb923c; }
+.ccl-goal.muscle { --goal-dot: #60a5fa; }
+.ccl-goal.gut    { --goal-dot: #14b8a6; }
 .ccl-pill.new    { background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
 .ccl-pill.muted  { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); border-color: rgba(148, 163, 184, 0.3); }
 

@@ -1640,7 +1640,7 @@
      .is-full-bleed) and joins the tabs band into one panel, below. */
   .client-detail-view .client-detail-header {
     gap: 10px !important;
-    padding: 10px 8px 10px 12px;
+    padding: 10px 12px;
     background: var(--bg-card);
     border: 1px solid var(--border-strong);
     border-radius: 18px;
@@ -2308,8 +2308,11 @@
   border-top: 1.5px solid var(--border-strong);
   border-bottom: none;
   border-radius: 0;
-  padding-left: var(--bleed-left, 12px);
-  padding-right: calc(var(--bleed-right, 12px) - 4px);
+  /* The page insets rows with their own --screen-gutter padding (not the
+     parent's), so the bleed measured here is often 0 — keep the gutter and
+     add whatever the bar was pulled out by, or the avatar hits the edge. */
+  padding-left: calc(var(--bleed-left, 0px) + var(--screen-gutter, 16px));
+  padding-right: calc(var(--bleed-right, 0px) + var(--screen-gutter, 16px));
 }
 
 .client-detail-view:not(.is-card-open) .client-detail-header.is-full-bleed {
@@ -2323,3 +2326,38 @@
 .client-detail-view.is-card-open .client-detail-header.is-full-bleed {
   border-bottom: 1.5px solid var(--border-strong);
 }
+
+/* Unattach client: a ⋮ menu at the end of the header on desktop; on phones
+   that faint ⋮ read as an empty gap, so it moves to the foot of the details
+   card (open it by tapping the name) and the sessions pill takes the edge. */
+.client-card-unattach {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .client-detail-view .client-detail-menu {
+    display: none !important;
+  }
+
+  .client-card-unattach {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 6px 2px;
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--tint-red);
+    opacity: 0.85;
+    cursor: pointer;
+  }
+
+  .client-card-unattach:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+

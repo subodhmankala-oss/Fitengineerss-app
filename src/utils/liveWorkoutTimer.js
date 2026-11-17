@@ -438,6 +438,29 @@ export function formatDuration(totalSeconds) {
   return [h, m, sec].map((v) => String(v).padStart(2, '0')).join(':');
 }
 
+// Session stats as a person would say them, for coach-note text: "45 min and
+// 320 kcal", "1 h 5 min", "40 sec and 1.5 kcal". formatDuration's "00:45:00"
+// is a stopwatch readout and reads like a robot inside a sentence.
+export function formatNoteDuration(totalSeconds) {
+  const s = Math.max(0, Math.round(totalSeconds || 0));
+  if (s < 60) return `${s} sec`;
+  const mins = Math.round(s / 60);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+export function buildSessionStatPhrase(durationSeconds, kcal) {
+  const bits = [];
+  if (durationSeconds != null) bits.push(formatNoteDuration(durationSeconds));
+  if (kcal != null && Number.isFinite(Number(kcal))) {
+    const k = Number(kcal);
+    bits.push(`${k < 10 ? Math.round(k * 10) / 10 : Math.round(k)} kcal`);
+  }
+  return bits.join(' and ');
+}
+
 // Cardio sets store their duration as a free-typed "mm:ss" string (matches
 // what's shown as the field's placeholder). Accepts "mm:ss" or a bare number
 // of seconds; returns null (not 0) for empty/unparseable input so it's never

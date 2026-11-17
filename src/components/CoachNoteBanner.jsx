@@ -8,12 +8,16 @@ import './CoachNoteBanner.css';
 // their unread notes still surface here on the home screen. Dismissing a note
 // marks it read so it stops resurfacing across devices.
 //
-// Each note also carries ONE reply slot: the client can send a single free-
-// text (emoji included, just the native keyboard — no picker needed) message
-// back on that specific note. Once client_reply_at is set, the reply box for
-// THAT note locks — sending again requires a fresh note from the coach. The
-// reply is pushed to the coach immediately (client_reply event) and also
-// surfaces as a card on the coach's client-directory screen if they miss it.
+// Drawn as a small chat thread so it reads as a message from a person: the
+// coach's bubble on the left (initials + name + time), and once the client
+// replies, their reply as a bubble on the right with "Delivered".
+//
+// Each note carries ONE reply slot: the client can send a single free-text
+// (emoji included, just the native keyboard) message back on that specific
+// note. Once client_reply_at is set, the composer for THAT note goes away —
+// sending again requires a fresh note from the coach. The reply is pushed to
+// the coach immediately (client_reply event) and also surfaces as a card on
+// the coach's client-directory screen if they miss it.
 // workout_date is a plain DATE column (e.g. "2026-01-05"); parse it as local
 // (not UTC midnight) so the day shown always matches the day the coach picked.
 function formatNoteDate(dateStr) {
@@ -22,7 +26,43 @@ function formatNoteDate(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function CoachNoteBanner({ userId }) {
+// "9:41 AM" today, "Nov 16" before that — the timestamp a chat app would show.
+function formatSentAt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  return sameDay
+    ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function initialsOf(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'C';
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+const SendIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
+  </svg>
+);
+
+const DeliveredIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M7 12l5 5L22 7" /><path d="M2 12l5 5M12 12l5-5" />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
+
+export default function CoachNoteBanner({ userId, coachName }) {
   const [notes, setNotes] = useState([]);
   const [replyDrafts, setReplyDrafts] = useState({}); // { [noteId]: text }
   const [sendingReplyId, setSendingReplyId] = useState(null);
@@ -65,56 +105,77 @@ export default function CoachNoteBanner({ userId }) {
 
   if (!notes || notes.length === 0) return null;
 
+  const senderName = coachName ? `Coach ${coachName.trim().split(/\s+/)[0]}` : 'Your coach';
+
   return (
     <div className="coach-note-banner-stack">
-      {notes.map((note) => (
-        <div key={note.id} className="coach-note-banner">
-          <div className="cnb-icon">💬</div>
-          <div className="cnb-body">
-            <div className="cnb-label">Note from your coach</div>
-            {(note.workoutName || note.workoutDate) && (
-              <div className="cnb-context">
-                {note.workoutName || 'Workout'}
-                {note.workoutDate ? ` · ${formatNoteDate(note.workoutDate)}` : ''}
+      {notes.map((note) => {
+        const draft = replyDrafts[note.id] || '';
+        const sending = sendingReplyId === note.id;
+        const sentAt = formatSentAt(note.createdAt);
+        return (
+          <div key={note.id} className="cnc-card" role="group" aria-label={`Message from ${senderName}`}>
+            <button
+              type="button"
+              className="cnc-close"
+              onClick={() => dismiss(note)}
+              aria-label="Close message"
+              title="Got it"
+            >
+              <CloseIcon />
+            </button>
+
+            <div className="cnc-row">
+              <div className="cnc-avatar" aria-hidden="true">{initialsOf(coachName)}</div>
+              <div className="cnc-col">
+                <div className="cnc-meta">
+                  <span className="cnc-sender">{senderName}</span>
+                  {sentAt && <span className="cnc-time">{sentAt}</span>}
+                </div>
+                <div className="cnc-bubble cnc-bubble-in">{note.message}</div>
+                {(note.workoutName || note.workoutDate) && (
+                  <div className="cnc-context">
+                    {note.workoutName || 'Workout'}
+                    {note.workoutDate ? ` · ${formatNoteDate(note.workoutDate)}` : ''}
+                  </div>
+                )}
               </div>
-            )}
-            <div className="cnb-message">{note.message}</div>
+            </div>
 
             {note.clientReplyAt ? (
-              <div className="cnb-reply-sent">✓ You replied: “{note.clientReply}”</div>
+              <div className="cnc-out">
+                <div className="cnc-bubble cnc-bubble-out">{note.clientReply}</div>
+                <div className="cnc-delivered">Delivered <DeliveredIcon /></div>
+              </div>
             ) : (
-              <div className="cnb-reply-row">
+              <form
+                className="cnc-composer"
+                onSubmit={(e) => { e.preventDefault(); sendReply(note); }}
+              >
                 <input
                   type="text"
-                  className="cnb-reply-input"
-                  placeholder="Reply to your coach…"
-                  value={replyDrafts[note.id] || ''}
+                  className="cnc-input"
+                  placeholder={`Message ${coachName ? senderName : 'your coach'}…`}
+                  value={draft}
                   onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [note.id]: e.target.value }))}
-                  disabled={sendingReplyId === note.id}
+                  disabled={sending}
                   maxLength={280}
+                  enterKeyHint="send"
+                  aria-label="Reply to your coach"
                 />
                 <button
-                  type="button"
-                  className="cnb-reply-send"
-                  disabled={sendingReplyId === note.id || !(replyDrafts[note.id] || '').trim()}
-                  onClick={() => sendReply(note)}
+                  type="submit"
+                  className={`cnc-send${draft.trim() ? ' is-ready' : ''}`}
+                  disabled={sending || !draft.trim()}
+                  aria-label="Send reply"
                 >
-                  {sendingReplyId === note.id ? '…' : 'Send'}
+                  {sending ? <span className="cnc-spinner" aria-hidden="true" /> : <SendIcon />}
                 </button>
-              </div>
+              </form>
             )}
           </div>
-          <button
-            type="button"
-            className="cnb-dismiss"
-            onClick={() => dismiss(note)}
-            aria-label="Dismiss note"
-            title="Got it"
-          >
-            ✕
-          </button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

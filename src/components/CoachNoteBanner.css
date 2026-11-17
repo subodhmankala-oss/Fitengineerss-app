@@ -126,3 +126,170 @@
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* ── Coach note as a chat thread (CoachNoteBanner). The cnb-* rules above
+   stay for FounderMessageCard, which still uses them. ── */
+.cnc-card {
+  position: relative;
+  padding: 12px 12px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color, rgba(var(--fg-rgb), 0.1));
+  border-radius: 16px;
+  animation: cnb-slide-in 0.25s ease;
+}
+
+.cnc-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.cnc-close:hover { background: rgba(var(--fg-rgb), 0.08); color: var(--text-main); }
+
+.cnc-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-right: 26px;
+}
+
+.cnc-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.14);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.35);
+  color: var(--accent-text);
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Sit level with the bubble, not the context line under it. */
+  margin-bottom: 20px;
+}
+
+.cnc-col { min-width: 0; flex: 1; }
+
+.cnc-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 3px 4px;
+}
+
+.cnc-sender { font-size: 0.76rem; font-weight: 700; color: var(--text-main); }
+.cnc-time { font-size: 0.7rem; color: var(--text-muted); }
+
+.cnc-bubble {
+  display: inline-block;
+  max-width: 100%;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cnc-bubble-in {
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--text-main);
+  border-radius: 18px 18px 18px 4px;
+}
+
+.cnc-context {
+  margin: 4px 0 0 4px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.cnc-out {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+
+.cnc-bubble-out {
+  max-width: 80%;
+  background: var(--accent-soft);
+  color: #fff;
+  border-radius: 18px 18px 4px 18px;
+}
+
+.cnc-delivered {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: 3px 4px 0 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.cnc-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-left: 40px;
+}
+
+.cnc-input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 14px;
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid var(--border-color, rgba(var(--fg-rgb), 0.14));
+  border-radius: 19px;
+  color: var(--text-main);
+  font-family: inherit;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
+}
+
+.cnc-input::placeholder { color: var(--text-muted); }
+.cnc-input:focus { outline: none; border-color: rgba(var(--accent-rgb), 0.6); }
+
+.cnc-send {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(var(--fg-rgb), 0.08);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cnc-send.is-ready {
+  background: var(--accent-soft);
+  color: #fff;
+  cursor: pointer;
+}
+
+.cnc-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: cnc-spin 0.7s linear infinite;
+}
+
+@keyframes cnc-spin { to { transform: rotate(360deg); } }

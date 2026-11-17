@@ -268,20 +268,20 @@
   height: 38px;
   border-radius: 50%;
   border: none;
-  background: rgba(var(--fg-rgb), 0.08);
-  color: var(--text-muted);
+  /* Blue line paper plane on a soft blue tint, like the rest of the app's
+     selected states (tint + ring, not a solid fill). */
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.22);
+  color: var(--accent-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: default;
-  transition: background 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.cnc-send.is-ready {
-  background: var(--accent-soft);
-  color: #fff;
-  cursor: pointer;
-}
+.cnc-send.is-ready { background: rgba(var(--accent-rgb), 0.2); }
+.cnc-send:active { transform: scale(0.94); }
 
 .cnc-spinner {
   width: 14px;

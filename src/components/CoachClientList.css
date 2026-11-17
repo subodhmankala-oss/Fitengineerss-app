@@ -103,26 +103,7 @@
 
 /* Taking a break: the row, its striped days and the "On holiday · back
    23 Nov" pill all take the reason's colour (--c / --c-rgb on the row). */
-.ccl-row.away {
-  --c: #38bdf8; --c-rgb: 56, 189, 248;
-  position: relative; overflow: hidden; isolation: isolate;
-}
-/* The reason's little scene (BreakScene) sits behind the row's content. */
-.ccl-scene {
-  position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(var(--scene-rgb), 0.04), rgba(var(--scene-rgb), 0.10));
-}
-.ccl-scene-ground {
-  position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;
-  opacity: 0.35;
-}
-.ccl-scene-motif {
-  position: absolute; right: 2px; top: 0; height: 100%; width: 56px;
-  opacity: 0.32;
-}
-[data-theme="light"] .ccl-scene-motif { opacity: 0.45; }
-/* Pills stay readable over the scene. */
-.ccl-row.away .ccl-pill, .ccl-row.away .ccl-away { background-color: rgba(var(--bg-card-rgb), 0.82); }
+.ccl-row.away { --c: #38bdf8; --c-rgb: 56, 189, 248; }
 .ccl-day.off {
   background: repeating-linear-gradient(135deg, rgba(var(--c-rgb, 56, 189, 248), 0.22) 0 3px, transparent 3px 6px);
   box-shadow: inset 0 0 0 1px rgba(var(--c-rgb, 56, 189, 248), 0.42); color: var(--c, #38bdf8); opacity: 1;

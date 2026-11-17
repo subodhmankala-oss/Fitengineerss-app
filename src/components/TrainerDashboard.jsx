@@ -8631,8 +8631,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     {/* "Edit Total Sessions" popup — covers the summary card
                         (its position: relative parent), opened by the pencil
                         button below instead of an always-visible stepper. */}
-                    {showTotalSessionsModal && (
+                    {/* Phones: rendered on <body> as a full-screen overlay with the
+                        dialog near the top, so the number keyboard (autoFocus)
+                        never covers Save. Desktop: stays over the card. */}
+                    {showTotalSessionsModal && (() => {
+                      const onPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 899px)').matches;
+                      const overlay = (
                       <div
+                        className={onPhone ? 'total-sessions-overlay is-sheet' : 'total-sessions-overlay'}
                         onClick={() => { if (!savingTotalSessions) { setShowTotalSessionsModal(false); setJustSavedTotalSessions(false); setTotalSessionsInput(totalSessionsSavedValue ?? (selectedClient.total_sessions != null ? String(selectedClient.total_sessions) : '')); } }}
                         style={{
                           position: 'absolute', inset: 0, borderRadius: '16px', zIndex: 5,
@@ -8762,7 +8768,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           )}
                         </div>
                       </div>
-                    )}
+                      );
+                      return onPhone ? createPortal(overlay, document.body) : overlay;
+                    })()}
 
                     {/* Compact program row — progress ring, count + dates,
                         pencil opens the popup above. */}

@@ -92,3 +92,38 @@ export function buildQuickReplies(firstName, statPhrase) {
     { label: 'How did it feel?', text: 'How did that feel? Let me know if anything was too easy or too tough.' },
   ];
 }
+
+/**
+ * workout_logs rows (one client) -> { latestDate, exercises, latestRows,
+ * priorSessions } for the home card: the newest session's exercises plus
+ * earlier sessions for the PR check. Rows are the raw table shape.
+ */
+export function splitLogRowsForRecap(rows) {
+  const byDate = {};
+  (rows || []).forEach(r => {
+    if (!r.exercise_name || !r.log_date) return;
+    ((byDate[r.log_date] = byDate[r.log_date] || {})[r.exercise_name] = (byDate[r.log_date][r.exercise_name] || [])).push(r);
+  });
+  const dates = Object.keys(byDate).sort().reverse();
+  const toExercises = (day) => Object.entries(day).map(([name, list]) => ({
+    name,
+    sets: list
+      .slice()
+      .sort((a, b) => (a.set_number || 0) - (b.set_number || 0))
+      .map(r => ({
+        reps: r.reps,
+        weight: r.weight_kg,
+        setType: r.set_type || null,
+        isWarmup: r.set_type === 'warmup',
+        ...(r.distance_km != null ? { distanceKm: r.distance_km } : {}),
+        ...(r.cardio_duration_seconds != null ? { time: String(r.cardio_duration_seconds) } : {}),
+      })),
+  }));
+  const latestDate = dates[0] || null;
+  return {
+    latestDate,
+    exercises: latestDate ? toExercises(byDate[latestDate]) : [],
+    latestRows: latestDate ? Object.values(byDate[latestDate]).flat() : [],
+    priorSessions: dates.slice(1).map(d => ({ date: d, exercises: toExercises(byDate[d]) })),
+  };
+}

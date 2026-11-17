@@ -87,6 +87,8 @@ export default function CoachNoteComposer({
   disabled = false,
   feedback = null,
   onDismiss,
+  dismissTitle = 'Not now',
+  flush = false,
   open = true,
   onToggle,
   bodyRef,
@@ -211,7 +213,7 @@ export default function CoachNoteComposer({
 
   const shown = showAll ? recap : recap.slice(0, ROWS_SHOWN);
   return (
-    <div className="cnx cnx--send">
+    <div className={`cnx cnx--send${flush ? ' cnx--flush' : ''}`}>
       <div className="cnx-head">
         <span className="cnx-avatar">{(clientLabel || 'C').trim()[0].toUpperCase()}</span>
         <span className="cnx-head-text">
@@ -219,7 +221,7 @@ export default function CoachNoteComposer({
           {subtitle && <span className="cnx-sub">{subtitle}</span>}
         </span>
         {onDismiss && (
-          <button type="button" className="cnx-close" onClick={onDismiss} title="Not now" aria-label="Not now"><CloseIcon /></button>
+          <button type="button" className="cnx-close" onClick={onDismiss} title={dismissTitle} aria-label={dismissTitle}><CloseIcon /></button>
         )}
       </div>
       <div className="cnx-summary">

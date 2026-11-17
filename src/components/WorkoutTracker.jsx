@@ -21,7 +21,7 @@ import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon, SaveIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useLiveTick } from '../hooks/useLiveTick';
@@ -4783,17 +4783,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
-                style={{
-                  width: 'auto', flex: '0 0 auto', background: 'transparent', border: 'none',
-                  color: '#ef4444', padding: '0 8px', display: 'flex', alignItems: 'center', cursor: 'pointer'
-                }}
+                className="btn-discard-session"
                 onClick={() => setShowDiscardConfirmModal(true)}
                 title="Discard this workout session"
+                aria-label="Discard this workout session"
               >
                 <TrashIcon size={28} />
               </button>
               <button type="submit" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
-                💾 Save Workout Session
+                <SaveIcon /> Save Workout Session
               </button>
             </div>
 

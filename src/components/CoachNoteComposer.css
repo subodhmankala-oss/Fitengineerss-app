@@ -1,0 +1,153 @@
+/* Coach note composer (CoachNoteComposer.jsx) — client detail ("send") and
+   Live Log ("attach"). Line icons, tint + ring for picked items, one blue
+   paper-plane send like the chat card (#555). */
+.cnx {
+  --cnx-blue: var(--accent-rgb, 67, 100, 189);
+  --cnx-blue-text: #8fb0ff;
+  --cnx-orange: 249, 115, 22;
+  --cnx-orange-text: #fdba74;
+  --cnx-green: 16, 185, 129;
+  --cnx-green-text: #6ee7b7;
+  --cnx-amber-text: #fbbf24;
+  background: var(--bg-card, #141a2e);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 16px;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  overflow: hidden;
+}
+[data-theme="light"] .cnx {
+  --cnx-blue-text: #2f4fa3;
+  --cnx-orange-text: #b4410c;
+  --cnx-green-text: #047857;
+  --cnx-amber-text: #b45309;
+  background: #fff;
+}
+.cnx--send { margin: 0 var(--screen-gutter, 16px) 16px; }
+.cnx--live { margin-top: 16px; }
+
+.cnx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Header */
+.cnx-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
+.cnx-avatar {
+  width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--cnx-blue), 0.14);
+  box-shadow: inset 0 0 0 1px rgba(var(--cnx-blue), 0.5);
+  color: var(--cnx-blue-text); font-weight: 700;
+}
+.cnx-head-text, .cnx-toggle-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cnx-title { font-weight: 700; font-size: 0.92rem; color: var(--text-main); }
+.cnx-sub { font-size: 0.74rem; color: var(--text-muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cnx-close {
+  width: 30px; height: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: 50%; color: var(--text-muted); cursor: pointer;
+}
+.cnx-close:hover { background: rgba(var(--fg-rgb), 0.06); color: var(--text-main); }
+
+/* Heat map + stats */
+.cnx-summary { display: flex; align-items: center; gap: 12px; padding: 0 14px 12px; }
+.cnx-heat { display: flex; gap: 2px; flex-shrink: 0; }
+.cnx-summary-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cnx-muscles { font-size: 0.74rem; color: var(--text-muted); font-weight: 600; }
+
+.cnx-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.cnx-pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+  border-radius: 999px; font-size: 0.74rem; font-weight: 600; white-space: nowrap;
+}
+.cnx-pill--time { background: rgba(var(--cnx-blue), 0.12); color: var(--cnx-blue-text); }
+.cnx-pill--kcal { background: rgba(var(--cnx-orange), 0.13); color: var(--cnx-orange-text); }
+.cnx-pill--pr { background: rgba(var(--cnx-green), 0.13); color: var(--cnx-green-text); }
+
+/* Exercise rows (send) */
+.cnx-rows { padding: 0 8px 8px; }
+.cnx-row {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px;
+  background: transparent; border: 1px solid transparent; border-radius: 10px;
+  color: var(--text-main); font: inherit; text-align: left; cursor: pointer;
+}
+.cnx-row:hover:not(:disabled) { background: rgba(var(--fg-rgb), 0.04); }
+.cnx-row.is-on { background: rgba(var(--cnx-blue), 0.1); border-color: rgba(var(--cnx-blue), 0.55); }
+.cnx-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cnx-row-detail { font-size: 0.74rem; color: var(--text-muted); white-space: nowrap; }
+.cnx-row-detail.is-miss { color: var(--cnx-amber-text); }
+.cnx-ic { display: inline-flex; flex-shrink: 0; }
+.cnx-ic--done, .cnx-ic--pr { color: var(--cnx-green-text); }
+.cnx-ic--miss { color: var(--cnx-amber-text); }
+.cnx-more {
+  margin: 2px 8px 0; padding: 4px 0; background: none; border: none;
+  color: var(--cnx-blue-text); font: inherit; font-size: 0.76rem; font-weight: 600; cursor: pointer;
+}
+.cnx-hint { font-size: 0.7rem; color: var(--text-muted); padding: 2px 8px 0; }
+
+/* Footer / body */
+.cnx-foot { border-top: 1px solid rgba(var(--fg-rgb), 0.08); padding: 12px 14px 14px; }
+.cnx-body { border-top: 1px solid rgba(var(--fg-rgb), 0.08); padding: 12px; }
+.cnx-body .cnx-pills { margin-bottom: 12px; }
+.cnx-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 7px; }
+.cnx-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cnx-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px;
+  border-radius: 999px; border: 1px solid rgba(var(--fg-rgb), 0.14);
+  background: rgba(var(--fg-rgb), 0.04); color: var(--text-main);
+  font: inherit; font-size: 0.78rem; font-weight: 500; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cnx-chip.is-on { background: rgba(var(--cnx-blue), 0.14); border-color: rgba(var(--cnx-blue), 0.6); color: var(--cnx-blue-text); }
+.cnx-chip:disabled, .cnx-row:disabled { opacity: 0.55; cursor: default; }
+
+.cnx-box {
+  display: flex; align-items: flex-end; gap: 8px;
+  background: rgba(var(--fg-rgb), 0.04); border: 1px solid rgba(var(--fg-rgb), 0.14);
+  border-radius: 20px; padding: 5px 5px 5px 14px; transition: border-color 0.15s ease;
+}
+.cnx--live .cnx-box { border-radius: 14px; padding: 4px 12px; }
+.cnx-box.has-text, .cnx-box:focus-within { border-color: rgba(var(--cnx-blue), 0.6); }
+.cnx-input {
+  flex: 1; min-width: 0; background: transparent; border: none; outline: none; resize: none;
+  color: var(--text-main); font-family: inherit; line-height: 1.45; padding: 6px 0;
+  /* >= 16px so iOS Safari doesn't zoom the page on focus. */
+  font-size: 16px;
+  field-sizing: content; max-height: 160px;
+}
+.cnx-input::placeholder { color: var(--text-muted); }
+.cnx-send {
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; border: none;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: rgba(var(--cnx-blue), 0.12); box-shadow: inset 0 0 0 1px rgba(var(--cnx-blue), 0.22);
+  color: var(--cnx-blue-text); transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+.cnx-send.is-ready { background: rgba(var(--cnx-blue), 0.22); }
+.cnx-send:disabled { opacity: 0.5; cursor: default; }
+.cnx-send:active:not(:disabled) { transform: scale(0.94); }
+.cnx-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: cnx-spin 0.7s linear infinite;
+}
+@keyframes cnx-spin { to { transform: rotate(360deg); } }
+.cnx-feedback { font-size: 0.76rem; font-weight: 600; margin-top: 8px; }
+.cnx-feedback.ok { color: var(--cnx-green-text); }
+.cnx-feedback.err { color: var(--tint-red, #f87171); }
+
+/* Live Log slim toggle row */
+.cnx-toggle {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+  background: transparent; border: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.cnx-toggle-ic {
+  width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--cnx-blue), 0.12); color: var(--cnx-blue-text);
+}
+.cnx-chev { color: var(--text-muted); display: inline-flex; transition: transform 0.2s ease; }
+.cnx-chev.is-open { transform: rotate(180deg); }
+.cnx-attach { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.72rem; color: var(--text-muted); }
+.cnx-attach.is-on { color: var(--cnx-blue-text); }
+.cnx-clear {
+  margin-left: auto; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid rgba(var(--fg-rgb), 0.14); background: transparent;
+  color: var(--text-main); font: inherit; font-size: 0.72rem; cursor: pointer;
+}

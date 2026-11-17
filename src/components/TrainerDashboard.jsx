@@ -26,6 +26,8 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
+import CoachNoteComposer from './CoachNoteComposer';
+import { buildSessionRecap, noteFirstName, buildQuickReplies } from '../utils/coachNoteRecap';
 import useFullBleed from '../utils/useFullBleed';
 import { getSetRingStates } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
@@ -43,7 +45,7 @@ import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
 import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, buildSessionStatPhrase, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, remapSetTimersForSetInsert, remapSetTimersForSetMove, moveItem, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, buildSessionStatPhrase, formatNoteDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, remapSetTimersForSetInsert, remapSetTimersForSetMove, moveItem, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
@@ -55,7 +57,7 @@ import SwapExerciseSheet from './SwapExerciseSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon, SaveIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -1951,6 +1953,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       // version that scrolled the wrong way).
       const handleExpandEnd = (e) => {
         if (e.target === el && e.propertyName === 'max-height') {
+          // Uncap once open so the note can grow (longer text, Clear row)
+          // without clipping; collapsing re-measures from scrollHeight.
+          setCoachNoteSlideMaxHeight('none');
           (liveLogActionBarRef.current || el).scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
       };
@@ -5408,42 +5413,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     }
   };
 
-  // Three ready-to-send note suggestions. When we know the last session's
-  // stats, the first one references them so it feels personal; the rest are
-  // evergreen encouragement.
-  const coachNoteSuggestions = (() => {
-    const firstName = (selectedClient?.userName || '').trim().split(/\s+/)[0] || 'there';
-    const s = latestClientSession;
-    const statBits = s ? buildSessionStatPhrase(s.durationSeconds, s.caloriesBurned) : '';
-    const opener = statBits
-      ? `Great session, ${firstName}! ${statBits} — solid work 💪`
-      : `Great work today, ${firstName}! Really solid session 💪`;
-    return [
-      opener,
-      `Proud of your consistency this week — keep it going! 🔥`,
-      `How did that feel? Let me know if anything was too easy or too tough.`
-    ];
-  })();
+  // Coach-note composer data (CoachNoteComposer). The name goes into the
+  // message only when it's a real first name — a username like
+  // "gk.goginenikiran" is left out of the text.
+  const noteName = noteFirstName(selectedClient?.userName);
+  const noteClientLabel = noteName || (selectedClient?.userName || 'client').trim().split(/\s+/)[0];
+  const roundKcal = (k) => (k == null || !Number.isFinite(Number(k)) ? null : `${Number(k) < 10 ? Math.round(Number(k) * 10) / 10 : Math.round(Number(k))} kcal`);
 
-  // Same three suggestions, but for the Live Log's coach-note composer —
-  // that note sends alongside THIS in-progress session, so it must reference
-  // the live timer/calories, not the client's last SAVED session (which is
-  // what coachNoteSuggestions above uses and would show stale, previous-day
-  // numbers while a live session is still running).
-  const liveCoachNoteSuggestions = (() => {
-    const firstName = (selectedClient?.userName || '').trim().split(/\s+/)[0] || 'there';
-    const statBits = liveTimerStartedAt
-      ? buildSessionStatPhrase(liveElapsedSeconds, liveCalories.totalKcal)
-      : '';
-    const opener = statBits
-      ? `Great session, ${firstName}! ${statBits} — solid work 💪`
-      : `Great work today, ${firstName}! Really solid session 💪`;
-    return [
-      opener,
-      `Proud of your consistency this week — keep it going! 🔥`,
-      `How did that feel? Let me know if anything was too easy or too tough.`
-    ];
-  })();
+  // Client detail: the latest SAVED session — quick replies use its stats,
+  // the recap its exercises (PRs vs every earlier session).
+  const coachNoteQuickReplies = buildQuickReplies(
+    noteName,
+    latestClientSession ? buildSessionStatPhrase(latestClientSession.durationSeconds, latestClientSession.caloriesBurned) : ''
+  );
+  const coachNoteRecap = latestClientSession
+    ? buildSessionRecap(latestClientSession.exercises, workoutLogs.filter(s => s.date < latestClientSession.date))
+    : [];
+  const coachNoteRows = latestClientSession
+    ? (rawWorkoutLogs || []).filter(r => r.log_date === latestClientSession.date)
+    : [];
+
+  // Live Log: THIS in-progress session (live timer/calories and the ticked
+  // sets), never the last saved session's stale numbers.
+  const liveCoachNoteQuickReplies = buildQuickReplies(
+    noteName,
+    liveTimerStartedAt ? buildSessionStatPhrase(liveElapsedSeconds, liveCalories.totalKcal) : ''
+  );
+  const liveCoachNoteRecap = buildSessionRecap(
+    liveExercises.filter(le => (le.sets || []).length > 0),
+    workoutLogs.filter(s => s.date < liveDate),
+    { live: true }
+  );
 
   const getAvatarInitials = (name) => {
     if (!name) return 'W';
@@ -8637,70 +8637,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   when the latest session actually needs a response (see
                   sessionNeedsResponse) — a session already responded to, or a
                   client with no completed sessions at all, shows nothing. */}
+              {/* "Not now" (onDismiss) is dismiss-only: it never touches
+                  lastCoachNoteSentAt, so the card still comes back for a
+                  genuinely new session. */}
               {showCoachNoteCard && (
-              <div className="coach-note-card">
-                <div className="coach-note-head">
-                  <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px 10px' }}>
-                    <span className="coach-note-title">💬 Send {(selectedClient.userName || 'client').split(/\s+/)[0]} a note</span>
-                    {latestClientSession && (latestClientSession.durationSeconds != null || latestClientSession.caloriesBurned != null) && (
-                      <span className="coach-note-lastsession">
-                        Last session:
-                        {latestClientSession.durationSeconds != null && ` ⏱ ${formatDuration(latestClientSession.durationSeconds)}`}
-                        {latestClientSession.durationSeconds != null && latestClientSession.caloriesBurned != null && ' ·'}
-                        {latestClientSession.caloriesBurned != null && ` 🔥 ${latestClientSession.caloriesBurned} kcal`}
-                      </span>
-                    )}
-                  </div>
-                  {/* "Not now" — the coach may just not want to send anything
-                      for this session. Dismiss-only, not a real Send/Discard
-                      pair: it never touches lastCoachNoteSentAt, so the card
-                      still comes back for a genuinely new session later. */}
-                  <button
-                    type="button"
-                    className="coach-note-close"
-                    onClick={() => setDismissedCoachNoteFor(prev => ({ ...prev, [selectedClient.id]: latestSessionKey }))}
-                    title="Not now"
-                    aria-label="Dismiss"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="coach-note-suggestions">
-                  {coachNoteSuggestions.map((sug, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className="coach-note-chip"
-                      disabled={sendingCoachNote}
-                      onClick={() => setCoachNoteText(sug)}
-                      title="Tap to use — you can still edit before sending"
-                    >
-                      {sug}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  className="coach-note-textarea"
-                  placeholder="Or write your own note…"
-                  value={coachNoteText}
-                  onChange={(e) => { setCoachNoteText(e.target.value); if (coachNoteSentMsg) setCoachNoteSentMsg(''); }}
-                  rows={2}
-                  disabled={sendingCoachNote}
-                />
-                <div className="coach-note-actions">
-                  {coachNoteSentMsg && (
-                    <span className={`coach-note-feedback ${coachNoteSentMsg.startsWith('✅') ? 'ok' : 'err'}`}>{coachNoteSentMsg}</span>
-                  )}
-                  <button
-                    type="button"
-                    className="coach-note-send"
-                    disabled={sendingCoachNote || !coachNoteText.trim()}
-                    onClick={() => handleSendCoachNote()}
-                  >
-                    {sendingCoachNote ? 'Sending…' : 'Send note'}
-                  </button>
-                </div>
-              </div>
+              <CoachNoteComposer
+                mode="send"
+                clientLabel={noteClientLabel}
+                title={`${noteClientLabel} finished ${latestClientSession?.planName && latestClientSession.planName !== 'Custom Routine' ? latestClientSession.planName : 'a workout'}`}
+                subtitle={latestClientSession?.date
+                  ? (isLocalToday(latestClientSession.date) ? 'Today' : parseLocalDateString(latestClientSession.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))
+                  : ''}
+                durationLabel={latestClientSession?.durationSeconds != null ? formatNoteDuration(latestClientSession.durationSeconds) : null}
+                kcalLabel={roundKcal(latestClientSession?.caloriesBurned)}
+                recap={coachNoteRecap}
+                quickReplies={coachNoteQuickReplies}
+                rows={coachNoteRows}
+                date={latestClientSession?.date}
+                value={coachNoteText}
+                onChange={(text) => { setCoachNoteText(text); if (coachNoteSentMsg) setCoachNoteSentMsg(''); }}
+                onSend={() => handleSendCoachNote()}
+                sending={sendingCoachNote}
+                feedback={coachNoteSentMsg ? { ok: coachNoteSentMsg.startsWith('✅'), text: coachNoteSentMsg.replace(/^(✅|⚠️)\s*/, '') } : null}
+                onDismiss={() => setDismissedCoachNoteFor(prev => ({ ...prev, [selectedClient.id]: latestSessionKey }))}
+              />
               )}
 
               {/* Condition tab rendering */}
@@ -11060,25 +11020,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     ➕ Add Exercise
                   </button>}
 
-                  {/* Coach note toggle — the composer below has no Send
-                      button of its own: whatever's typed here goes out
-                      together with "Save Workout Session", via the same
-                      saveCoachNote + coach_note push path, landing on the
-                      client's home screen like a push notification —
-                      CoachNoteBanner fallback. No new mechanism there. */}
-                  <button
-                    type="button"
-                    className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
-                    onClick={() => setShowLiveCoachNote(v => !v)}
-                    style={{
-                      marginTop: '16px',
-                      background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(var(--fg-rgb), 0.05)',
-                      border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(var(--fg-rgb), 0.12)',
-                      color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : 'var(--text-main)'
-                    }}
-                  >
-                    💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
-                  </button>
                   </>
                   )}
 
@@ -11154,54 +11095,29 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     document.querySelector('.app-container') || document.body
                   )}
 
-                    {/* Always mounted (not `showLiveCoachNote &&`) so the
-                        toggle can transition smoothly in both directions
-                        instead of popping in/out on mount+unmount — except
-                        during an active reorder drag, hidden along with the
-                        toggle button above per the same declutter as the
-                        rest of this screen's chrome. Height is measured in
-                        JS (coachNoteSlideMaxHeight effect above) rather than
-                        animated via CSS grid tracks, which some browsers
-                        don't interpolate at all. See .coach-note-slide in
-                        TrainerDashboard.css. */}
+                    {/* Coach note (Live Log) — slim row that opens the
+                        composer. No Send button of its own: the note goes
+                        out with "Save workout session" via the same
+                        saveCoachNote + coach_note push path. The body stays
+                        mounted so it slides both ways (height measured in
+                        JS, coachNoteSlideMaxHeight effect). Hidden during a
+                        reorder drag like the rest of this screen's chrome. */}
                     {!isLiveReordering && (
-                    <div
-                      ref={coachNoteSlideRef}
-                      className={`coach-note-slide ${showLiveCoachNote ? 'coach-note-slide--open' : ''}`}
-                      style={{ maxHeight: coachNoteSlideMaxHeight }}
-                      aria-hidden={!showLiveCoachNote}
-                    >
-                      <div className="coach-note-card" style={{ margin: '10px 0 0' }}>
-                        <div className="coach-note-head">
-                          <span className="coach-note-title">💬 Note for {(selectedClient.userName || 'client').split(/\s+/)[0]}</span>
-                          <span className="coach-note-lastsession">Sends with “Save Workout Session”</span>
-                        </div>
-                        <div className="coach-note-suggestions">
-                          {liveCoachNoteSuggestions.map((sug, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              className="coach-note-chip"
-                              disabled={liveSaving || !showLiveCoachNote}
-                              tabIndex={showLiveCoachNote ? 0 : -1}
-                              onClick={() => setCoachNoteText(sug)}
-                              title="Tap to use — you can still edit before sending"
-                            >
-                              {sug}
-                            </button>
-                          ))}
-                        </div>
-                        <textarea
-                          className="coach-note-textarea"
-                          placeholder="Write a note to send with this session…"
-                          value={coachNoteText}
-                          onChange={(e) => setCoachNoteText(e.target.value)}
-                          rows={2}
-                          disabled={liveSaving}
-                          tabIndex={showLiveCoachNote ? 0 : -1}
-                        />
-                      </div>
-                    </div>
+                    <CoachNoteComposer
+                      mode="attach"
+                      clientLabel={noteClientLabel}
+                      durationLabel={liveTimerStartedAt ? `${formatNoteDuration(liveElapsedSeconds)} so far` : null}
+                      kcalLabel={liveTimerStartedAt ? roundKcal(liveCalories.totalKcal) : null}
+                      recap={liveCoachNoteRecap}
+                      quickReplies={liveCoachNoteQuickReplies}
+                      value={coachNoteText}
+                      onChange={setCoachNoteText}
+                      disabled={liveSaving || !showLiveCoachNote}
+                      open={showLiveCoachNote}
+                      onToggle={() => setShowLiveCoachNote(v => !v)}
+                      bodyRef={coachNoteSlideRef}
+                      bodyStyle={{ maxHeight: coachNoteSlideMaxHeight }}
+                    />
                     )}
 
                   {/* Running late: hand the rest of today's session to the
@@ -11254,39 +11170,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   <div ref={liveLogActionBarRef} className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
+                      className="btn-discard-session"
                       onClick={() => setShowDiscardLiveModal(true)}
                       title="Discard this live session"
-                      style={{
-                        flex: '0 0 auto',
-                        padding: '0 8px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#ef4444',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}
+                      aria-label="Discard this live session"
                     >
                       <TrashIcon size={28} />
                     </button>
                     <button
+                      type="button"
+                      className="btn-save-workout-session"
                       onClick={handleSaveLiveSession}
                       disabled={liveSaving}
-                      style={{
-                        flex: 1,
-                        padding: '13px',
-                        background: liveSaving ? 'rgba(245,158,11,0.3)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                        border: 'none',
-                        borderRadius: 'var(--radius-md)',
-                        color: 'var(--text-main)',
-                        fontWeight: 800,
-                        fontSize: '0.9rem',
-                        cursor: liveSaving ? 'default' : 'pointer',
-                        transition: 'all 0.2s ease',
-                        letterSpacing: '0.02em'
-                      }}
+                      style={{ width: 'auto', flex: 1 }}
                     >
-                      {liveSaving ? '⏳ Saving...' : '💾 Save Workout Session'}
+                      {liveSaving ? 'Saving…' : <><SaveIcon /> Save Workout Session</>}
+                      {!liveSaving && coachNoteText.trim() && <span className="btn-save-note-badge">+ note</span>}
                     </button>
                   </div>
                   )}

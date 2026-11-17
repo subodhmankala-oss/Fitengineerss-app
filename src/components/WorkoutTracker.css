@@ -3830,13 +3830,17 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 700;
 }
 
-/* Primary "Save Workout Session" action — full-width amber button at the very
-   bottom, matching the coach's Live Log save button. */
+/* Primary "Save Workout Session" action — full-width blue button at the very
+   bottom. The coach's Live Log uses this same class (logger parity). */
 .btn-save-workout-session {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   padding: 14px;
   margin-top: 4px;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   border: none;
   border-radius: var(--radius-md);
   color: #fff;
@@ -3853,6 +3857,43 @@ html.keyboard-open .rest-timer-floating-card {
 
 .btn-save-workout-session:active {
   transform: translateY(1px);
+}
+
+.btn-save-workout-session:disabled {
+  background: rgba(37, 99, 235, 0.35);
+  cursor: default;
+}
+
+/* "+ note" — the Live Log's coach note will go out with this save. */
+.btn-save-note-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* Discard bin beside Save — same red bin, now in a bordered square box
+   (client logger + coach Live Log). */
+.btn-discard-session {
+  flex: 0 0 auto;
+  width: 52px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-md);
+  color: #ef4444;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-discard-session:hover {
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .add-exercise-dropdown-menu {

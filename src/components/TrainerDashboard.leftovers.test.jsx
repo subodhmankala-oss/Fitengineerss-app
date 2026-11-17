@@ -87,7 +87,7 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     const note = await screen.findByText(/for next session/);
     expect(note.closest('label').textContent).toContain('Leg Curl, Calf Raise');
 
-    fireEvent.click(screen.getByText('💾 Save Workout Session'));
+    fireEvent.click(screen.getByRole('button', { name: /Save Workout Session/ }));
     await waitFor(() => expect(databaseService.saveWorkoutSession).toHaveBeenCalled());
     await waitFor(() => expect(getWorkoutLeftovers(CLIENT.id).map(it => it.name)).toEqual(['Leg Curl', 'Calf Raise']));
     expect(getWorkoutLeftovers(CLIENT.id)[0].planName).toBe('Leg Day');
@@ -101,7 +101,7 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
     const box = (await screen.findByText(/for next session/)).closest('label').querySelector('input');
     fireEvent.click(box);
-    fireEvent.click(screen.getByText('💾 Save Workout Session'));
+    fireEvent.click(screen.getByRole('button', { name: /Save Workout Session/ }));
     await waitFor(() => expect(databaseService.saveWorkoutSession).toHaveBeenCalled());
     expect(getWorkoutLeftovers(CLIENT.id)).toEqual([]);
   });

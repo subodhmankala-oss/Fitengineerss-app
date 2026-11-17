@@ -267,8 +267,16 @@ const BODYWEIGHT_SECONDS_PER_REP = 2.5;
 //   raises, flyes, extensions, pushdowns, shrugs, rotations), where that is
 //   already heavy.
 // Sets at a full working load are priced exactly as before.
+// - and on past it (2026-11-18): it used to stop at 6.0, so a 140 kg squat for
+//   an 80 kg client read barely more than 40 kg (+1 kcal per extra 20 kg). A
+//   heavier set takes more energy per rep and leaves a bigger oxygen debt, so
+//   the MET keeps climbing to 8.0 (Compendium's vigorous circuit / heavy
+//   lifting band) at twice a full working load: bodyweight on the bar for a
+//   multi-joint lift, two-fifths of it for a single-joint one.
 const LIGHT_STRENGTH_MET = 3.0;
 const FULL_STRENGTH_MET = 6.0;
+const HEAVY_STRENGTH_MET = 8.0;
+const MAX_STRENGTH_EFFORT = 2;
 const COMPOUND_FULL_LOAD_RATIO = 0.5;
 const ISOLATION_FULL_LOAD_RATIO = 0.2;
 const ISOLATION_LIFT_RE = /curl|raise|\bfl(?:y|ies|ye|yes)\b|pec deck|peck|crossover|around the world|svend|extension|push ?down|kick ?backs?|shrug|face pull|pull apart|rear delt|abduct|adduct|pull ?over|straight[\s\-‑]?arm|tricep|skullcrusher|wrist|rotator|rotation/i;
@@ -277,14 +285,17 @@ export function isIsolationLift(exerciseName) {
   return ISOLATION_LIFT_RE.test(exerciseName || '');
 }
 
-// 0 (nothing on the bar) to 1 (a full working load for that kind of lift).
+// 0 (nothing on the bar) to 1 (a full working load for that kind of lift) to
+// 2 (twice that: heavy).
 function strengthEffort(exerciseName, weightKg, bodyWeightKg) {
   const fullRatio = isIsolationLift(exerciseName) ? ISOLATION_FULL_LOAD_RATIO : COMPOUND_FULL_LOAD_RATIO;
-  return bodyWeightKg > 0 ? Math.min(1, Math.max(0, weightKg) / (bodyWeightKg * fullRatio)) : 1;
+  return bodyWeightKg > 0 ? Math.min(MAX_STRENGTH_EFFORT, Math.max(0, weightKg) / (bodyWeightKg * fullRatio)) : 1;
 }
 
 function strengthMET(exerciseName, weightKg, bodyWeightKg) {
-  return LIGHT_STRENGTH_MET + (FULL_STRENGTH_MET - LIGHT_STRENGTH_MET) * strengthEffort(exerciseName, weightKg, bodyWeightKg);
+  const effort = strengthEffort(exerciseName, weightKg, bodyWeightKg);
+  if (effort <= 1) return LIGHT_STRENGTH_MET + (FULL_STRENGTH_MET - LIGHT_STRENGTH_MET) * effort;
+  return FULL_STRENGTH_MET + (HEAVY_STRENGTH_MET - FULL_STRENGTH_MET) * (effort - 1);
 }
 // Loaded carries are whole-body work under load at any weight.
 const CARRY_MET = 6.0;
@@ -320,13 +331,18 @@ const STRENGTH_SECONDS_PER_REP = 3.0;
 // timed move; down to 2.0 (standing and moving about between sets) after a
 // lift with almost nothing on the bar. Light bodyweight moves and static
 // holds sit halfway.
+// Past a full working load (2026-11-18) the oxygen debt grows with the load,
+// so recovery keeps climbing to 4.5 MET after a set at twice a full load.
 const RECOVERY_MET = 3.5;
 const LIGHT_RECOVERY_MET = 2.0;
+const HEAVY_RECOVERY_MET = 4.5;
 const MAX_RECOVERY_SECONDS_PER_SET = 180;
 const LIGHT_MOVE_EFFORT = 0.5;
 
 function recoveryMET(effort) {
-  return LIGHT_RECOVERY_MET + (RECOVERY_MET - LIGHT_RECOVERY_MET) * Math.min(1, Math.max(0, effort));
+  const e = Math.min(MAX_STRENGTH_EFFORT, Math.max(0, effort));
+  if (e <= 1) return LIGHT_RECOVERY_MET + (RECOVERY_MET - LIGHT_RECOVERY_MET) * e;
+  return RECOVERY_MET + (HEAVY_RECOVERY_MET - RECOVERY_MET) * (e - 1);
 }
 
 // Shared MET-based estimator for any reps-driven set that has no logged

@@ -80,7 +80,7 @@ describe("Client logger: keep not-started exercises for next session", { timeout
     expect(box.textContent).toContain('Keep 2 exercises for next session');
     expect(box.textContent).toContain('Reverse Fly, Cable Shrug');
 
-    fireEvent.click(screen.getByText('💾 Save Workout Session'));
+    fireEvent.click(screen.getByRole('button', { name: /Save Workout Session/ }));
     // No "unticked sets" warning: only whole exercises were left.
     expect(screen.queryByText("Some sets aren't ticked")).toBeNull();
     fireEvent.click(await screen.findByText('Confirm Save'));
@@ -97,7 +97,7 @@ describe("Client logger: keep not-started exercises for next session", { timeout
     renderWorkoutTracker();
     await screen.findByTestId('client-carry-over', {}, { timeout: 15000 });
 
-    fireEvent.click(screen.getByText('💾 Save Workout Session'));
+    fireEvent.click(screen.getByRole('button', { name: /Save Workout Session/ }));
     expect(await screen.findByText("Some sets aren't ticked")).toBeTruthy();
     expect(screen.queryByText('Empty Workout Session')).toBeNull();
   });

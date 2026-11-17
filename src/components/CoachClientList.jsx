@@ -4,7 +4,7 @@ import { getActivityStatus, daysSinceLogin } from '../utils/activityStatus';
 import { buildQuietMessage } from '../utils/quietClients';
 import { toWhatsappNumber, openWhatsapp } from '../utils/whatsappNudge';
 import { BREAK_REASONS, formatBreakDateShort } from '../utils/clientBreaks';
-import { BreakReasonIcon } from './ClientBreakIcons';
+import { BreakReasonIcon, BreakScene } from './ClientBreakIcons';
 import './CoachClientList.css';
 
 const GOAL_CLASS = (goal = '') => {
@@ -108,6 +108,7 @@ export default function CoachClientList({
               onClick={open}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
             >
+              {away && <BreakScene reason={away.reason} />}
               <span className="ccl-avatar">
                 <Avatar className="client-avatar" email={client.email} name={client.userName} avatarUrl={client.avatarUrl} size={40} />
                 {hasUnread(client.id) && <span className="unread-dot ccl-unread" aria-label="New update" />}

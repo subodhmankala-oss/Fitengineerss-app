@@ -1437,7 +1437,8 @@
    opens on tapping the name (.is-card-open). Desktop sidebar unchanged. */
 .client-detail-live-sub,
 .client-detail-live-sessions,
-.client-detail-corner-tab {
+.client-detail-back,
+.client-detail-name-chevron {
   display: none;
 }
 
@@ -2353,55 +2354,70 @@
   }
 }
 
-/* Corner tab: a tinted notch tucked into the header's top-right corner that
-   opens/closes the details card; its chevron flips when open. Sessions drop
-   to the bottom of the row so they never sit under the notch. */
+/* Phones: the client header IS the top bar — back arrow, avatar, name
+   (chevron = tap to open the details card), sessions ring. The separate
+   "Dashboard / Manage Client" breadcrumb row is hidden. */
 @media (max-width: 899px) {
-  .client-detail-view .client-detail-header {
-    position: relative;
-    padding-top: 14px;
+  .client-detail-view .dashboard-breadcrumb {
+    display: none !important;
   }
 
-  .client-detail-view .client-detail-corner-tab {
-    position: absolute;
-    top: 0;
-    right: 0;
+  .client-detail-view .client-detail-back {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 30px;
+    flex-shrink: 0;
+    width: 30px;
+    height: 34px;
+    margin: 0 -4px 0 -8px;
     padding: 0;
+    background: none;
     border: none;
-    border-bottom-left-radius: 16px;
-    background: rgba(var(--accent-soft-rgb), 0.14);
-    color: var(--accent-text);
+    border-radius: 10px;
+    color: var(--text-muted);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: background 0.2s;
   }
 
-  .client-detail-view .client-detail-corner-tab:hover,
-  .client-detail-view .client-detail-corner-tab.is-open {
-    background: rgba(var(--accent-soft-rgb), 0.24);
+  .client-detail-view .client-detail-back:active {
+    background: rgba(var(--fg-rgb), 0.06);
   }
 
-  .client-detail-view .client-detail-corner-tab svg {
+  .client-detail-view .client-detail-header .client-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .client-detail-view .client-detail-header-info .client-detail-name {
+    font-size: 1rem !important;
+  }
+
+  .client-detail-view .client-detail-name-chevron {
+    display: block;
+    flex-shrink: 0;
+    color: var(--text-muted);
     transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .client-detail-view .client-detail-corner-tab.is-open svg {
+  .client-detail-view .client-detail-name-chevron.is-open {
     transform: rotate(180deg);
   }
 
-  .client-detail-view .client-detail-live-sessions {
-    align-self: flex-end;
-    margin-top: 22px;
+  .client-detail-view .client-detail-live-sub {
+    margin-top: 1px;
+    font-size: 0.74rem;
+  }
+
+  /* Just "11/16" beside the ring; "sessions" is in the details card. */
+  .client-detail-view .client-detail-live-sessions-label {
+    display: none;
   }
 }
 
 @media (max-width: 899px) and (prefers-reduced-motion: reduce) {
-  .client-detail-view .client-detail-corner-tab svg {
+  .client-detail-view .client-detail-name-chevron {
     transition: none;
   }
 }

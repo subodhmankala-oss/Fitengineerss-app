@@ -8036,18 +8036,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               <div className="client-detail-sidebar">
               {/* Client Profile Title Block */}
               <div ref={clientHeaderRef} className="client-detail-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                {/* Phones: corner tab tucked into the header's top-right —
-                    opens/closes the details card (so does tapping the name).
-                    The chevron flips when open. Hidden on desktop. */}
+                {/* Phones: the header is the top bar — a back arrow here
+                    replaces the "Dashboard / Manage Client" breadcrumb row
+                    (hidden on phones). Tapping the name opens/closes the
+                    details card. Hidden on desktop. */}
                 <button
                   type="button"
-                  className={`client-detail-corner-tab${clientCardOpen ? ' is-open' : ''}`}
-                  aria-expanded={clientCardOpen}
-                  aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
-                  onClick={toggleClientCard}
+                  className="client-detail-back"
+                  aria-label="Back to dashboard"
+                  onClick={() => setSelectedClient(null)}
                 >
-                  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                    <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
                 <Avatar
@@ -8069,6 +8069,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 >
                   <div className="client-detail-name-row">
                     <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
+                    {/* Phones: small chevron after the name — the hint that
+                        tapping it opens the details card; flips when open. */}
+                    <svg className={`client-detail-name-chevron${clientCardOpen ? ' is-open' : ''}`} width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+                      <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                   {/* Phones: "● Fat loss · 86 kg" in place of the email. */}

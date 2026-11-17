@@ -9,7 +9,7 @@ import { isNewSignup } from './activityStatus';
 // check-in message talks about, so one fetch serves both.
 export const GLANCE_LOOKBACK_DAYS = 30;
 
-// No workout for this many days → red "needs you" row. Same line as the
+// No workout for this many days → red "needs you" line. Same line as the
 // red "long inactive" activity badge (LONG_INACTIVE_DAYS).
 export const NEEDS_YOU_DAYS = 6;
 
@@ -54,8 +54,8 @@ export function clientGlance(client, dates, today = getLocalDateString(), now = 
   );
 
   let label;
-  if (daysSince === null) label = needsYou ? `No workout in ${GLANCE_LOOKBACK_DAYS}+ days` : 'No workouts yet';
-  else if (needsYou) label = `Not trained ${daysSince} days`;
+  if (daysSince === null) label = needsYou ? `${GLANCE_LOOKBACK_DAYS}+ days since last workout` : 'No workouts yet';
+  else if (needsYou) label = `${daysSince} days since last workout`;
   else if (daysSince === 0) label = 'Trained today';
   else if (daysSince === 1) label = 'Trained yesterday';
   else label = `Last workout ${daysSince} days ago`;

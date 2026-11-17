@@ -26,8 +26,6 @@
 .ccl-row:hover { background: rgba(var(--fg-rgb), 0.03); }
 .ccl-row:active { background: rgba(var(--fg-rgb), 0.06); }
 .ccl-row:focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.6); outline-offset: -2px; }
-.ccl-row.needs { background: rgba(239, 68, 68, 0.07); }
-.ccl-row.needs:hover { background: rgba(239, 68, 68, 0.1); }
 .ccl-row.paused { cursor: not-allowed; opacity: 0.55; }
 .ccl-row.demo { background: rgba(var(--accent-rgb), 0.06); }
 
@@ -52,10 +50,16 @@
   padding: 1px 8px; border-radius: 999px; white-space: nowrap;
   border: 1px solid transparent;
 }
-.ccl-pill.fat    { background: rgba(239, 68, 68, 0.1);  color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
-.ccl-pill.muscle { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-color: rgba(59, 130, 246, 0.3); }
-.ccl-pill.gut    { background: rgba(20, 184, 166, 0.1); color: #14b8a6; border-color: rgba(20, 184, 166, 0.3); }
-.ccl-pill.other  { background: rgba(var(--accent-rgb), 0.1); color: var(--accent-text); border-color: rgba(var(--accent-rgb), 0.3); }
+/* Goal pills are information, not alarm: grey pill, coloured dot. Red is
+   kept for the "needs you" line only, so it stands out on a long list. */
+.ccl-pill.goal {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(var(--fg-rgb), 0.05); color: var(--text-muted); border-color: rgba(var(--fg-rgb), 0.1);
+}
+.ccl-pill.goal::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--goal-dot, var(--accent-text)); flex-shrink: 0; }
+.ccl-pill.goal.fat    { --goal-dot: #fb923c; }
+.ccl-pill.goal.muscle { --goal-dot: #60a5fa; }
+.ccl-pill.goal.gut    { --goal-dot: #14b8a6; }
 .ccl-pill.new    { background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
 .ccl-pill.muted  { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); border-color: rgba(148, 163, 184, 0.3); }
 
@@ -74,6 +78,20 @@
 .ccl-day.on { background: rgba(16, 185, 129, 0.16); color: #10b981; box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.45); }
 .ccl-day.today { box-shadow: inset 0 0 0 1.5px var(--text-main); color: var(--text-main); }
 .ccl-day.today.on { box-shadow: inset 0 0 0 1.5px #10b981; color: #10b981; }
+
+/* Training right now (open workout_drafts row, timer running, saved in the
+   last few minutes): today's dot goes solid green and pulses. */
+.ccl-day.live { position: relative; background: #10b981; color: #06281d; box-shadow: none; }
+.ccl-day.live::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  animation: ccl-live-pulse 1.6s ease-out infinite;
+}
+@keyframes ccl-live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  100% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .ccl-day.live::after { animation: none; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35); } }
+.ccl-sub-text.live { color: #10b981; font-weight: 600; }
 
 .ccl-week-skeleton {
   width: 140px; height: 12px; border-radius: 6px;
@@ -97,7 +115,7 @@
 .ccl-wa:active { transform: scale(0.96); }
 
 /* "Needs you" filter chip (TrainerDashboard filter row): sits right after
-   "All" and reads red, matching the red rows it filters to. */
+   "All" and reads red, matching the red "since last workout" line. */
 .filter-tags > .filter-tag { order: 2; }
 .filter-tags > .filter-tag:first-child { order: 0; }
 .filter-tags > .filter-tag-needs { order: 1; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.06); }

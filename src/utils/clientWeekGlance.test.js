@@ -43,7 +43,7 @@ describe('clientGlance', () => {
     const g = clientGlance(OLD_CLIENT, new Set(['2026-11-10']), TODAY, NOW);
     expect(g.daysSince).toBe(9);
     expect(g.needsYou).toBe(true);
-    expect(g.label).toBe('Not trained 9 days');
+    expect(g.label).toBe('9 days since last workout');
   });
 
   it('does not flag a recent workout', () => {
@@ -55,7 +55,7 @@ describe('clientGlance', () => {
   it('flags an established client with no workouts in the window', () => {
     const g = clientGlance(OLD_CLIENT, undefined, TODAY, NOW);
     expect(g.needsYou).toBe(true);
-    expect(g.label).toBe('No workout in 30+ days');
+    expect(g.label).toBe('30+ days since last workout');
   });
 
   it('does not flag a brand-new client who has not started', () => {

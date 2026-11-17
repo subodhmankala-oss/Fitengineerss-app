@@ -105,7 +105,20 @@ export default function CoachClientList({
               <span className="ccl-avatar">
                 <Avatar className="client-avatar" email={client.email} name={client.userName} avatarUrl={client.avatarUrl} size={40} />
                 {hasUnread(client.id) && <span className="unread-dot ccl-unread" aria-label="New update" />}
-                <span className="ccl-app-dot" role="img" title={activityLabel} aria-label={activityLabel} style={{ background: activity.color }} />
+                {glance?.away && !live ? (
+                  // On a break: the reason's icon sits where the app dot is.
+                  <span
+                    className="ccl-app-dot ccl-break-badge"
+                    role="img"
+                    title={`${BREAK_REASONS[glance.away.reason]?.label || 'Break'}: ${glance.away.note}`}
+                    aria-label={`${BREAK_REASONS[glance.away.reason]?.label || 'On a break'}, ${glance.label}`}
+                    style={{ '--c': BREAK_REASONS[glance.away.reason]?.color, '--c-rgb': BREAK_REASONS[glance.away.reason]?.rgb }}
+                  >
+                    <BreakReasonIcon reason={glance.away.reason} size={10} strokeWidth={2.8} />
+                  </span>
+                ) : (
+                  <span className="ccl-app-dot" role="img" title={activityLabel} aria-label={activityLabel} style={{ background: activity.color }} />
+                )}
               </span>
 
               <span className="ccl-body">
@@ -134,7 +147,6 @@ export default function CoachClientList({
                         style={{ '--c': BREAK_REASONS[glance.away.reason]?.color, '--c-rgb': BREAK_REASONS[glance.away.reason]?.rgb }}
                         title={`${BREAK_REASONS[glance.away.reason]?.label || 'Break'}: ${glance.away.note}`}
                       >
-                        <BreakReasonIcon reason={glance.away.reason} size={11} strokeWidth={2.6} />
                         {glance.label}
                       </span>
                     </>

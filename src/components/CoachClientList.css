@@ -37,6 +37,15 @@
   border: 2px solid var(--bg-card);
 }
 
+/* On a break: the reason icon replaces the grey app dot. */
+.ccl-app-dot.ccl-break-badge {
+  --c: #38bdf8; --c-rgb: 56, 189, 248;
+  width: 18px; height: 18px; bottom: -3px; right: -3px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-card); color: var(--c);
+  box-shadow: inset 0 0 0 1px rgba(var(--c-rgb), 0.55);
+}
+
 .ccl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .ccl-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .ccl-name {

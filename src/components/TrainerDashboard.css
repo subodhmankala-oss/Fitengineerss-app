@@ -2408,3 +2408,19 @@
   }
 }
 
+/* Edit Total Sessions on phones: full-screen overlay (portalled to <body>)
+   with the dialog pinned near the top, so the number keyboard that opens
+   for the autofocused input sits below it instead of over Save. */
+.total-sessions-overlay.is-sheet {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000 !important;
+  border-radius: 0 !important;
+  align-items: flex-start !important;
+  padding: max(env(safe-area-inset-top, 0px), 9vh) 16px 16px !important;
+}
+
+.total-sessions-overlay.is-sheet > div {
+  width: min(340px, 100%) !important;
+}
+

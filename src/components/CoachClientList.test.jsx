@@ -1,7 +1,11 @@
 import React from 'react';
-import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, it, expect, afterEach } from 'vitest';
+import { render, cleanup } from '@testing-library/react';
 import CoachClientList from './CoachClientList';
+
+// No vitest globals here, so unmount ourselves: otherwise React work left
+// over after the last test runs once jsdom is gone ("window is not defined").
+afterEach(cleanup);
 
 const base = { email: 'x@example.com', last_login: null, coach_id: 'coach-1' };
 

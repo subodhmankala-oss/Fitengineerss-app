@@ -8454,7 +8454,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 )}
                 {/* Deliberately low-key: muted dots, no label, so Remove is
                     there when needed but never a tap-target by accident. */}
-                <div data-client-menu style={{ position: 'relative', flexShrink: 0 }}>
+                <div data-client-menu className="client-detail-menu" style={{ position: 'relative', flexShrink: 0 }}>
                   <button
                     type="button"
                     aria-label="More client options"
@@ -8842,6 +8842,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
                 );
               })()}
+              {/* Phones: Unattach lives here, at the foot of the details card,
+                  instead of behind a faint ⋮ at the end of the header row
+                  (which read as an empty gap). Desktop keeps the ⋮ menu. */}
+              <button
+                type="button"
+                className="client-card-unattach"
+                disabled={removingClientId === selectedClient.id}
+                onClick={() => handleRemoveClient(selectedClient.id, selectedClient.userName)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <line x1="17" y1="11" x2="23" y2="11" />
+                </svg>
+                Unattach client
+              </button>
               </div>
               </div>
               </div>

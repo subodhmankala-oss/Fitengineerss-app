@@ -79,9 +79,18 @@ export default function useFullBleed() {
     ro?.observe(parent);
     if (scroller) ro?.observe(scroller);
     window.addEventListener('resize', measure);
+    // Measuring uses on-screen boxes, which an ancestor's entry animation
+    // (e.g. .animate-scale-in's scale(0.95) on the Manage Client view) still
+    // shrinks on first paint — sizes don't change as it ends, so the
+    // ResizeObserver never fires and the bar stays short of one edge and past
+    // the other (reported 2026-11-18). Re-measure whenever an animation ends.
+    document.addEventListener('animationend', measure, true);
+    document.addEventListener('animationcancel', measure, true);
     return () => {
       ro?.disconnect();
       window.removeEventListener('resize', measure);
+      document.removeEventListener('animationend', measure, true);
+      document.removeEventListener('animationcancel', measure, true);
       reset();
     };
   }, [mounted]);

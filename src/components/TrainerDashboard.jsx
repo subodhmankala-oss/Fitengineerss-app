@@ -5,6 +5,8 @@ import Avatar from './Avatar';
 import { getLocalDateString, parseLocalDateString, isLocalToday, } from '../utils/dateUtils';
 import { findWrongClientSignal, describeWrongClientSignal } from '../utils/liveLogClientCheck';
 import CoachQuietClients from './CoachQuietClients';
+import CoachClientList from './CoachClientList';
+import { useClientWeekGlance } from '../hooks/useClientWeekGlance';
 import CoachReplyCard from './CoachReplyCard';
 import CoachInviteSheet from './CoachInviteSheet';
 import './TrainerDashboard.css';
@@ -44,7 +46,6 @@ import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missed
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, buildSessionStatPhrase, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, remapSetTimersForSetInsert, remapSetTimersForSetMove, moveItem, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { notifyEvent } from '../utils/pushNotify';
-import { getActivityStatus } from '../utils/activityStatus';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
@@ -5480,6 +5481,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     ? clients.filter(c => c.coach_id === loggedInUserId).slice().sort((a, b) => (a.userName || '').localeCompare(b.userName || ''))
     : [];
 
+  // This week's workout days + "needs you" flag per client, for the client
+  // list rows and its "Needs you" filter chip (CoachClientList).
+  const { glances: clientGlances, recaps: clientGlanceRecaps } = useClientWeekGlance(viewMode === 'coach' ? myClients : []);
+  const needsYouCount = clientGlances ? myClients.filter(c => clientGlances[c.id]?.needsYou).length : 0;
+
   const filteredClients = clients.filter(c => {
     // SECURITY (data isolation): in coach view EVERY coach — including the
     // super-admin — sees ONLY their own attached clients. This must FAIL
@@ -5498,7 +5504,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       c.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesGoal = goalFilter === 'All' || c.userGoal === goalFilter;
+    const matchesGoal = goalFilter === 'All'
+      || (goalFilter === 'Needs you' ? !!clientGlances?.[c.id]?.needsYou : c.userGoal === goalFilter);
 
     return matchesSearch && matchesGoal;
   });
@@ -7977,6 +7984,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       </button>
                     );
                   })}
+                  {/* Clients with no workout for 6+ days (red rows in the list).
+                      Hidden when there are none, unless it's the active filter. */}
+                  {viewMode === 'coach' && (needsYouCount > 0 || goalFilter === 'Needs you') && (
+                    <button
+                      className={`filter-tag filter-tag-needs ${goalFilter === 'Needs you' ? 'active' : ''}`}
+                      onClick={() => setGoalFilter('Needs you')}
+                    >
+                      Needs you<span className="chr-chip-count">{needsYouCount}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -8002,211 +8019,40 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   <p>Try refining your search query or selecting a different goal category tag filter.</p>
                 </div>
               ) : (
-                <div style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: '16px 0',
-                  overflowX: 'auto'
-                }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)', tableLayout: 'fixed' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client Name ({filteredClients.filter(c => !c.paused_at).length})</th>
-                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center', width: '84px' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {showDemoClientRow && (
-                        <tr style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '56px', background: 'rgba(var(--accent-rgb), 0.05)' }}>
-                          <td style={{ padding: '8px', overflow: 'hidden' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                              <div
-                                className="client-avatar"
-                                style={{
-                                  backgroundColor: getAvatarColor(DEMO_CLIENT.userName),
-                                  width: '44px',
-                                  height: '44px',
-                                  borderRadius: '50%',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '1.05rem',
-                                  fontWeight: 'bold',
-                                  color: 'var(--text-main)'
-                                }}
-                              >
-                                {getAvatarInitials(DEMO_CLIENT.userName)}
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{DEMO_CLIENT.userName}</span>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{DEMO_CLIENT.email}</span>
-                                <span style={{
-                                  display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
-                                  fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
-                                  background: 'rgba(var(--accent-rgb), 0.14)', color: 'var(--accent-text)',
-                                  border: '1px solid rgba(var(--accent-rgb), 0.25)', marginTop: '2px'
-                                }}>
-                                  Sample · Tour
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center' }}>
-                            <button
-                              data-tour="tc-demo-manage-btn"
-                              onClick={() => { handleSelectClient(DEMO_CLIENT); coachTour.advanceIfStep(1, 2); }}
-                              style={{
-                                background: 'var(--primary-accent-light)',
-                                border: 'none',
-                                color: '#fff',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                boxShadow: '0 2px 4px rgba(var(--accent-rgb), 0.2)'
-                              }}
-                            >
-                              Manage
-                            </button>
-                          </td>
-                        </tr>
-                      )}
-                      {filteredClients.map(client => (
-                        <tr key={client.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '56px' }}>
-                          <td style={{ padding: '8px', overflow: 'hidden' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                              <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                                <Avatar
-                                  className="client-avatar"
-                                  email={client.email}
-                                  name={client.userName}
-                                  avatarUrl={client.avatarUrl}
-                                  size={44}
-                                />
-                                {(hasClientDot(client.id) || newClientNotifications.some(n => n.clientId === client.id)) && (
-                                  <span className="unread-dot" style={{ position: 'absolute', top: 0, right: 0 }} aria-label="New update" />
-                                )}
-                                {/* Activity dot from last_login — same buckets as the
-                                    super-admin activity tiles: green active today,
-                                    amber 1–5 days, red 6+ days, grey never logged in. */}
-                                {(() => {
-                                  const activity = getActivityStatus(client.last_login);
-                                  const label = client.last_login
-                                    ? `${activity.label} · last seen ${new Date(client.last_login).toLocaleString()}`
-                                    : activity.label;
-                                  return (
-                                    <span
-                                      role="img"
-                                      title={label}
-                                      aria-label={label}
-                                      style={{
-                                        position: 'absolute', bottom: 1, right: 1,
-                                        width: '12px', height: '12px', borderRadius: '50%',
-                                        background: activity.color,
-                                        border: '2px solid var(--bg-app)'
-                                      }}
-                                    />
-                                  );
-                                })()}
-                              </span>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.email}</span>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-                                  <span style={{
-                                    display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
-                                    fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
-                                    background: client.coach_id ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(148, 163, 184, 0.12)',
-                                    color: client.coach_id ? 'var(--accent-text)' : 'var(--text-muted)',
-                                    border: `1px solid ${client.coach_id ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(148, 163, 184, 0.2)'}`
-                                  }}>
-                                    {client.coach_id ? 'Attached' : 'Generic'}
-                                  </span>
-                                  {/* 2026-09-06: paused status wasn't visible anywhere
-                                      outside Client Payments — a coach browsing the
-                                      directory had no way to tell a paused client
-                                      apart from an active one. */}
-                                  {client.paused_at && (
-                                    <span style={{
-                                      display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
-                                      fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
-                                      background: 'rgba(148, 163, 184, 0.14)', color: 'var(--text-muted)',
-                                      border: '1px solid rgba(148, 163, 184, 0.25)'
-                                    }}>
-                                      Paused
-                                    </span>
-                                  )}
-                                  {/* Unread client_connected notification for this
-                                      client — clears when the coach opens them. */}
-                                  {newClientNotifications.some(n => n.clientId === client.id) && (
-                                    <span style={{
-                                      display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
-                                      fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
-                                      background: 'rgba(var(--accent-rgb), 0.16)', color: 'var(--tint-emerald)',
-                                      border: '1px solid rgba(var(--accent-rgb), 0.35)'
-                                    }}>
-                                      New
-                                    </span>
-                                  )}
-                                  {client.userGoal && (
-                                    <span className={`client-goal-badge ${client.userGoal.toLowerCase().replace(/\s+/g, '-')}`} style={{
-                                      display: 'inline-block',
-                                      padding: '1px 7px',
-                                      borderRadius: '10px',
-                                      fontSize: '0.62rem',
-                                      fontWeight: 700,
-                                      background: client.userGoal.toLowerCase().includes('fat')
-                                        ? 'rgba(239, 68, 68, 0.12)'
-                                        : client.userGoal.toLowerCase().includes('muscle')
-                                        ? 'rgba(59, 130, 246, 0.12)'
-                                        : 'rgba(var(--accent-rgb), 0.12)',
-                                      color: client.userGoal.toLowerCase().includes('fat')
-                                        ? '#ef4444'
-                                        : client.userGoal.toLowerCase().includes('muscle')
-                                        ? '#3b82f6'
-                                        : 'var(--primary-accent-light)',
-                                      border: `1px solid ${
-                                        client.userGoal.toLowerCase().includes('fat')
-                                          ? 'rgba(239, 68, 68, 0.2)'
-                                          : client.userGoal.toLowerCase().includes('muscle')
-                                          ? 'rgba(59, 130, 246, 0.2)'
-                                          : 'rgba(var(--accent-rgb), 0.2)'
-                                      }`
-                                    }}>
-                                      {client.userGoal}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center' }}>
-                            <button
-                              onClick={() => { if (!client.paused_at) handleSelectClient(client); }}
-                              disabled={!!client.paused_at}
-                              title={client.paused_at ? 'Unpause this client (Client Payments) to manage them again' : undefined}
-                              style={{
-                                background: client.paused_at ? 'rgba(var(--fg-rgb), 0.06)' : 'var(--primary-accent-light)',
-                                border: 'none',
-                                color: client.paused_at ? 'var(--text-muted)' : '#fff',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                cursor: client.paused_at ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s ease',
-                                boxShadow: client.paused_at ? 'none' : '0 2px 4px rgba(var(--accent-rgb), 0.2)'
-                              }}
-                            >
-                              Manage
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <CoachClientList
+                  clients={filteredClients}
+                  glances={clientGlances}
+                  recaps={clientGlanceRecaps}
+                  onOpen={handleSelectClient}
+                  hasUnread={id => hasClientDot(id) || newClientNotifications.some(n => n.clientId === id)}
+                  isNewConnection={id => newClientNotifications.some(n => n.clientId === id)}
+                  showGenericTag={viewMode !== 'coach'}
+                  demoRow={showDemoClientRow && (
+                    <button
+                      type="button"
+                      data-tour="tc-demo-manage-btn"
+                      className="ccl-row demo"
+                      style={{ width: '100%', border: 'none', textAlign: 'left', fontFamily: 'inherit', color: 'inherit' }}
+                      onClick={() => { handleSelectClient(DEMO_CLIENT); coachTour.advanceIfStep(1, 2); }}
+                    >
+                      <span className="ccl-avatar">
+                        <span className="client-avatar" style={{
+                          backgroundColor: getAvatarColor(DEMO_CLIENT.userName), width: '40px', height: '40px', borderRadius: '50%',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)'
+                        }}>
+                          {getAvatarInitials(DEMO_CLIENT.userName)}
+                        </span>
+                      </span>
+                      <span className="ccl-body">
+                        <span className="ccl-top">
+                          <span className="ccl-name">{DEMO_CLIENT.userName}</span>
+                          <span className="ccl-tags"><span className="ccl-pill other">Sample · Tour</span></span>
+                        </span>
+                        <span className="ccl-sub"><span className="ccl-sub-text">Tap to open the sample client</span></span>
+                      </span>
+                    </button>
+                  )}
+                />
               )}
 
             </div>

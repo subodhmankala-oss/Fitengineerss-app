@@ -8528,56 +8528,50 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 background: 'rgba(var(--fg-rgb), 0.03)'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {[selectedClient.userGoal || 'Goal not set', selectedClient.userSecondaryGoal].filter(Boolean).map(goal => {
-                      // Distinct tint per goal (tint + ring, not a solid fill).
-                      const tint = GOAL_TINTS[goal] || 'var(--text-muted)';
-                      return (
-                        <span key={goal} style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '5px',
-                          padding: '3px 10px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700,
-                          color: tint,
-                          background: `color-mix(in srgb, ${tint} 12%, transparent)`,
-                          border: `1px solid color-mix(in srgb, ${tint} 35%, transparent)`
-                        }}>
-                          {goal === 'Fat Loss' && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="M12 12c2-2.96 0-7-1-8 0 3.04-1.77 4.74-3 6-1.22 1.27-2 3.26-2 5a6 6 0 0 0 12 0c0-1.53-1.06-3.94-2-5-1.79 3-2.79 3-4 2z" />
-                            </svg>
-                          )}
-                          {goal}
-                        </span>
-                      );
-                    })}
+                  {/* Goals: coloured dot + text (no chips), like the header. */}
+                  <div className="client-card-goals">
+                    {[selectedClient.userGoal || 'Goal not set', selectedClient.userSecondaryGoal].filter(Boolean).map(goal => (
+                      <span key={goal} className="client-card-goal" style={{ '--goal-tint': GOAL_TINTS[goal] || 'var(--text-muted)' }}>
+                        {goal}
+                      </span>
+                    ))}
                   </div>
                   <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                     {selectedClient.userAge || '--'} yrs · {selectedClient.userHeight || '--'} cm
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                {/* Weight / kcal / protein, each in its own tinted tile. */}
+                <div className="client-card-tiles">
                   {[
                     // Prefer the latest logged measurement (clientMeasurements is
                     // fetched fresh in handleSelectClient) over the cached
-                    // clients.weight_kg snapshot on selectedClient.userWeight —
+                    // clients.weight_kg snapshot on selectedClient.userWeight -
                     // the client logging a new weight via Measurements never
                     // used to update that column, so this would go stale the
                     // moment they did.
-                    { value: clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight, unit: 'kg', label: 'Weight' },
-                    { value: selectedClient.userCalorieTarget, unit: '', label: 'kcal / day' },
-                    { value: selectedClient.userProteinTarget, unit: 'g', label: 'Protein' }
-                  ].map((stat, i) => (
-                    <div key={stat.label} style={{
-                      flex: 1, textAlign: 'center',
-                      borderLeft: i ? '1px solid rgba(var(--fg-rgb), 0.08)' : 'none'
-                    }}>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                        {stat.value || '--'}
-                        {stat.value && stat.unit && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '2px' }}>{stat.unit}</span>}
+                    { key: 'weight', value: clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight, unit: 'kg', label: 'Weight',
+                      icon: <><rect x="4" y="4" width="16" height="16" rx="4" /><path d="M9 10a4 4 0 0 1 6 0" /><path d="m12 10 1.4-1.6" /></> },
+                    { key: 'kcal', value: selectedClient.userCalorieTarget, unit: '', label: 'kcal / day',
+                      icon: <path d="M12 21c-3.9 0-7-2.8-7-6.6 0-3.1 2.1-5.3 3.6-7 .5 1.7 1.5 2.9 2.6 3.4C11 7.6 12.6 4.6 15 3c-.4 2.9.7 4.7 2 6.3 1.2 1.5 2 3 2 5.1C19 18.2 15.9 21 12 21Z" /> },
+                    { key: 'protein', value: selectedClient.userProteinTarget, unit: 'g', label: 'Protein',
+                      icon: <path d="M12 3c-3.6 0-6.5 5.6-6.5 10.2a6.5 6.5 0 0 0 13 0C18.5 8.6 15.6 3 12 3Z" /> }
+                  ].map(stat => {
+                    const n = Number(stat.value);
+                    const shown = stat.value ? (Number.isFinite(n) && n >= 1000 ? n.toLocaleString() : stat.value) : '--';
+                    return (
+                      <div key={stat.key} className={`client-card-tile is-${stat.key}`}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          {stat.icon}
+                        </svg>
+                        <div className="client-card-tile-num">
+                          {shown}
+                          {stat.value && stat.unit && <span>{stat.unit}</span>}
+                        </div>
+                        <div className="client-card-tile-label">{stat.label}</div>
                       </div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stat.label}</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
               {/* Coaching Program Length — coach-set total sessions that drives the
@@ -8619,7 +8613,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 };
                 const startLabel = formatDate(selectedClient.program_started_on);
                 const endLabel = formatDate(selectedClient.program_est_completion);
-                const ringC = 2 * Math.PI * 16;
                 const formatDateTime = (iso) => {
                   if (!iso) return null;
                   const d = new Date(iso);
@@ -8772,53 +8765,43 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       return onPhone ? createPortal(overlay, document.body) : overlay;
                     })()}
 
-                    {/* Compact program row — progress ring, count + dates,
-                        pencil opens the popup above. */}
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      padding: '10px 12px', borderRadius: '12px',
-                      background: 'rgba(var(--fg-rgb), 0.04)'
-                    }}>
-                      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true" style={{ flexShrink: 0 }}>
-                        <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(var(--fg-rgb), 0.1)" strokeWidth="4" />
-                        {total != null && percent > 0 && (
-                          <circle
-                            cx="20" cy="20" r="16" fill="none" stroke="var(--accent-soft)" strokeWidth="4" strokeLinecap="round"
-                            strokeDasharray={`${(percent / 100) * ringC} ${ringC}`} transform="rotate(-90 20 20)"
-                            style={{ transition: 'stroke-dasharray 0.3s ease' }}
-                          />
-                        )}
-                        <text x="20" y="24" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-main)">
-                          {total != null ? completed : '–'}
-                        </text>
-                      </svg>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                          {total != null ? `${completed} of ${total} sessions` : 'Program not set'}
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1px' }}>
-                          {total != null
-                            ? [
-                                (startLabel || endLabel) && `${startLabel || '--'} → ${endLabel || '--'}`,
-                                `${remaining} left`
-                              ].filter(Boolean).join(' · ')
-                            : 'Client sees "waiting on your coach" until you set it'}
-                        </div>
+                    {/* Program: "11 of 16 sessions" + Edit, a progress bar with
+                        the start/end dates at its ends and "N left" between.
+                        Edit opens the popup above. */}
+                    <div className="client-card-program">
+                      <div className="client-card-program-head">
+                        <span>
+                          <strong>Program</strong>
+                          <span className="client-card-program-count">
+                            {total != null ? ` · ${completed} of ${total} sessions` : ' · not set'}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          className="client-card-program-edit"
+                          aria-label="Edit program"
+                          title="Edit total sessions and program dates"
+                          onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
+                        >
+                          {total != null ? 'Edit' : 'Set up'}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        aria-label="Edit program"
-                        title="Edit total sessions and program dates"
-                        onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
-                        style={{
-                          width: '32px', height: '32px', flexShrink: 0, borderRadius: '9px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: 'transparent', border: '1px solid rgba(var(--accent-soft-rgb), 0.35)',
-                          color: 'var(--accent-text)', cursor: 'pointer', padding: 0
-                        }}
-                      >
-                        <PencilIcon size={15} />
-                      </button>
+                      {total != null ? (
+                        <>
+                          <div className="client-card-program-bar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={completed}>
+                            <span style={{ width: `${percent}%` }} />
+                          </div>
+                          <div className="client-card-program-dates">
+                            <span>{startLabel || '-'}</span>
+                            <span className="client-card-program-left">{remaining} left</span>
+                            <span>{endLabel || '-'}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="client-card-program-dates">
+                          <span>Client sees "waiting on your coach" until you set it</span>
+                        </div>
+                      )}
                     </div>
                     {programDatesSaveMsg && (
                       <div style={{
@@ -8862,22 +8845,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
                 );
               })()}
-              {/* Phones: Unattach lives here, at the foot of the details card,
-                  instead of behind a faint ⋮ at the end of the header row
-                  (which read as an empty gap). Desktop keeps the ⋮ menu. */}
-              <button
-                type="button"
-                className="client-card-unattach"
-                disabled={removingClientId === selectedClient.id}
-                onClick={() => handleRemoveClient(selectedClient.id, selectedClient.userName)}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <line x1="17" y1="11" x2="23" y2="11" />
-                </svg>
-                Unattach client
-              </button>
+              {/* Footer: when they joined, and (phones) Unattach. Desktop keeps
+                  Unattach in the header's menu. */}
+              <div className="client-card-foot">
+                <span>
+                  {selectedClient.joined_at && !Number.isNaN(new Date(selectedClient.joined_at).getTime())
+                    ? `Client since ${new Date(selectedClient.joined_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+                    : ''}
+                </span>
+                <button
+                  type="button"
+                  className="client-card-unattach"
+                  disabled={removingClientId === selectedClient.id}
+                  onClick={() => handleRemoveClient(selectedClient.id, selectedClient.userName)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="17" y1="11" x2="23" y2="11" />
+                  </svg>
+                  Unattach
+                </button>
+              </div>
               </div>
               </div>
               </div>

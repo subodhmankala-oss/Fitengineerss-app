@@ -2337,7 +2337,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-top: 12px;
+    margin-top: 0;
     padding: 6px 2px;
     background: none;
     border: none;
@@ -2424,3 +2424,149 @@
   width: min(340px, 100%) !important;
 }
 
+
+/* Client details card (design B): goal dots, three tinted stat tiles, a
+   program progress bar with dates, and a footer row. */
+.client-card-goals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.client-card-goal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--goal-tint);
+}
+
+.client-card-goal::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--goal-tint);
+}
+
+.client-card-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.client-card-tile {
+  --tile: var(--accent-soft);
+  padding: 10px 10px 9px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tile) 11%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tile) 22%, transparent);
+  min-width: 0;
+}
+
+.client-card-tile.is-weight { --tile: #2bb98a; }
+.client-card-tile.is-kcal { --tile: var(--tint-orange); }
+.client-card-tile.is-protein { --tile: #4aa3ff; }
+[data-theme="light"] .client-card-tile.is-weight { --tile: #0f8a63; }
+[data-theme="light"] .client-card-tile.is-protein { --tile: #1f7fdc; }
+
+.client-card-tile svg {
+  color: var(--tile);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.client-card-tile-num {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.client-card-tile-num span {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.client-card-tile-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.client-card-program-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.84rem;
+  color: var(--text-main);
+}
+
+.client-card-program-head strong {
+  font-weight: 700;
+}
+
+.client-card-program-count {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.client-card-program-edit {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.client-card-program-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(var(--fg-rgb), 0.08);
+  overflow: hidden;
+}
+
+.client-card-program-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  transition: width 0.4s ease;
+}
+
+.client-card-program-dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.client-card-program-left {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.client-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(var(--fg-rgb), 0.08);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}

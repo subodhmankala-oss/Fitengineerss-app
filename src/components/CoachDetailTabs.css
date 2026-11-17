@@ -82,6 +82,7 @@
 }
 .coach-tab-label .short { display: none; }
 .coach-tab-unread { position: absolute; top: -3px; right: -8px; }
+.coach-tab-live-head { display: none; }
 
 .coach-tab-status {
   display: flex;
@@ -173,3 +174,12 @@
   }
 }
 
+/* Phones: one line per tab — icon + name, no status line under it ("36
+   plans", "Yesterday"… are inside each tab already). Tabs share the width
+   as before (sized to their names); the Log tab keeps its pulsing dot by the
+   name while the clock runs. */
+@media (max-width: 899px) {
+  .coach-tab-status { display: none; }
+  .coach-tab-live-head { display: block; }
+  .coach-tabs .coach-tab { padding: 11px 6px 10px; }
+}

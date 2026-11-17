@@ -8374,6 +8374,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               <div className="client-detail-sidebar">
               {/* Client Profile Title Block */}
               <div ref={clientHeaderRef} className="client-detail-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                {/* Phones: corner tab tucked into the header's top-right —
+                    opens/closes the details card (so does tapping the name).
+                    The chevron flips when open. Hidden on desktop. */}
+                <button
+                  type="button"
+                  className={`client-detail-corner-tab${clientCardOpen ? ' is-open' : ''}`}
+                  aria-expanded={clientCardOpen}
+                  aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
+                  onClick={() => setClientCardOpen(o => !o)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                    <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
                 <Avatar
                   className="client-avatar"
                   email={selectedClient.email}
@@ -8393,13 +8407,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 >
                   <div className="client-detail-name-row">
                     <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
-                    {/* Phones: plain chevron beside the name — the details
-                        card folds open from here. */}
-                    <span className={`client-detail-chevron${clientCardOpen ? ' is-open' : ''}`} aria-hidden="true">
-                      <svg width="12" height="12" viewBox="0 0 14 14">
-                        <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
                   </div>
                   <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                   {/* Phones: "● Fat loss · 86 kg" in place of the email. */}

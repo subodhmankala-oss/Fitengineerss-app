@@ -43,6 +43,29 @@ describe('CoachClientList goals', () => {
     expect(lines[1].querySelectorAll('.ccl-goal')).toHaveLength(0);
   });
 
+  it('drops the "N this week" text but keeps the last-workout line for an empty week', () => {
+    const g = (days, label) => ({ days, offDays: days.map(() => false), todayIndex: 2, weekCount: days.filter(Boolean).length, needsYou: false, label });
+    const { container } = render(
+      <CoachClientList
+        clients={[
+          { ...base, id: 'c1', userName: 'Priya Rao', userGoal: 'Fat Loss' },
+          { ...base, id: 'c2', userName: 'Anita Menon', userGoal: '' },
+        ]}
+        glances={{
+          c1: g([true, false, true, false, false, false, false], 'Trained today'),
+          c2: g([false, false, false, false, false, false, false], 'Last workout 5 days ago'),
+        }}
+        onOpen={() => {}}
+        hasUnread={() => false}
+        isNewConnection={() => false}
+      />
+    );
+    const rows = container.querySelectorAll('.ccl-row');
+    expect(rows[0].querySelector('.ccl-sub-text')).toBeNull();
+    expect(rows[0].textContent).not.toMatch(/this week/);
+    expect(rows[1].querySelector('.ccl-sub-text').textContent).toBe('Last workout 5 days ago');
+  });
+
   it('does not repeat a goal picked twice', () => {
     const { container } = renderList([
       { ...base, id: 'c1', userName: 'Priya Rao', userGoal: 'Fat Loss', userSecondaryGoal: 'Fat Loss' },

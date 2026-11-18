@@ -138,3 +138,52 @@ export function swapAlternatives(name, catalog, { exclude = [], limit = 8 } = {}
     : [];
   return [...sameMuscle, ...sameCategory].slice(0, limit);
 }
+
+// How good a stand-in `alt` is for `name`, 0–99 — the live Swap sheet's
+// "96% match". The same primary muscle counts most (the same category a bit
+// less), then the same equipment, then shared movement words ("Bench",
+// "Press", "Row"), so Dumbbell Bench Press beats Chest Press Machine for
+// Bench Press (Barbell). Never 100: a swap is never the exercise itself.
+export function swapMatchPercent(name, alt, catalog) {
+  const list = Array.isArray(catalog) ? catalog : [];
+  const self = list.find(e => exerciseNameKey(e.name) === exerciseNameKey(name)) || matchCatalogExercise(name, list);
+  const mine = words(name);
+  const theirs = words(alt?.name || '');
+  const myEquipment = new Set(mine.filter(w => EQUIPMENT.has(w)));
+  const myMovement = new Set(mine.filter(w => !EQUIPMENT.has(w)));
+  const theirMovement = new Set(theirs.filter(w => !EQUIPMENT.has(w)));
+  let score = 35;
+  if (self && alt?.muscle === self.muscle) score = 70;
+  else if (self?.category && alt?.category === self.category) score = 50;
+  if (theirs.some(w => myEquipment.has(w))) score += 12;
+  const shared = [...theirMovement].filter(w => myMovement.has(w)).length;
+  score += Math.round((17 * shared) / Math.max(myMovement.size, theirMovement.size, 1));
+  return Math.min(99, score);
+}
+
+// The equipment an exercise name says it uses, for the Swap sheet's filter
+// pills — null when the name doesn't say (the caller decides on
+// "Bodyweight" from the library's own bodyweight list).
+const EQUIPMENT_LABELS = [
+  ['dumbbell', 'Dumbbell'], ['barbell', 'Barbell'], ['ez', 'Barbell'],
+  ['smith', 'Machine'], ['machine', 'Machine'], ['cable', 'Cable'],
+  ['kettlebell', 'Kettlebell'], ['band', 'Band'], ['resistance', 'Band']
+];
+export function equipmentLabel(name) {
+  const w = new Set(words(name || ''));
+  const hit = EQUIPMENT_LABELS.find(([word]) => w.has(word));
+  return hit ? hit[1] : null;
+}
+
+// Is `other` just `name` under another library name ("Bench Press" vs
+// "Bench Press (Barbell)")? Same movement words, and `other` names no
+// equipment `name` doesn't. The Swap sheet leaves these out — swapping an
+// exercise for itself is no swap.
+export function isSameExerciseName(name, other) {
+  const a = words(name || '');
+  const b = words(other || '');
+  const move = (ws) => [...new Set(ws.filter(w => !EQUIPMENT.has(w)))].sort().join(' ');
+  if (!move(a) || move(a) !== move(b)) return false;
+  const mine = new Set(a.filter(w => EQUIPMENT.has(w)));
+  return b.filter(w => EQUIPMENT.has(w)).every(w => mine.has(w));
+}

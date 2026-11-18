@@ -6,12 +6,15 @@ import { buildAiCatalog } from './aiWorkoutCatalog';
 // sheet — the same three sources, precedence and hidden names as the Add
 // Exercise picker (ExercisePickerModal's activeLibrary), so the AI can only
 // pick what the coach could pick by hand. Every source is best-effort: a
-// failed read just leaves that source out.
-export async function loadAiCatalog({ coachId = null } = {}) {
+// failed read just leaves that source out. The client logger's live Swap
+// sheet passes clientUserId instead (same viewer the client picker uses).
+export async function loadAiCatalog({ coachId = null, clientUserId = null } = {}) {
   const [dbExercises, deleted, customExercises] = await Promise.all([
     databaseService.getExerciseLibrary().catch(() => []),
     Promise.resolve(databaseService.getHiddenExerciseNames?.()).catch(() => null),
-    coachId ? databaseService.getCustomExercisesForViewer({ coachId }).catch(() => []) : Promise.resolve([])
+    coachId || clientUserId
+      ? databaseService.getCustomExercisesForViewer(coachId ? { coachId } : { clientUserId }).catch(() => [])
+      : Promise.resolve([])
   ]);
   const hidden = new Set([
     ...PICKER_HIDDEN_NAMES.map(n => n.toLowerCase()),

@@ -256,3 +256,35 @@ export function getMuscleGaps(logs, today = getLocalDateString(), level = null) 
     return { ...g, suggestion };
   });
 }
+
+// More sets than this for one muscle in one session mostly add fatigue, so
+// the "next part" row stops offering to add more today.
+export const SESSION_MUSCLE_SET_CAP = 10;
+
+/**
+ * The live sheet's "next part" row: once today's sets have finished one part
+ * of a muscle (Mid Chest 4/4), the parts still short this week and not
+ * touched today (Upper Chest 0/3, Lower Chest 0/2), and whether to do them
+ * now or keep them for the next session. Back/Chest/Shoulders only, the same
+ * muscles the logger's set ring and "behind this week" nudge split.
+ * @param muscle      heat-map muscle
+ * @param allParts    getRegionBreakdownForMuscle over saved + live rows
+ * @param beforeParts the same over saved rows only (the week before today)
+ * @param stat        the muscle's getWeeklyMuscleStats row (saved + live)
+ * @param today       sets the muscle got in this workout
+ * @returns {{mode: 'now'|'later', parts: Array<{id, sets, min, suggestions}>}|null}
+ */
+export function getNextParts(muscle, allParts, beforeParts, stat, today) {
+  if (!GAP_REGION_MUSCLES.has(muscle) || !stat) return null;
+  const EPS = 0.001;
+  const before = Object.fromEntries((beforeParts || []).map(r => [r.id, r.sets]));
+  const addedToday = r => r.sets - (before[r.id] || 0) > EPS;
+  const finished = (allParts || []).some(r => r.band && addedToday(r) && r.sets >= r.band.min);
+  if (!finished) return null;
+  const parts = allParts
+    .filter(r => r.band && !addedToday(r) && r.sets < r.band.min && r.suggestions.length)
+    .map(r => ({ id: r.id, sets: r.sets, min: r.band.min, suggestions: r.suggestions }));
+  if (!parts.length) return null;
+  const mode = stat.sets < stat.min && today < SESSION_MUSCLE_SET_CAP ? 'now' : 'later';
+  return { mode, parts };
+}

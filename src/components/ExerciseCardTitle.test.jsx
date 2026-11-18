@@ -28,13 +28,23 @@ describe('ExerciseCardTitle written note + Busy?', () => {
     expect(screen.getByText('Coach says hi')).toBeTruthy();
     expect(screen.queryByText(/collarbone/)).toBeNull();
   });
-  it('Busy? shows one stand-in with Swap', () => {
-    let swapped = false;
-    render(<ExerciseCardTitle name="Lat Pull Down" busy={{ name: 'Dumbbell Row', match: 82, onSwap: () => { swapped = true; } }} onShowGuide={() => {}} onShowHistory={() => {}} />);
-    expect(screen.getByText('Busy?')).toBeTruthy();
-    expect(screen.getByText(/Try Dumbbell Row/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Swap to Dumbbell Row' }));
+  it('Busy? shows one stand-in with Swap, and Undo beside it after a Busy? swap', () => {
+    let swapped = false; let undone = false;
+    render(<ExerciseCardTitle
+      name="Dumbbell Row"
+      busy={{ option: { name: 'Inverted Row', match: 78, onSwap: () => { swapped = true; } }, onUndo: () => { undone = true; } }}
+      onShowGuide={() => {}} onShowHistory={() => {}} />);
+    expect(screen.getByText(/Try Inverted Row/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Swap to Inverted Row' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     expect(swapped).toBe(true);
+    expect(undone).toBe(true);
+  });
+  it('after the 3rd Busy? swap only Undo is left', () => {
+    render(<ExerciseCardTitle name="Pull-up" busy={{ option: null, onUndo: () => {} }} onShowGuide={() => {}} onShowHistory={() => {}} />);
+    expect(screen.getByText('Busy?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
+    expect(screen.queryByText(/Try /)).toBeNull();
   });
 });
 

@@ -4282,12 +4282,17 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           note={ex.note}
                           busy={(() => {
                             const next = nextBusyOption(ex, swapCatalog, logExercises.map(le => le.name));
-                            return next && { ...next, onSwap: () => handleLogSwap(next, { keep: false, busy: { base: next.base, tried: next.tried } }, exIdx) };
+                            const onUndo = ex.busyBase && canUndoSwap(ex) ? () => handleUndoLogSwap(exIdx) : null;
+                            if (!next && !onUndo) return null;
+                            return {
+                              option: next && { ...next, onSwap: () => handleLogSwap(next, { keep: false, busy: { base: next.base, tried: next.tried } }, exIdx) },
+                              onUndo
+                            };
                           })()}
                         >
                           <ExerciseCaption
                             warmupPosition={getWarmupPosition(logExercises, exIdx)}
-                            swappedFrom={ex.swappedFrom}
+                            swappedFrom={ex.busyBase ? null : ex.swappedFrom}
                             finisherFor={ex.finisherFor}
                             swapBy={ex.swapBy}
                             inPlan={!!ex.swapPlan}

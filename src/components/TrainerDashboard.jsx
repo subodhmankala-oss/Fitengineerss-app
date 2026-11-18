@@ -10734,12 +10734,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               note={ex.note}
                               busy={(() => {
                                 const next = nextBusyOption(ex, aiCatalog, liveExercises.map(le => le.name));
-                                return next && { ...next, onSwap: () => handleLiveSwap(next, { keep: false, busy: { base: next.base, tried: next.tried } }, exIdx) };
+                                const onUndo = ex.busyBase && canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : null;
+                                if (!next && !onUndo) return null;
+                                return {
+                                  option: next && { ...next, onSwap: () => handleLiveSwap(next, { keep: false, busy: { base: next.base, tried: next.tried } }, exIdx) },
+                                  onUndo
+                                };
                               })()}
                             >
                               <ExerciseCaption
                                 warmupPosition={getWarmupPosition(liveExercises, exIdx)}
-                                swappedFrom={ex.swappedFrom}
+                                swappedFrom={ex.busyBase ? null : ex.swappedFrom}
                                 finisherFor={ex.finisherFor}
                                 swapBy={ex.swapBy}
                                 inPlan={!!ex.swapPlan}

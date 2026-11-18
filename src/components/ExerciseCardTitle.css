@@ -93,3 +93,8 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+.ect-busy-undo {
+  margin-left: 10px;
+  color: var(--text-muted, #94a3b8);
+}
+.ect-busy span > .ect-busy-undo:first-child { margin-left: 0; }

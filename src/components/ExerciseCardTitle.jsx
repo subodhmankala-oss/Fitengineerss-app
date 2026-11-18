@@ -25,22 +25,30 @@ function getMainMuscle(name, record) {
   return { label, thumb };
 }
 
-// "Busy? Try Dumbbell Row · 82% match Swap" — one stand-in. Swap changes
-// the card, and the new card offers the next one (up to 3 swaps in a row).
-function BusyLine({ option }) {
+// "Busy? Try Dumbbell Row · 82% match Swap Undo" — one stand-in. Swap
+// changes the card and the new card offers the next one (up to 3 swaps in a
+// row); Undo (after a Busy? swap, until a set is ticked) goes back one.
+function BusyLine({ option, onUndo }) {
   return (
     <div className="ect-note ect-busy">
       <b>Busy?</b>
       <span>
-        Try {option.name} <span className="ect-dim">· {option.match}% match</span>
-        <button
-          type="button"
-          className="ect-busy-swap"
-          aria-label={`Swap to ${option.name}`}
-          onClick={option.onSwap}
-        >
-          Swap
-        </button>
+        {option && (
+          <>
+            Try {option.name} <span className="ect-dim">· {option.match}% match</span>
+            <button
+              type="button"
+              className="ect-busy-swap"
+              aria-label={`Swap to ${option.name}`}
+              onClick={option.onSwap}
+            >
+              Swap
+            </button>
+          </>
+        )}
+        {onUndo && (
+          <button type="button" className="ect-busy-swap ect-busy-undo" onClick={onUndo}>Undo</button>
+        )}
       </span>
     </div>
   );
@@ -82,7 +90,7 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
           </h5>
           {muscle && <span className="ect-muscle">{muscle}</span>}
         </div>
-        {busy && <BusyLine option={busy} />}
+        {busy && (busy.option || busy.onUndo) && <BusyLine option={busy.option} onUndo={busy.onUndo} />}
         {shownNote && (
           <div className="ect-note">
             <b>Note</b>

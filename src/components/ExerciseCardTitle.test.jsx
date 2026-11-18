@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import ExerciseCardTitle from './ExerciseCardTitle';
 
 afterEach(cleanup);
@@ -28,15 +28,16 @@ describe('ExerciseCardTitle written note + Busy?', () => {
     expect(screen.getByText('Coach says hi')).toBeTruthy();
     expect(screen.queryByText(/collarbone/)).toBeNull();
   });
-  it('Busy? shows each option and tapping one swaps to it', () => {
+  it('Busy? shows one suggestion with Swap, and › steps to the next', () => {
     let swapped = null;
     const opts = ['Dumbbell Row', 'Inverted Row', 'Pull-up'].map((name, i) => ({ name, match: 80 - i, onSwap: () => { swapped = name; } }));
     render(<ExerciseCardTitle name="Lat Pull Down" busy={opts} onShowGuide={() => {}} onShowHistory={() => {}} />);
     expect(screen.getByText('Busy?')).toBeTruthy();
-    expect(screen.getByText('Swap to')).toBeTruthy();
-    screen.getByRole('button', { name: /Swap to Inverted Row/ }).click();
+    expect(screen.getByText(/Try Dumbbell Row/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Next suggestion/ }));
+    expect(screen.getByText(/Try Inverted Row/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
     expect(swapped).toBe('Inverted Row');
-    expect(screen.getAllByRole('button', { name: /^Swap to/ }).length).toBe(3);
   });
 });
 

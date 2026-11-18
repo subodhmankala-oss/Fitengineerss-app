@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import { getMuscleGroupsForExercise, parseMuscleText } from '../utils/muscleGroups';
 import { getExerciseNote } from '../data/exerciseNotes';
@@ -23,6 +23,32 @@ function getMainMuscle(name, record) {
   const label = (fromLibrary && !/^none$/i.test(fromLibrary)) ? fromLibrary : (canon[0] || '');
   const thumb = canon[0] || parseMuscleText(label)[0] || null;
   return { label, thumb };
+}
+
+// "Busy? Try Pull-up · 76% match Swap ›" — one suggestion at a time; ›
+// steps to the next of the (up to 3) options.
+function BusyLine({ options }) {
+  const [i, setI] = useState(0);
+  const o = options[i % options.length];
+  return (
+    <div className="ect-note ect-busy">
+      <b>Busy?</b>
+      <span>
+        Try {o.name} <span className="ect-dim">· {o.match}% match</span>
+        <button type="button" className="ect-busy-swap" onClick={o.onSwap}>Swap</button>
+        {options.length > 1 && (
+          <button
+            type="button"
+            className="ect-busy-next"
+            aria-label={`Next suggestion (${(i % options.length) + 1} of ${options.length})`}
+            onClick={() => setI(n => n + 1)}
+          >
+            ›
+          </button>
+        )}
+      </span>
+    </div>
+  );
 }
 
 export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, note, busy, children }) {
@@ -61,28 +87,7 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
           </h5>
           {muscle && <span className="ect-muscle">{muscle}</span>}
         </div>
-        {busy && busy.length > 0 && (
-          <div className="ect-note ect-busy">
-            <b>Busy?</b>
-            <span className="ect-busy-opts">
-              <span className="ect-busy-label">Swap to</span>
-              {busy.map(o => (
-                <button
-                  key={o.name}
-                  type="button"
-                  className="ect-busy-opt"
-                  aria-label={`Swap to ${o.name}, ${o.match}% match`}
-                  onClick={o.onSwap}
-                >
-                  <svg className="ect-busy-ico" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M7 4 3 8l4 4" /><path d="M3 8h14" /><path d="m17 20 4-4-4-4" /><path d="M21 16H7" />
-                  </svg>
-                  {o.name} <span className="ect-dim">{o.match}%</span>
-                </button>
-              ))}
-            </span>
-          </div>
-        )}
+        {busy && busy.length > 0 && <BusyLine options={busy} />}
         {shownNote && (
           <div className="ect-note">
             <b>Note</b>

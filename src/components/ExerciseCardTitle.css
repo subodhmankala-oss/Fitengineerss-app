@@ -81,21 +81,15 @@
   border: 1px solid rgba(var(--fg-rgb), 0.22);
 }
 .ect-dim { color: var(--text-muted, #94a3b8); }
-.ect-busy { align-items: flex-start; }
-.ect-busy b { margin-top: 3px; }
-/* Each option is a tap-to-swap pill: outline only, never a solid fill. */
-.ect-busy-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-.ect-busy-label { font-size: 0.74rem; font-weight: 700; color: var(--text-main); }
-.ect-busy-ico { margin-right: 4px; vertical-align: -1px; }
-.ect-busy-opt {
-  padding: 3px 9px;
+.ect-busy-next {
+  margin-left: 4px;
+  padding: 0 6px;
+  border: none;
+  background: none;
   font: inherit;
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: var(--accent-text, #a5b4fc);
-  background: rgba(var(--accent-rgb), 0.06);
-  border: 1px solid rgba(var(--accent-rgb), 0.35);
-  border-radius: 999px;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
   cursor: pointer;
 }
-.ect-busy-opt:active { transform: scale(0.97); }

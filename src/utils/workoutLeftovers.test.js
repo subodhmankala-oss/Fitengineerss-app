@@ -16,7 +16,7 @@ vi.mock('../services/databaseService', () => ({
   }
 }));
 
-import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, syncWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, isExpiredLater, leftoversForWorkout, getMissedSavedParts, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
+import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, syncWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, isExpiredLater, leftoversForWorkout, getMissedSavedParts, getSelfMissedAlert, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
 
 const DAY = 24 * 60 * 60 * 1000;
 const set = (done) => ({ reps: '10', weight: '20', isCompleted: done });
@@ -177,5 +177,15 @@ describe('saved parts: which workout shows them, and when they expire', () => {
     ]);
     expect(getMissedSavedParts([saved], '2026-11-29')).toHaveLength(1);
     expect(getMissedSavedParts([saved], '2026-11-30')).toEqual([]);
+  });
+
+  it('tells a self-guided user about a missed part from Sunday on', () => {
+    expect(getSelfMissedAlert([saved], '2026-11-21')).toBeNull();
+    expect(getSelfMissedAlert([saved], '2026-11-22')).toMatchObject({
+      title: 'You missed Triceps Long Head this week', body: "It's on your next push day.",
+    });
+    expect(getSelfMissedAlert([saved], '2026-11-24').title).toBe('You missed Triceps Long Head last week');
+    expect(getSelfMissedAlert([saved], '2026-11-30')).toBeNull();
+    expect(getSelfMissedAlert([skipped], '2026-11-22')).toBeNull();
   });
 });

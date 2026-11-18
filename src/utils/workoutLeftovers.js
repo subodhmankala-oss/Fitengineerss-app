@@ -189,6 +189,43 @@ export function getMissedSavedParts(items, today = getLocalDateString()) {
     .filter(it => it.weekEnd < today && it.weekEnd >= from);
 }
 
+const DAY_BY_MUSCLE = {
+  Chest: 'push', Shoulders: 'push', Triceps: 'push',
+  Back: 'pull', Biceps: 'pull', Forearms: 'pull',
+  Quads: 'leg', Glutes: 'leg', Hamstrings: 'leg', Calves: 'leg',
+};
+
+/**
+ * Self-guided version of the coach bell's "missed <part>": parts the user
+ * saved "for next time" that the week didn't get to. Shows from the Sunday
+ * their week ends through the following week; nothing before that (the part
+ * can still be done), nothing once it is done or cleared.
+ * @returns {null | {weekEnd, parts: string[], title, body}}
+ */
+export function getSelfMissedAlert(items, today = getLocalDateString()) {
+  const from = shiftLocalDateString(today, -7);
+  const missed = (items || [])
+    .filter(it => it?.nextSession && it.part && it.date)
+    .map(it => ({ part: it.part, muscle: itemMuscle(it), weekEnd: weekRangeFor(it.date)[1] }))
+    .filter(it => it.weekEnd <= today && it.weekEnd >= from);
+  if (!missed.length) return null;
+  const weekEnd = missed.reduce((m, it) => (it.weekEnd > m ? it.weekEnd : m), missed[0].weekEnd);
+  const parts = [...new Set(missed.filter(it => it.weekEnd === weekEnd).map(it => it.part))];
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  const when = weekEnd === today ? 'this week' : 'last week';
+  const days = [...new Set(missed.filter(it => it.weekEnd === weekEnd).map(it => {
+    const kind = DAY_BY_MUSCLE[it.muscle];
+    return kind ? `${kind} day` : `${(it.muscle || 'training').toLowerCase()} day`;
+  }))];
+  const dayText = days.length > 1 ? `${days.slice(0, -1).join(', ')} or ${days[days.length - 1]}` : days[0];
+  return {
+    weekEnd,
+    parts,
+    title: `You missed ${list} ${when}`,
+    body: `${parts.length > 1 ? "They're" : "It's"} on your next ${dayText}.`,
+  };
+}
+
 // Removes the given names (added to a workout), or everything when omitted (dismissed).
 export function clearWorkoutLeftovers(ownerId, names) {
   if (!names) return write(ownerId, []);

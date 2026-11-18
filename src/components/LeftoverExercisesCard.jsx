@@ -15,9 +15,17 @@ const LeftoverExercisesCard = ({ items, onAdd, onDismiss }) => {
       <span className="leftover-icon" aria-hidden="true">⏭</span>
       <div className="leftover-body">
         <div className="leftover-label">Left over{from}</div>
-        <div className="leftover-hint">Not done in the last session</div>
+        <div className="leftover-hint">
+          {items.every(it => it.nextSession) ? 'Saved last time to finish your week'
+            : items.some(it => it.nextSession) ? 'Not done or saved for this session' : 'Not done in the last session'}
+        </div>
         <ul className="leftover-names">
-          {items.map(it => <li key={it.name}>{it.name}</li>)}
+          {items.map(it => (
+            <li key={it.name}>
+              {it.name}
+              {it.part && <span className="leftover-part"> · for {it.part}</span>}
+            </li>
+          ))}
         </ul>
         <div className="leftover-actions">
           <button type="button" className="leftover-add" onClick={onAdd}>

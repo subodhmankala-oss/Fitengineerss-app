@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import WeekMuscleSheet from './WeekMuscleSheet';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
+import { regionBand } from '../utils/muscleRegions';
 
 // "This week's muscles" (opened from the timer bar's body figures): one card
 // per muscle this workout worked, with the same numbers as the home
@@ -50,5 +51,63 @@ describe('WeekMuscleSheet', () => {
     expect(sheet.textContent).toMatch(/Tick a set/);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(closed).toBe(true);
+  });
+
+  describe('next-part row', () => {
+    const midMin = regionBand('Chest', 'intermediate').min;
+    const times = (n, row) => Array.from({ length: n }, () => row);
+    const showActs = (savedLogs, liveRows, extra = {}) => {
+      const acts = { onAddExercise: vi.fn(), onSaveForLater: vi.fn(), workoutNames: ['Barbell Bench Press'], laterNames: [], ...extra };
+      render(<WeekMuscleSheet open onClose={() => {}} savedLogs={savedLogs} liveRows={liveRows} logDate={DATE} level="intermediate" {...acts} />);
+      const sheet = screen.getByRole('dialog', { name: "This week's muscles" });
+      const card = [...sheet.querySelectorAll('.wms-card')].find(c => c.querySelector('strong').textContent === 'Chest');
+      return { sheet, card, acts };
+    };
+
+    it('stays hidden until today finishes a part', () => {
+      const { card } = showActs([], times(midMin - 1, bench(DATE)));
+      expect(card.querySelector('.wms-next')).toBeNull();
+    });
+
+    it('offers the other chest parts to add now while chest is under Optimal', () => {
+      const { card, acts } = showActs([], times(midMin, bench(DATE)));
+      const chips = [...card.querySelectorAll('.wms-nchip.is-now')].map(b => b.textContent.trim());
+      expect(chips.some(t => t.endsWith('Upper Chest 0/' + midMin))).toBe(true);
+      expect(chips.some(t => t.includes('Lower Chest'))).toBe(true);
+      expect(card.textContent).toContain('Finish the rest of your chest');
+
+      fireEvent.click([...card.querySelectorAll('.wms-nchip')].find(b => b.textContent.includes('Upper Chest')));
+      const pick = screen.getByRole('dialog', { name: 'Upper Chest' });
+      fireEvent.click(pick.querySelector('.wms-pick-add'));
+      expect(acts.onAddExercise).toHaveBeenCalledTimes(1);
+      expect(acts.onAddExercise.mock.calls[0][0]).toMatch(/incline|low.to.high|landmine/i);
+      expect(screen.queryByRole('dialog', { name: 'Upper Chest' })).toBeNull();
+    });
+
+    it('saves for the next chest day once chest is already in Optimal', () => {
+      const saved = times(14, bench('2026-11-16'));
+      const { card, acts } = showActs(saved, [bench(DATE)]);
+      expect(card.textContent).toContain('Next chest day');
+      expect(card.querySelector('.wms-nchip.is-now')).toBeNull();
+      fireEvent.click([...card.querySelectorAll('.wms-nchip.is-later')].find(b => b.textContent.includes('Upper Chest')));
+      const pick = screen.getByRole('dialog', { name: 'Upper Chest' });
+      expect(pick.querySelector('.wms-pick-add')).toBeNull();
+      fireEvent.click(pick.querySelector('.wms-pick-later'));
+      expect(acts.onSaveForLater).toHaveBeenCalledWith(expect.any(String), 'Upper Chest');
+    });
+
+    it('shows an added or saved exercise instead of the chip', () => {
+      const { card } = showActs([], times(midMin, bench(DATE)), {
+        workoutNames: ['Barbell Bench Press', 'Incline Dumbbell Press'],
+        laterNames: [],
+      });
+      const set = [...card.querySelectorAll('.wms-nchip.is-set')].map(c => c.textContent.trim());
+      expect(set.some(t => t.endsWith('Incline Dumbbell Press added'))).toBe(true);
+    });
+
+    it('is not shown without logger actions (read-only)', () => {
+      const sheet = show([], times(midMin, bench(DATE)));
+      expect(sheet.querySelector('.wms-next')).toBeNull();
+    });
   });
 });

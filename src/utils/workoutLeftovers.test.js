@@ -16,7 +16,7 @@ vi.mock('../services/databaseService', () => ({
   }
 }));
 
-import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, syncWorkoutLeftovers, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
+import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, syncWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
 
 const DAY = 24 * 60 * 60 * 1000;
 const set = (done) => ({ reps: '10', weight: '20', isCompleted: done });
@@ -120,5 +120,27 @@ describe('workout leftovers storage', () => {
     await syncWorkoutLeftovers('u1');
     expect(remote.get('u1').map(it => it.name)).toEqual(['Face Pull']);
     expect(getWorkoutLeftovers('u1').map(it => it.name)).toEqual(['Face Pull']);
+  });
+});
+
+describe('addWorkoutLeftover (saved for next session from the muscle sheet)', () => {
+  beforeEach(() => { localStorage.clear(); remote.clear(); remoteUp = true; });
+
+  it('adds one exercise with its part, hidden from the workout it was saved in', async () => {
+    await addWorkoutLeftover('u-next', { name: 'Incline Dumbbell Press', part: 'Upper Chest', date: '2026-11-18' });
+    const [item] = getWorkoutLeftovers('u-next');
+    expect(item).toMatchObject({ name: 'Incline Dumbbell Press', part: 'Upper Chest', nextSession: true });
+    expect(remote.get('u-next')).toHaveLength(1);
+    expect(isForLaterSession(item, '2026-11-18')).toBe(true);
+    expect(isForLaterSession(item, '2026-11-20')).toBe(false);
+    expect(isForLaterSession({ name: 'Skipped', date: '2026-11-18' }, '2026-11-18')).toBe(false);
+  });
+
+  it('replaces an older entry with the same name, and is cleared once done', async () => {
+    await updateWorkoutLeftovers('u-next', { skipped: ['Incline Dumbbell Press'], date: '2026-11-17' });
+    await addWorkoutLeftover('u-next', { name: 'incline dumbbell press', part: 'Upper Chest', date: '2026-11-18' });
+    expect(getWorkoutLeftovers('u-next')).toHaveLength(1);
+    await updateWorkoutLeftovers('u-next', { completed: ['Incline Dumbbell Press'] });
+    expect(getWorkoutLeftovers('u-next')).toHaveLength(0);
   });
 });

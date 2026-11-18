@@ -8,6 +8,7 @@ import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
 import WelcomeBanner from './WelcomeBanner';
 import NotificationPrompt from './NotificationPrompt';
 import NextWorkoutBanner from './NextWorkoutBanner';
+import MissedPartsCard from './MissedPartsCard';
 import ClientBreakCard from './ClientBreakCard';
 import useClientBreaks from '../hooks/useClientBreaks';
 import { activeBreak, recentlyEndedBreak, lastWorkoutDateOf } from '../utils/clientBreaks';
@@ -1086,6 +1087,9 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           both resolved — and hidden whenever a session is already in
           progress (the banner above already covers that case) so the two
           never stack. */}
+      {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && !breakRunning && (
+        <MissedPartsCard userId={userId} />
+      )}
       {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && !breakRunning && (
         <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} easyRestart={backFromBreak} />
       )}

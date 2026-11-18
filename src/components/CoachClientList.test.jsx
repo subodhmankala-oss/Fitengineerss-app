@@ -94,3 +94,27 @@ describe('CoachClientList goals', () => {
     expect(container.querySelectorAll('.ccl-goal')).toHaveLength(1);
   });
 });
+
+describe('CoachClientList live order', () => {
+  const names = c => [...c.querySelectorAll('.ccl-name')].map(n => n.textContent);
+  const clients = [
+    { ...base, id: 'c1', userName: 'Nikhil' },
+    { ...base, id: 'c2', userName: 'Yugandhar' },
+    { ...base, id: 'c3', userName: 'Sowmya' },
+    { ...base, id: 'c4', userName: 'Paused', paused_at: '2026-11-01' },
+  ];
+  const renderLive = liveIds => render(
+    <CoachClientList clients={clients} glances={{}} liveIds={liveIds} onOpen={() => {}}
+      hasUnread={() => false} isNewConnection={() => false} />
+  );
+
+  it('puts clients training now at the top, others keep their order', () => {
+    const { container } = renderLive(new Set(['c3', 'c2']));
+    expect(names(container)).toEqual(['Yugandhar', 'Sowmya', 'Nikhil', 'Paused']);
+  });
+
+  it('keeps the original order when nobody is training, and ignores paused clients', () => {
+    const { container } = renderLive(new Set(['c4']));
+    expect(names(container)).toEqual(['Nikhil', 'Yugandhar', 'Sowmya', 'Paused']);
+  });
+});

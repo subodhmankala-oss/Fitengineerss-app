@@ -69,6 +69,12 @@ export default function CoachClientList({
   const signOff = coachName ? `${coachName} · ${coachBrand}` : coachBrand;
 
   const activeCount = clients.filter(c => !c.paused_at).length;
+  // Whoever is training right now goes to the top; everyone else keeps the
+  // order they came in (Array.prototype.sort is stable).
+  const isLive = c => !!liveIds?.has(c.id) && !c.paused_at;
+  const ordered = liveIds?.size
+    ? [...clients].sort((a, b) => Number(isLive(b)) - Number(isLive(a)))
+    : clients;
 
   return (
     <div className="ccl-wrap">
@@ -78,10 +84,10 @@ export default function CoachClientList({
       </div>
       <div className="ccl-card">
         {demoRow}
-        {clients.map((client, rowIndex) => {
+        {ordered.map((client, rowIndex) => {
           const glance = glances?.[client.id];
           const paused = !!client.paused_at;
-          const live = !!liveIds?.has(client.id) && !paused;
+          const live = isLive(client);
           // Training right now beats "needs you" — they're back.
           const needs = !!glance?.needsYou && !live;
           const activity = getActivityStatus(client.last_login);

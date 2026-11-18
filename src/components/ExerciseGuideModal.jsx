@@ -14,12 +14,16 @@ import { isSlowConnection } from '../utils/networkQuality';
 // Keyed by exercise name so each exercise opens a fresh sheet (Summary tab,
 // video state reset) instead of an effect resetting state after the
 // previous exercise's tab and video had already rendered once.
-export default function ExerciseGuideModal({ exercise, onClose }) {
+//
+// `action` ({ label, icon, onClick }) adds one full-width button under the
+// tabs — the live Swap sheet opens the guide from a row's icon with
+// "Swap to <name>" here, so watching and swapping is one step.
+export default function ExerciseGuideModal({ exercise, onClose, action = null }) {
   if (!exercise) return null;
-  return <ExerciseGuideSheet key={exercise.name} exercise={exercise} onClose={onClose} />;
+  return <ExerciseGuideSheet key={exercise.name} exercise={exercise} onClose={onClose} action={action} />;
 }
 
-function ExerciseGuideSheet({ exercise, onClose }) {
+function ExerciseGuideSheet({ exercise, onClose, action }) {
   const [guideTab, setGuideTab] = useState('summary');
   // On a detected-slow connection (or Data Saver on), don't autoplay the raw
   // MP4 the moment the sheet opens — a user tapping through several
@@ -171,6 +175,13 @@ function ExerciseGuideSheet({ exercise, onClose }) {
             </div>
           )}
         </div>
+        {action && (
+          <div className="guide-swap-action">
+            <button type="button" className="lss-go" onClick={action.onClick}>
+              {action.icon}<span>{action.label}</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -12,6 +12,9 @@ import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories
 import { finishedSessionId, rememberSavedWorkout, wasWorkoutSaved } from '../utils/savedWorkoutGuard';
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
+import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
+import { loadAiCatalog } from '../utils/loadAiCatalog';
+import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, lastSetLabel, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
 import { notifyEvent } from '../utils/pushNotify';
@@ -3062,6 +3065,71 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     triggerToast(`Added ${name} to active workout!`);
   };
 
+  // ─── Live "Swap exercise" (≡ card menu → LiveSwapSheet) ───
+  // Same rules as the coach Live Log (utils/exerciseSwap): ticked sets stay
+  // on the original, kg comes from the new exercise's PREV, Undo until a set
+  // of the new one is ticked. Today's workout only — the saved plan is left
+  // alone.
+  const [swapLogIdx, setSwapLogIdx] = useState(null);
+  const [swapCatalog, setSwapCatalog] = useState(null);
+  // The Form Guide's extra "Swap to …" button when it was opened from a
+  // swap row (null for every other way of opening it).
+  const [guideAction, setGuideAction] = useState(null);
+  const openLogSwap = (exIdx) => {
+    setSwapLogIdx(exIdx);
+    if (!swapCatalog) {
+      loadAiCatalog({ clientUserId: getPlanOwnerId() }).then(setSwapCatalog).catch(() => setSwapCatalog([]));
+    }
+  };
+  const prevSetsFor = (name, exerciseId = null) =>
+    findPreviousExerciseSetsIn(sessions, selectedClient, { name, exerciseId });
+  const handleLogSwap = ({ name, exerciseId }) => {
+    const exIdx = swapLogIdx;
+    setSwapLogIdx(null);
+    setActiveGuideExercise(null);
+    setGuideAction(null);
+    const old = logExercises[exIdx];
+    if (!old) return;
+    const entry = buildSwapEntry(old, { name, exerciseId }, { by: 'client', prevSets: prevSetsFor(name, exerciseId) });
+    const { exercises, split } = applyLiveSwap(logExercises, exIdx, entry);
+    setSetTimers(prev => remapSetTimersForSwap(exIdx, old.sets, split, prev));
+    setLogExercises(exercises);
+    markEntering(name);
+    triggerToast(`Swapped to ${name}`);
+  };
+  const handleUndoLogSwap = (exIdx) => {
+    const { exercises, merged } = undoLiveSwap(logExercises, exIdx);
+    if (exercises === logExercises) return;
+    setSetTimers(prev => (merged ? remapSetTimersForExerciseRemoval(exIdx, prev) : dropSetTimersForExercise(exIdx, prev)));
+    setLogExercises(exercises);
+  };
+  // Form Guide for any exercise name — the card's own button and a swap
+  // row's icon both come through here.
+  const openGuideFor = (name, exerciseId = null) => {
+    setGuideAction(null);
+    const matched = findExerciseGuideMatch(exercisesList, name, exerciseId) ||
+                    findExerciseGuideMatch(allExerciseOptions, name);
+    if (matched) {
+      setActiveGuideExercise(normalizeExerciseForGuide(matched));
+    } else {
+      setActiveGuideExercise({
+        name,
+        category: 'Custom',
+        videoFile: '',
+        guide: {
+          target: 'Primary Muscle Group',
+          setup: 'Position yourself comfortably with stable support and check alignment.',
+          execution: 'Control the weights through a full range of motion. Keep core tight.',
+          tip: 'Focus on mind-muscle connection and avoid using momentum.'
+        }
+      });
+    }
+  };
+  const watchSwapOption = (record) => {
+    openGuideFor(record.name, record.exerciseId);
+    setGuideAction({ label: `Swap to ${record.name}`, icon: <SwapIcon />, onClick: () => handleLogSwap(record) });
+  };
+
   // Exercises not done in the last session, by the client or their coach
   // (see utils/workoutLeftovers.js), minus any already in this workout.
   const leftoverOwnerId = ownUserId || localStorage.getItem('userId');
@@ -4075,28 +4143,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 // never contradicts a row underneath showing a KG input.
                 const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
-                const showFormGuide = () => {
-                  const matched = findExerciseGuideMatch(exercisesList, ex.name, ex.exerciseId) ||
-                                  findExerciseGuideMatch(allExerciseOptions, ex.name);
-                  if (matched) {
-                    setActiveGuideExercise(normalizeExerciseForGuide(matched));
-                  } else {
-                    setActiveGuideExercise({
-                      name: ex.name,
-                      category: 'Custom',
-                      videoFile: '',
-                      guide: {
-                        target: 'Primary Muscle Group',
-                        setup: 'Position yourself comfortably with stable support and check alignment.',
-                        execution: 'Control the weights through a full range of motion. Keep core tight.',
-                        tip: 'Focus on mind-muscle connection and avoid using momentum.'
-                      }
-                    });
-                  }
-                };
+                const showFormGuide = () => openGuideFor(ex.name, ex.exerciseId);
                 const cardMenu = (
                   <ExerciseCardMenu
                     name={ex.name}
+                    onSwap={isWarmupCardExercise(ex) ? undefined : () => openLogSwap(exIdx)}
                     onReorderPointerDown={startLogExerciseDrag(exIdx)}
                     onMoveUp={() => moveLogExerciseByKeyboard(exIdx, -1)}
                     onMoveDown={() => moveLogExerciseByKeyboard(exIdx, 1)}
@@ -4166,7 +4217,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           🎬 Form Guide
                         </button>
                       </div>
-                        <ExerciseCaption warmupPosition={getWarmupPosition(logExercises, exIdx)} swappedFrom={ex.swappedFrom} finisherFor={ex.finisherFor} />
+                        <ExerciseCaption
+                          warmupPosition={getWarmupPosition(logExercises, exIdx)}
+                          swappedFrom={ex.swappedFrom}
+                          finisherFor={ex.finisherFor}
+                          swapBy={ex.swapBy}
+                          onUndo={canUndoSwap(ex) ? () => handleUndoLogSwap(exIdx) : undefined}
+                        />
                       </div>
                       {cardMenu}
                     </div>
@@ -5096,7 +5153,22 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
       {/* Form Guide — Hevy-style bottom sheet, shared with the exercise
           picker's clickable thumbnail icon (and the coach side) */}
-      <ExerciseGuideModal exercise={activeGuideExercise} onClose={() => setActiveGuideExercise(null)} />
+      {swapLogIdx != null && logExercises[swapLogIdx] && (
+        <LiveSwapSheet
+          exercise={logExercises[swapLogIdx]}
+          catalog={swapCatalog}
+          excludeNames={logExercises.map(le => le.name)}
+          getLast={(name, exerciseId) => lastSetLabel(name, prevSetsFor(name, exerciseId))}
+          onWatch={watchSwapOption}
+          onSwap={handleLogSwap}
+          onClose={() => setSwapLogIdx(null)}
+        />
+      )}
+      <ExerciseGuideModal
+        exercise={activeGuideExercise}
+        action={guideAction}
+        onClose={() => { setActiveGuideExercise(null); setGuideAction(null); }}
+      />
 
       {/* Tap an exercise's name in the log card → full Daily/Weekly/Monthly/
           Yearly history for that exercise, scoped to the active client. */}

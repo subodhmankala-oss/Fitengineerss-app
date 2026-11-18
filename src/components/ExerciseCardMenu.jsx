@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { TrashIcon, DragHandleIcon } from './TimerIcons';
+import { SwapIcon } from './LiveSwapSheet';
 
 // Per-exercise menu shared by the client logger and the coach editor /
-// Live Log. It holds the two actions that used to sit beside the exercise
-// name: the press-and-drag reorder handle and Remove. Styles live in
-// WorkoutTracker.css.
-export default function ExerciseCardMenu({ name, onReorderPointerDown, onMoveUp, onMoveDown, onRemove }) {
+// Live Log: Swap exercise (live loggers only — onSwap), the press-and-drag
+// reorder handle and Remove. Styles live in WorkoutTracker.css.
+export default function ExerciseCardMenu({ name, onSwap, onReorderPointerDown, onMoveUp, onMoveDown, onRemove }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="ex-card-menu-wrap">
@@ -25,6 +25,16 @@ export default function ExerciseCardMenu({ name, onReorderPointerDown, onMoveUp,
         <>
           <div className="ex-card-menu-backdrop" onClick={() => setOpen(false)} />
           <div className="ex-card-menu" role="menu">
+            {onSwap && (
+              <button
+                type="button"
+                role="menuitem"
+                className="ex-card-menu-swap"
+                onClick={() => { setOpen(false); onSwap(); }}
+              >
+                <SwapIcon size={16} /> Swap exercise
+              </button>
+            )}
             {/* Same press-and-drag behaviour as the old inline handle: the
                 drag starts on pointerdown and follows the finger, so the
                 menu closes as soon as it begins. */}

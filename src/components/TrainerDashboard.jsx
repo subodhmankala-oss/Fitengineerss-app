@@ -58,6 +58,8 @@ import AiDraftBriefSummary from './AiDraftBriefSummary';
 import { weeklySetWarnings } from '../utils/programmingBriefDraft';
 import SwapExerciseSheet from './SwapExerciseSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
+import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
+import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, lastSetLabel, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
@@ -3204,6 +3206,44 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     // old index.
     setLiveSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
     setLiveExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+  };
+
+  // ─── Live "Swap exercise" (≡ card menu → LiveSwapSheet) ───
+  // Same rules as the client's logger (utils/exerciseSwap): ticked sets stay
+  // on the original, kg comes from the new exercise's PREV, Undo until a set
+  // of the new one is ticked. Today's session only — no plan is changed.
+  const [swapLiveIdx, setSwapLiveIdx] = useState(null);
+  // The Form Guide's extra "Swap to …" button when opened from a swap row.
+  const [guideAction, setGuideAction] = useState(null);
+  const livePrevSetsFor = (name, exerciseId = null) =>
+    findPreviousExerciseSetsIn(workoutLogs, null, { name, exerciseId });
+  const openLiveSwap = (exIdx) => {
+    setSwapLiveIdx(exIdx);
+    ensureAiCatalog().catch(() => setAiCatalog([]));
+  };
+  const handleLiveSwap = ({ name, exerciseId }) => {
+    const exIdx = swapLiveIdx;
+    setSwapLiveIdx(null);
+    setActiveGuideExercise(null);
+    setGuideAction(null);
+    const old = liveExercises[exIdx];
+    if (!old) return;
+    const entry = buildSwapEntry(old, { name, exerciseId }, { by: 'coach', prevSets: livePrevSetsFor(name, exerciseId) });
+    const { exercises, split } = applyLiveSwap(liveExercises, exIdx, entry);
+    setLiveSetTimers(prev => remapSetTimersForSwap(exIdx, old.sets, split, prev));
+    setLiveExercises(exercises);
+    markExerciseEntering(name);
+    triggerLiveToast(`Swapped to ${name}`);
+  };
+  const handleUndoLiveSwap = (exIdx) => {
+    const { exercises, merged } = undoLiveSwap(liveExercises, exIdx);
+    if (exercises === liveExercises) return;
+    setLiveSetTimers(prev => (merged ? remapSetTimersForExerciseRemoval(exIdx, prev) : dropSetTimersForExercise(exIdx, prev)));
+    setLiveExercises(exercises);
+  };
+  const watchLiveSwapOption = (record) => {
+    handleShowFormGuide(record.name, record.exerciseId);
+    setGuideAction({ label: `Swap to ${record.name}`, icon: <SwapIcon />, onClick: () => handleLiveSwap(record) });
   };
 
   // Reordering permutes liveExercises without touching liveSetTimers, which
@@ -10489,6 +10529,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     const cardMenu = (
                       <ExerciseCardMenu
                         name={ex.name}
+                        onSwap={isWarmupCardExercise(ex) ? undefined : () => openLiveSwap(exIdx)}
                         onReorderPointerDown={startLiveExerciseDrag(exIdx)}
                         onMoveUp={() => moveLiveExerciseByKeyboard(exIdx, -1)}
                         onMoveDown={() => moveLiveExerciseByKeyboard(exIdx, 1)}
@@ -10543,7 +10584,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               🎬 Form Guide
                             </button>
                           </div>
-                            <ExerciseCaption warmupPosition={getWarmupPosition(liveExercises, exIdx)} swappedFrom={ex.swappedFrom} finisherFor={ex.finisherFor} />
+                            <ExerciseCaption
+                              warmupPosition={getWarmupPosition(liveExercises, exIdx)}
+                              swappedFrom={ex.swappedFrom}
+                              finisherFor={ex.finisherFor}
+                              swapBy={ex.swapBy}
+                              onUndo={canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : undefined}
+                            />
                           </div>
                           {cardMenu}
                         </div>
@@ -11413,7 +11460,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
           onClose={() => setSwapExerciseIdx(null)}
         />
       )}
-      <ExerciseGuideModal exercise={activeGuideExercise} onClose={() => setActiveGuideExercise(null)} />
+      {swapLiveIdx != null && liveExercises[swapLiveIdx] && (
+        <LiveSwapSheet
+          exercise={liveExercises[swapLiveIdx]}
+          catalog={aiCatalog}
+          excludeNames={liveExercises.map(le => le.name)}
+          getLast={(name, exerciseId) => lastSetLabel(name, livePrevSetsFor(name, exerciseId))}
+          onWatch={watchLiveSwapOption}
+          onSwap={handleLiveSwap}
+          onClose={() => setSwapLiveIdx(null)}
+        />
+      )}
+      <ExerciseGuideModal
+        exercise={activeGuideExercise}
+        action={guideAction}
+        onClose={() => { setActiveGuideExercise(null); setGuideAction(null); }}
+      />
 
       {/* Tap an exercise's name in the Live Log → full Daily/Weekly/Monthly/
           Yearly history for that exercise. rawWorkoutLogs is already scoped

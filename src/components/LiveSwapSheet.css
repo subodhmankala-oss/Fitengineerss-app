@@ -1,0 +1,170 @@
+/* Live Swap sheet (LiveSwapSheet.jsx). Shell copied from .wms-sheet (This
+   week's muscles); rows follow the Add Exercise picker's
+   .exercise-preset-item. Below .guide-sheet-backdrop (10500) so the Form
+   Guide opened from a row's icon sits on top. */
+.lss-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.lss-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  animation: lss-fade 0.25s ease;
+}
+.lss-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  height: 88vh;
+  height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-card, #121a2e);
+  color: var(--text-main, #e6e9f2);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.12);
+  border-radius: 22px 22px 0 0;
+  padding: 6px 14px 0;
+  animation: lss-up 0.32s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.lss-grab {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 6px 0 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.lss-grab span { width: 38px; height: 4px; border-radius: 2px; background: rgba(var(--fg-rgb), 0.25); }
+.lss-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-shrink: 0; }
+.lss-title { font-weight: 700; font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lss-sub { font-size: 0.78rem; color: rgba(var(--fg-rgb), 0.55); white-space: nowrap; }
+.lss-note { margin: -4px 0 0; font-size: 0.76rem; color: rgba(var(--fg-rgb), 0.6); flex-shrink: 0; }
+.lss-search { flex-shrink: 0; }
+.lss-pills { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+.lss-pills .filter-tag-btn { flex: none; }
+.lss-sec {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 2px 2px -4px;
+  flex-shrink: 0;
+}
+.lss-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 2px 8px;
+}
+.lss-empty { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 20px 8px; margin: 0; }
+.lss-item {
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  background: rgba(var(--bg-app-rgb), 0.35);
+  border: 1.5px solid rgba(var(--fg-rgb), 0.05);
+  border-radius: var(--radius-sm, 8px);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+/* Picked: tint + ring, never a solid fill. */
+.lss-item.on {
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+}
+/* The round muscle icon opens the Form Guide; the play badge says so. */
+.lss-icon {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  margin-right: 10px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.lss-icon > div, .lss-icon > svg { border-radius: 50%; overflow: hidden; }
+.lss-mono { font-weight: 800; color: var(--tint-blue, #60a5fa); }
+.lss-play {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary-accent-light, #4364bd);
+  border: 2px solid var(--bg-card, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lss-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.lss-info strong { font-size: 0.92rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lss-info span { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lss-info b { color: var(--text-main); font-weight: 600; }
+.lss-match { display: flex; flex-direction: column; align-items: flex-end; margin-left: 8px; flex-shrink: 0; line-height: 1.05; }
+.lss-match b { font-size: 1rem; font-weight: 800; color: var(--accent-text); }
+.lss-match small { font-size: 0.62rem; font-weight: 600; color: var(--text-subtle, #94a3b8); }
+.lss-foot {
+  flex-shrink: 0;
+  padding: 8px 0 calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-color);
+}
+.lss-go {
+  width: 100%;
+  min-height: 50px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--primary-accent-light, #4364bd);
+  color: var(--text-on-accent, #fff);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+.lss-go span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lss-go svg { flex: none; }
+.lss-go:disabled { opacity: 0.4; cursor: default; }
+/* Form Guide footer button when opened from a swap row. */
+.guide-swap-action { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border-color); }
+.guide-swap-action .lss-go { min-height: 48px; }
+/* ≡ menu item */
+.ex-card-menu button.ex-card-menu-swap { color: var(--accent-text); font-weight: 600; }
+/* Caption under the name after a live swap. */
+.swap-caption.swap-caption--live { display: flex; align-items: center; gap: 6px; }
+.swap-caption--live .swap-undo {
+  margin-left: 4px;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+@keyframes lss-fade { from { opacity: 0; } }
+@keyframes lss-up { from { transform: translateY(100%); } }

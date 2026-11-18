@@ -61,6 +61,7 @@ import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
+import ExerciseCardTitle from './ExerciseCardTitle';
 import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps, countPriorRuns } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
@@ -4257,47 +4258,21 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   <div className="form-exercise-card hevy-exercise-card">
                     <div className="ex-card-header">
                       <div className="ex-card-title-stack">
-                      <div className="ex-card-title-group">
-                        <h5
-                          className="ex-name-clickable"
-                          role="button"
-                          tabIndex={0}
-                          title="View exercise history"
-                          onClick={() => setHistoryModalExercise(ex.name)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalExercise(ex.name); } }}
-                          // A tap on a focusable element (role="button"
-                          // tabIndex={0}) focuses it as part of the browser's
-                          // *default* pointerdown action — and on iOS Safari
-                          // in particular, focusing something can trigger the
-                          // browser's own "scroll the newly-focused element
-                          // into view" heuristic, independent of anything
-                          // this app's JS does. Right after a drop, that
-                          // reads as an unexplained scroll-to-top on tap.
-                          // preventDefault() here only suppresses that
-                          // default focus/scroll action — the click event
-                          // (and onClick above) still fires normally, and
-                          // Tab-key focus is untouched since keyboard focus
-                          // never goes through pointerdown.
-                          onPointerDown={(e) => e.preventDefault()}
+                        <ExerciseCardTitle
+                          name={ex.name}
+                          record={findExerciseGuideMatch(exercisesList, ex.name, ex.exerciseId) || findExerciseGuideMatch(allExerciseOptions, ex.name)}
+                          onShowGuide={showFormGuide}
+                          onShowHistory={() => setHistoryModalExercise(ex.name)}
                         >
-                          {ex.name}
-                        </h5>
-                        <button
-                          type="button"
-                          className="btn-form-guide-sm"
-                          onClick={showFormGuide}
-                        >
-                          🎬 Form Guide
-                        </button>
-                      </div>
-                        <ExerciseCaption
-                          warmupPosition={getWarmupPosition(logExercises, exIdx)}
-                          swappedFrom={ex.swappedFrom}
-                          finisherFor={ex.finisherFor}
-                          swapBy={ex.swapBy}
-                          inPlan={!!ex.swapPlan}
-                          onUndo={canUndoSwap(ex) ? () => handleUndoLogSwap(exIdx) : undefined}
-                        />
+                          <ExerciseCaption
+                            warmupPosition={getWarmupPosition(logExercises, exIdx)}
+                            swappedFrom={ex.swappedFrom}
+                            finisherFor={ex.finisherFor}
+                            swapBy={ex.swapBy}
+                            inPlan={!!ex.swapPlan}
+                            onUndo={canUndoSwap(ex) ? () => handleUndoLogSwap(exIdx) : undefined}
+                          />
+                        </ExerciseCardTitle>
                       </div>
                       {cardMenu}
                     </div>

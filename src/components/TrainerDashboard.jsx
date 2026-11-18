@@ -84,6 +84,7 @@ import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, ad
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
+import ExerciseCardTitle from './ExerciseCardTitle';
 import WarmupMoveRow from './WarmupMoveRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { sameExerciseEntry, findLibraryExercise, libraryExerciseId, exerciseIdField, foldExerciseDashes } from '../utils/exerciseName';
@@ -10694,40 +10695,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       <div className="live-logger-exercise-card">
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
-                          <div style={{ minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                            <span
-                              className="live-logger-ex-name ex-name-clickable"
-                              role="button"
-                              tabIndex={0}
-                              title="View exercise history"
-                              onClick={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalSource('live'); setHistoryModalExercise(ex.name); } }}
-                              // See the matching comment in WorkoutTracker.jsx
-                              // — suppresses the browser's default tap-to-
-                              // focus scroll (iOS Safari in particular) on
-                              // this focusable non-input element, without
-                              // touching the click handler or Tab-key focus.
-                              onPointerDown={(e) => e.preventDefault()}
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <ExerciseCardTitle
+                              name={ex.name}
+                              record={findExerciseGuideMatch(guideExercisesList, ex.name, ex.exerciseId) || findExerciseGuideMatch(presetExercises, ex.name)}
+                              onShowGuide={() => handleShowFormGuide(ex.name, ex.exerciseId)}
+                              onShowHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
                             >
-                              {ex.name}
-                            </span>
-                            <button
-                              type="button"
-                              className="btn-form-guide-sm"
-                              onClick={() => handleShowFormGuide(ex.name, ex.exerciseId)}
-                            >
-                              🎬 Form Guide
-                            </button>
-                          </div>
-                            <ExerciseCaption
-                              warmupPosition={getWarmupPosition(liveExercises, exIdx)}
-                              swappedFrom={ex.swappedFrom}
-                              finisherFor={ex.finisherFor}
-                              swapBy={ex.swapBy}
-                              inPlan={!!ex.swapPlan}
-                              onUndo={canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : undefined}
-                            />
+                              <ExerciseCaption
+                                warmupPosition={getWarmupPosition(liveExercises, exIdx)}
+                                swappedFrom={ex.swappedFrom}
+                                finisherFor={ex.finisherFor}
+                                swapBy={ex.swapBy}
+                                inPlan={!!ex.swapPlan}
+                                onUndo={canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : undefined}
+                              />
+                            </ExerciseCardTitle>
                           </div>
                           {cardMenu}
                         </div>

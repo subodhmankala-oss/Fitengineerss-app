@@ -174,3 +174,16 @@ export function equipmentLabel(name) {
   const hit = EQUIPMENT_LABELS.find(([word]) => w.has(word));
   return hit ? hit[1] : null;
 }
+
+// Is `other` just `name` under another library name ("Bench Press" vs
+// "Bench Press (Barbell)")? Same movement words, and `other` names no
+// equipment `name` doesn't. The Swap sheet leaves these out — swapping an
+// exercise for itself is no swap.
+export function isSameExerciseName(name, other) {
+  const a = words(name || '');
+  const b = words(other || '');
+  const move = (ws) => [...new Set(ws.filter(w => !EQUIPMENT.has(w)))].sort().join(' ');
+  if (!move(a) || move(a) !== move(b)) return false;
+  const mine = new Set(a.filter(w => EQUIPMENT.has(w)));
+  return b.filter(w => EQUIPMENT.has(w)).every(w => mine.has(w));
+}

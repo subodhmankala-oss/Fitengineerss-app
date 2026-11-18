@@ -113,3 +113,13 @@ describe('match % and labels', () => {
     expect(lastSetLabel('Push-Up', null)).toBeNull();
   });
 });
+
+describe('isSameExerciseName', () => {
+  it('treats a renamed copy as the same exercise, a different variation as not', async () => {
+    const { isSameExerciseName } = await import('./aiWorkoutCatalog');
+    expect(isSameExerciseName('Bench Press (Barbell)', 'Bench Press')).toBe(true);
+    expect(isSameExerciseName('Bench Press (Barbell)', 'Barbell Bench Press')).toBe(true);
+    expect(isSameExerciseName('Bench Press (Barbell)', 'Bench Press (Dumbbell)')).toBe(false);
+    expect(isSameExerciseName('Bench Press (Barbell)', 'Incline Bench Press (Barbell)')).toBe(false);
+  });
+});

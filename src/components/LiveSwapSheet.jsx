@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
-import { equipmentLabel, swapAlternatives, swapMatchPercent } from '../utils/aiWorkoutCatalog';
+import { equipmentLabel, isSameExerciseName, swapAlternatives, swapMatchPercent } from '../utils/aiWorkoutCatalog';
 import { exerciseNameKey, libraryExerciseId } from '../utils/exerciseName';
 import { isBodyweightExercise } from '../data/exerciseLibrary';
+import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './LiveSwapSheet.css';
 
 // "Swap exercise" from a logger card's ≡ menu — client logger and coach
@@ -48,8 +49,9 @@ export default function LiveSwapSheet({ exercise, catalog, excludeNames = [], ge
     const q = query.trim().toLowerCase();
     const pool = q
       ? catalog.filter(e => !exclude.has(exerciseNameKey(e.name)) && e.name.toLowerCase().includes(q)).slice(0, 40)
-      : swapAlternatives(exercise.name, catalog, { exclude: excludeNames, limit: 20 });
+      : swapAlternatives(exercise.name, catalog, { exclude: excludeNames, limit: 24 });
     return pool
+      .filter(e => !isSameExerciseName(exercise.name, e.name))
       .map(e => ({ ...e, match: swapMatchPercent(exercise.name, e, catalog), equipment: equipmentOf(e.name) }))
       .sort((a, b) => b.match - a.match);
   }, [catalog, exercise.name, excludeNames, query]);

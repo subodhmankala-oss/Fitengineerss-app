@@ -152,8 +152,9 @@
 /* Form Guide footer button when opened from a swap row. */
 .guide-swap-action { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border-color); }
 .guide-swap-action .lss-go { min-height: 48px; }
-/* ≡ menu item */
-.ex-card-menu button.ex-card-menu-swap { color: var(--accent-text); font-weight: 600; }
+/* ≡ menu item. The menu is dark in both themes (#1a1f2b), so this is the
+   dark theme's light brand blue, not the light theme's --accent-text. */
+.ex-card-menu button.ex-card-menu-swap { color: #8aa4ef; font-weight: 600; }
 /* Caption under the name after a live swap. */
 .swap-caption.swap-caption--live { display: flex; align-items: center; gap: 6px; }
 .swap-caption--live .swap-undo {

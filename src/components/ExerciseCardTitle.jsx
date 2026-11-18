@@ -7,7 +7,7 @@ import './ExerciseCardTitle.css';
 // The exercise card's title block, shared by the client logger and the coach
 // Live Log (they must match): a round muscle picture with a play badge that
 // opens the Form Guide, the exercise name (tap = history) with the ONE muscle
-// it mainly trains in plain text beside it, then the Note and Busy? lines.
+// it mainly trains in plain text beside it, then the Busy? and Note lines.
 // The card's ≡ menu stays beside it, unchanged.
 
 // "Upper Chest (Pectoralis Major)" → "Upper Chest"; first of a list only.
@@ -61,12 +61,6 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
           </h5>
           {muscle && <span className="ect-muscle">{muscle}</span>}
         </div>
-        {shownNote && (
-          <div className="ect-note">
-            <b>Note</b>
-            <span>{shownNote}</span>
-          </div>
-        )}
         {busy && busy.length > 0 && (
           <div className="ect-note ect-busy">
             <b>Busy?</b>
@@ -83,6 +77,12 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
                 </button>
               ))}
             </span>
+          </div>
+        )}
+        {shownNote && (
+          <div className="ect-note">
+            <b>Note</b>
+            <span>{shownNote}</span>
           </div>
         )}
         {children}

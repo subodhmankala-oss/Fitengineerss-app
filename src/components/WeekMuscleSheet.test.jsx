@@ -64,8 +64,18 @@ describe('WeekMuscleSheet', () => {
       return { sheet, card, acts };
     };
 
-    it('stays hidden until today finishes a part', () => {
-      const { card } = showActs([], times(midMin - 1, bench(DATE)));
+    it('shows the untouched parts before today finishes one (Mid Chest 1/4 → Upper, Lower)', () => {
+      const { card } = showActs([], [bench(DATE)]);
+      const chips = [...card.querySelectorAll('.wms-nchip')].map(b => b.textContent.trim());
+      expect(chips.some(t => t.includes('Upper Chest'))).toBe(true);
+      expect(chips.some(t => t.includes('Lower Chest'))).toBe(true);
+      expect(chips.some(t => t.includes('Mid Chest'))).toBe(false); // worked today: shown above, not suggested
+    });
+
+    it('is hidden once every part is done or touched today', () => {
+      const incline = { ...bench(DATE), exercise_name: 'Incline Dumbbell Press' };
+      const dip = { ...bench(DATE), exercise_name: 'Chest Dip' };
+      const { card } = showActs([], [bench(DATE), incline, dip]);
       expect(card.querySelector('.wms-next')).toBeNull();
     });
 
@@ -103,6 +113,37 @@ describe('WeekMuscleSheet', () => {
       });
       const set = [...card.querySelectorAll('.wms-nchip.is-set')].map(c => c.textContent.trim());
       expect(set.some(t => t.endsWith('Incline Dumbbell Press added'))).toBe(true);
+    });
+
+    it('turns a part 1-2 sets short into a +N sets button for the exercise that trained it', () => {
+      const onAddSets = vi.fn();
+      const { card } = showActs([], times(midMin - 1, bench(DATE)), { onAddSets });
+      const btn = card.querySelector('.wms-chip--topup');
+      expect(btn.textContent).toContain(`Mid Chest ${midMin - 1}/${midMin}`);
+      expect(btn.textContent.trim().endsWith('+')).toBe(true);
+      expect(btn.getAttribute('aria-label')).toContain('add 1 set of Barbell Bench Press');
+      fireEvent.click(btn);
+      expect(onAddSets).toHaveBeenCalledWith('Barbell Bench Press', 1);
+    });
+
+    it('no +N sets once the muscle has had enough', () => {
+      const saved = times(14, { ...bench('2026-11-16'), exercise_name: 'Incline Dumbbell Press' });
+      const { card } = showActs(saved, [bench(DATE)], { onAddSets: vi.fn() });
+      expect(card.querySelector('.wms-chip--topup')).toBeNull();
+    });
+
+    it('undoes an added or saved exercise from the chip', () => {
+      const onUnsave = vi.fn();
+      const onRemoveExercise = vi.fn();
+      const { card } = showActs([], times(midMin, bench(DATE)), {
+        workoutNames: ['Barbell Bench Press', 'Incline Dumbbell Press'],
+        laterNames: ['Assisted Dip'],
+        onUnsave, onRemoveExercise,
+      });
+      fireEvent.click(card.querySelector('[aria-label="Undo Incline Dumbbell Press"]'));
+      expect(onRemoveExercise).toHaveBeenCalledWith('Incline Dumbbell Press');
+      fireEvent.click(card.querySelector('[aria-label="Undo Assisted Dip"]'));
+      expect(onUnsave).toHaveBeenCalledWith('Assisted Dip');
     });
 
     it('works for leg muscles too: Vastus done on Quads offers Rectus Femoris', () => {

@@ -16,7 +16,7 @@ vi.mock('../services/databaseService', () => ({
   }
 }));
 
-import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, syncWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
+import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers, syncWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, isExpiredLater, leftoversForWorkout, getMissedSavedParts, LEFTOVER_TTL_DAYS } from './workoutLeftovers';
 
 const DAY = 24 * 60 * 60 * 1000;
 const set = (done) => ({ reps: '10', weight: '20', isCompleted: done });
@@ -142,5 +142,40 @@ describe('addWorkoutLeftover (saved for next session from the muscle sheet)', ()
     expect(getWorkoutLeftovers('u-next')).toHaveLength(1);
     await updateWorkoutLeftovers('u-next', { completed: ['Incline Dumbbell Press'] });
     expect(getWorkoutLeftovers('u-next')).toHaveLength(0);
+  });
+});
+
+describe('saved parts: which workout shows them, and when they expire', () => {
+  // 2026-11-18 is a Wednesday; its week ends Sunday 2026-11-22.
+  const saved = { name: 'Overhead Triceps Extension', part: 'Triceps Long Head', muscle: 'Triceps', date: '2026-11-18', savedAt: 1, nextSession: true };
+  const skipped = { name: 'Leg Curl', date: '2026-11-18', savedAt: 1 };
+
+  it('shows a saved part only when the workout trains its muscle', () => {
+    const push = leftoversForWorkout([saved, skipped], { logDate: '2026-11-20', exerciseNames: ['Bench Press', 'Triceps Pushdown'], today: '2026-11-20' });
+    expect(push.map(i => i.name)).toEqual(['Overhead Triceps Extension', 'Leg Curl']);
+    const legs = leftoversForWorkout([saved, skipped], { logDate: '2026-11-20', exerciseNames: ['Barbell Squat'], today: '2026-11-20' });
+    expect(legs.map(i => i.name)).toEqual(['Leg Curl']); // skipped ones always show
+  });
+
+  it('works out the muscle from the part for items saved without one', () => {
+    const old = { ...saved, muscle: undefined };
+    expect(leftoversForWorkout([old], { logDate: '2026-11-20', exerciseNames: ['Barbell Squat'], today: '2026-11-20' })).toEqual([]);
+  });
+
+  it('hides it in the workout it was saved from and once its week is over', () => {
+    expect(leftoversForWorkout([saved], { logDate: '2026-11-18', exerciseNames: ['Triceps Pushdown'], today: '2026-11-18' })).toEqual([]);
+    expect(isExpiredLater(saved, '2026-11-22')).toBe(false);
+    expect(isExpiredLater(saved, '2026-11-23')).toBe(true);
+    expect(isExpiredLater(skipped, '2026-11-30')).toBe(false);
+    expect(leftoversForWorkout([saved], { logDate: '2026-11-23', exerciseNames: ['Triceps Pushdown'], today: '2026-11-23' })).toEqual([]);
+  });
+
+  it('reports a missed part for the week after it ended, then drops it', () => {
+    expect(getMissedSavedParts([saved, skipped], '2026-11-22')).toEqual([]);
+    expect(getMissedSavedParts([saved, skipped], '2026-11-23')).toEqual([
+      { name: 'Overhead Triceps Extension', part: 'Triceps Long Head', date: '2026-11-18', weekEnd: '2026-11-22' },
+    ]);
+    expect(getMissedSavedParts([saved], '2026-11-29')).toHaveLength(1);
+    expect(getMissedSavedParts([saved], '2026-11-30')).toEqual([]);
   });
 });

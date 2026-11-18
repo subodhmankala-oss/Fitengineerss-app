@@ -184,3 +184,20 @@
   font-weight: 600;
   color: var(--text-muted);
 }
+
+.leftover-names li { display: list-item; }
+.leftover-names li > .leftover-name { margin-right: 6px; }
+.leftover-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb, 15, 23, 42), 0.07);
+  color: var(--text-muted);
+  cursor: pointer;
+}

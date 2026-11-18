@@ -1,10 +1,10 @@
 import React from 'react';
 import { MUSCLE_BODY_VIEW, MUSCLE_TO_PPLC } from '../../utils/muscleGroups';
 import {
-  getBodyArt, MUSCLE_CROP, FACE_MASK, FACE_MASK_GRADIENT,
+  getBodyArt, MUSCLE_CROP, FACE_MASK, FACE_MASK_GRADIENT, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
   SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
-import { getRegionShape, regionCrop, clipStyle } from './regionShapes';
+import { getRegionShape, regionCrop, clipStyle, REGION_SHAPES } from './regionShapes';
 import { useBodySex } from './bodySex';
 
 // Same featureless-face patch as the full heat map (MuscleHeatMap.jsx) — see
@@ -240,9 +240,11 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 
  * Used by the logger bar's live heat map (WorkoutMuscleHeat). `pulseKey`
  * (optional): muscle → value; when a muscle's value changes its layer is
  * remounted, which replays the `.heat-body-pulse` glow — a ticked set
- * flashes the muscles it just hit.
+ * flashes the muscles it just hit. `regionSplit` (optional, same shape the
+ * full map takes: muscle → { part → { color } }) paints a muscle with parts
+ * (Chest, Shoulders…) part by part, so the bar matches the sheet's figure.
  */
-export const HeatBodyFigure = ({ view = 'front', height = 48, colorFor, pulseKey }) => {
+export const HeatBodyFigure = ({ view = 'front', height = 48, colorFor, pulseKey, regionSplit = null }) => {
   const sex = useBodySex();
   const isFront = view !== 'back';
   const art = getBodyArt(sex)[isFront ? 'front' : 'back'];
@@ -258,11 +260,33 @@ export const HeatBodyFigure = ({ view = 'front', height = 48, colorFor, pulseKey
         <BodyBase art={art} view={isFront ? 'front' : 'back'} gid={`heat-${view}-${height}`} />
         {Object.entries(art.layers).flatMap(([muscle, rawFiles]) => {
           const color = colorFor?.(muscle);
+          const split = regionSplit?.[muscle];
+          const pulse = pulseKey ? pulseKey(muscle) : '';
+          const cls = `muscle-thumb-layer${pulseKey ? ' heat-body-pulse' : ''}`;
+          if (split) {
+            // Overlays no part is cut from keep the whole muscle's colour;
+            // the parts are drawn over them in their own.
+            const covered = new Set(Object.keys(split).flatMap(r => (REGION_SHAPES[r]?.parts || []).map(p => p.raw)));
+            const rest = color ? rawFiles.flatMap((rawSvg, i) => (covered.has((isFront ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS)[muscle]?.[i]) ? [] : [(
+              <div key={`${muscle}-${i}-${pulse}`} className={cls}
+                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />
+            )])) : [];
+            const parts = Object.entries(split).flatMap(([region, tier]) => {
+              const shape = getRegionShape(region, sex);
+              if (!shape || shape.view !== view || shape.hiddenOnMap || !tier?.color || tier.key === 'not_trained') return [];
+              return (shape.parts || []).map((part, i) => (
+                <div key={`${muscle}-${region}-${i}-${pulse}`} className={cls}
+                  style={part.clip ? { clipPath: clipStyle(part.clip) } : undefined}
+                  dangerouslySetInnerHTML={{ __html: recolorSvg(part.raw, tier.color, false) }} />
+              ));
+            });
+            return rest.concat(parts);
+          }
           if (!color) return [];
           return rawFiles.map((rawSvg, i) => (
             <div
-              key={`${muscle}-${i}-${pulseKey ? pulseKey(muscle) : ''}`}
-              className={`muscle-thumb-layer${pulseKey ? ' heat-body-pulse' : ''}`}
+              key={`${muscle}-${i}-${pulse}`}
+              className={cls}
               dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }}
             />
           ));

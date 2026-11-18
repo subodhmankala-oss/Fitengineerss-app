@@ -80,7 +80,7 @@ import { addExerciseInOrder, getWarmupPosition, isWarmupCardExercise } from '../
 import { CORE_PPL_TEMPLATES } from '../utils/weekTemplates';
 import { warmupsFirst } from '../utils/warmupsFirst';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
-import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession } from '../utils/workoutLeftovers';
+import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, leftoversForWorkout, getMissedSavedParts } from '../utils/workoutLeftovers';
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
@@ -904,6 +904,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setBellHiddenMeasDue(prev => {
       const next = [...prev.filter(k => !k.startsWith(`${d.clientId}|`)), measDueKey(d)];
       try { localStorage.setItem(BELL_HIDDEN_MEAS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      return next;
+    });
+  };
+  // Each own client's leftovers list (workout_leftovers), for the bell's
+  // "missed a saved part" items. null until loaded.
+  const [leftoversByClient, setLeftoversByClient] = useState(null);
+  // Missed-part items dismissed from the bell, per device, as
+  // `${clientId}|${name}|${date}`.
+  const BELL_HIDDEN_MISSED_KEY = 'bellHiddenMissedParts';
+  const [bellHiddenMissed, setBellHiddenMissed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(BELL_HIDDEN_MISSED_KEY) || '[]') || []; } catch { return []; }
+  });
+  const hideMissedFromBell = (key) => {
+    setBellHiddenMissed(prev => {
+      const next = [...prev.filter(k => k !== key), key].slice(-200);
+      try { localStorage.setItem(BELL_HIDDEN_MISSED_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
       return next;
     });
   };
@@ -2886,16 +2902,42 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // the client themselves — see utils/workoutLeftovers.js. Server-backed, so
   // they're here on any phone and after reopening the app.
   const liveLeftoverAll = useWorkoutLeftovers(selectedClient?.id || null);
-  // Saved from this session's muscle sheet "for next time": not offered back
-  // in the same session.
-  const liveLeftovers = liveLeftoverAll
-    .filter(it => !isForLaterSession(it, liveDate)
-      && !liveExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
+  // See leftoversForWorkout: not the ones saved from this session, a saved
+  // part only once its week is still on and this session trains its muscle.
+  const liveLeftovers = leftoversForWorkout(liveLeftoverAll, { logDate: liveDate, exerciseNames: liveExercises.map(ex => ex.name) });
   const liveLaterNames = liveLeftoverAll.filter(it => isForLaterSession(it, liveDate)).map(it => it.name);
   const handleLiveSaveForLater = (name, part) => {
     if (!selectedClient?.id) return;
     addWorkoutLeftover(selectedClient.id, { name, part, date: liveDate });
     triggerLiveToast(`${name} saved for the next session`);
+  };
+  // The muscle sheet's ✕ on a saved / added chip.
+  const handleLiveUnsave = (name) => {
+    if (!selectedClient?.id) return;
+    clearWorkoutLeftovers(selectedClient.id, [name]);
+    triggerLiveToast(`${name} no longer saved for next time`);
+  };
+  // The muscle sheet's "+N sets" chip: tops up the exercise to N sets
+  // waiting to be ticked (sets already waiting count).
+  const handleLiveSheetAddSets = (name, count) => {
+    const exIdx = liveExercises.findIndex(ex => ex.name.toLowerCase() === name.toLowerCase());
+    if (exIdx < 0) return;
+    const waiting = (liveExercises[exIdx].sets || []).filter(s => !s.isCompleted && !s.isWarmup).length;
+    const add = Math.max(0, count - waiting);
+    for (let i = 0; i < add; i++) handleLiveAddSet(exIdx);
+    triggerLiveToast(add
+      ? `Added ${add} set${add === 1 ? '' : 's'} to ${name}`
+      : `${name} already has ${waiting} set${waiting === 1 ? '' : 's'} ready to tick`);
+  };
+  const handleLiveUndoSheetAdd = (name) => {
+    const exIdx = liveExercises.findIndex(ex => ex.name.toLowerCase() === name.toLowerCase());
+    if (exIdx < 0) return;
+    if ((liveExercises[exIdx].sets || []).some(s => s.isCompleted)) {
+      triggerLiveToast(`${name} has ticked sets, so it stays. Remove it from its card menu.`);
+      return;
+    }
+    handleLiveRemoveExercise(exIdx);
+    triggerLiveToast(`Removed ${name}`);
   };
   const handleLiveAddFromSheet = (name) => {
     if (liveExercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) return;
@@ -2908,8 +2950,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     clearWorkoutLeftovers(selectedClient.id, names);
     triggerLiveToast(`Added ${names.join(', ')}`);
   };
+  // Dismiss clears only what the card shows; ✕ clears one.
   const handleDismissLiveLeftovers = () => {
-    clearWorkoutLeftovers(selectedClient.id);
+    clearWorkoutLeftovers(selectedClient.id, liveLeftovers.map(it => it.name));
+  };
+  const handleRemoveLiveLeftover = (name) => {
+    clearWorkoutLeftovers(selectedClient.id, [name]);
   };
   // "Carry over to next session" tick box above Save.
   const [liveCarryOver, setLiveCarryOver] = useState(true);
@@ -4024,6 +4070,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     });
     return () => { cancelled = true; };
   }, [ownClientIdsKey, measSavedSignal]);
+  // Clients' leftovers for the bell: on load / roster change and whenever
+  // the app comes back to the front (a missed week ends on Sunday night).
+  useEffect(() => {
+    if (!ownClientIdsKey) return undefined;
+    let cancelled = false;
+    const load = () => databaseService.getWorkoutLeftoversForClients(ownClientIdsKey.split(',')).then(map => {
+      if (!cancelled && map) setLeftoversByClient(map);
+    });
+    load();
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); };
+  }, [ownClientIdsKey]);
   useEffect(() => {
     const newest = clientMeasurements[0];
     if (!newest?.userId || !newest.measuredAt) return;
@@ -5820,6 +5879,38 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       .filter(d => !bellHiddenMeasDue.includes(measDueKey(d)));
     // The sweep's push copy is the same check-in as the due item below.
     measurementDue.forEach(d => foldedTypes.add(`${d.clientId}|measurement_reminder_coach`));
+
+    // A part the client saved "for next time" from the live muscle sheet and
+    // didn't do before that week ended (see getMissedSavedParts).
+    Object.entries(leftoversByClient || {}).forEach(([clientId, items]) => {
+      getMissedSavedParts(items).forEach(m => {
+        const key = `${clientId}|${m.name}|${m.date}`;
+        if (bellHiddenMissed.includes(key)) return;
+        const first = firstNameOf(clientId);
+        bellItems.push({
+          key: `missed-${key}`, tone: 'amber', icon: 'workout', at: `${m.weekEnd}T23:59:00`,
+          title: `${nameOf(clientId)} missed ${m.part} last week`,
+          body: `Saved ${m.name} for the next session, didn't get to it`,
+          compose: {
+            label: 'Send note',
+            placeholder: `Note to ${first}…`,
+            flash: `Note sent to ${first}`,
+            suggestions: [
+              `${first}, let's get ${m.part} in this week. ${m.name} is a great one to start your next session with`,
+              `No stress ${first}, I'll put ${m.name} into your plan so it's already there next time`,
+            ],
+            send: async (message) => {
+              const ok = await sendCoachNoteTo(clientId, message);
+              if (ok) hideMissedFromBell(key);
+              return ok;
+            }
+          },
+          open: () => { hideMissedFromBell(key); openClient(clientId, 'plans'); },
+          openLabel: 'Open plan',
+          dismiss: () => hideMissedFromBell(key)
+        });
+      });
+    });
 
     clientNotifications
       .filter(n => !foldedTypes.has(`${n.clientId}|${n.type}`))
@@ -10526,6 +10617,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             rows={liveTickedRows} logDate={liveDate} savedLogs={rawWorkoutLogs} level={selectedClientLevel}
                             workoutNames={liveExercises.map(ex => ex.name)} laterNames={liveLaterNames}
                             onAddExercise={handleLiveAddFromSheet} onSaveForLater={handleLiveSaveForLater}
+                            onUnsave={handleLiveUnsave} onRemoveExercise={handleLiveUndoSheetAdd}
+                            onAddSets={handleLiveSheetAddSets}
                           />
                           <button
                             type="button"
@@ -10552,7 +10645,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   {/* Exercise List — edge-to-edge: bleeds past the dashboard's
                       16px outer padding so the table reaches the true screen
                       edges, matching the app's standard flush logging layout. */}
-                  <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} />
+                  <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} onRemoveItem={handleRemoveLiveLeftover} />
 
                   <SetLiftOverlay undo={liveLiftDrop.undo} onUndo={liveLiftDrop.runUndo} />
                   <div className="live-logger-exercise-list">

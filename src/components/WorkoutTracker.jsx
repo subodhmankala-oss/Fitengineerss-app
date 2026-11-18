@@ -56,7 +56,7 @@ import { levelFromHistory } from '../utils/clientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
-import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession } from '../utils/workoutLeftovers';
+import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, leftoversForWorkout } from '../utils/workoutLeftovers';
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
@@ -3157,24 +3157,58 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // (see utils/workoutLeftovers.js), minus any already in this workout.
   const leftoverOwnerId = ownUserId || localStorage.getItem('userId');
   const leftoverAll = useWorkoutLeftovers(leftoverOwnerId, isLoggingWorkout);
-  // Saved from this workout's muscle sheet "for next time": not offered back
-  // in the same workout.
-  const leftoverItems = leftoverAll
-    .filter(it => isLoggingWorkout && !isForLaterSession(it, logDate)
-      && !logExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
+  // See leftoversForWorkout: not the ones saved from this workout, a saved
+  // part only once its week is still on and this workout trains its muscle.
+  const leftoverItems = isLoggingWorkout
+    ? leftoversForWorkout(leftoverAll, { logDate, exerciseNames: logExercises.map(ex => ex.name) })
+    : [];
   const laterLeftoverNames = leftoverAll.filter(it => isForLaterSession(it, logDate)).map(it => it.name);
   const handleSaveForLater = (name, part) => {
     if (!leftoverOwnerId) return;
     addWorkoutLeftover(leftoverOwnerId, { name, part, date: logDate });
     triggerToast(`${name} saved for your next session`);
   };
+  // The muscle sheet's ✕ on a saved / added chip.
+  const handleUnsaveForLater = (name) => {
+    if (!leftoverOwnerId) return;
+    clearWorkoutLeftovers(leftoverOwnerId, [name]);
+    triggerToast(`${name} no longer saved for next time`);
+  };
+  // The muscle sheet's "+N sets" chip: tops up the exercise to N sets
+  // waiting to be ticked (sets already waiting count).
+  const handleSheetAddSets = (name, count) => {
+    const exIdx = logExercises.findIndex(ex => ex.name.toLowerCase() === name.toLowerCase());
+    if (exIdx < 0) return;
+    const waiting = (logExercises[exIdx].sets || []).filter(s => !s.isCompleted && !s.isWarmup && s.setType !== 'warmup').length;
+    const add = Math.max(0, count - waiting);
+    for (let i = 0; i < add; i++) handleAddSet(exIdx);
+    triggerToast(add
+      ? `Added ${add} set${add === 1 ? '' : 's'} to ${name}`
+      : `${name} already has ${waiting} set${waiting === 1 ? '' : 's'} ready to tick`);
+  };
+  const handleUndoSheetAdd = (name) => {
+    const exIdx = logExercises.findIndex(ex => ex.name.toLowerCase() === name.toLowerCase());
+    if (exIdx < 0) return;
+    if ((logExercises[exIdx].sets || []).some(s => s.isCompleted)) {
+      triggerToast(`${name} has ticked sets, so it stays. Remove it from its card menu.`);
+      return;
+    }
+    setSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
+    setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+    triggerToast(`Removed ${name}`);
+  };
   const handleAddLeftovers = () => {
     const names = leftoverItems.map(it => it.name);
     names.forEach(name => addExerciseToWorkout(name));
     clearWorkoutLeftovers(leftoverOwnerId, names);
   };
+  // Dismiss clears only what the card shows (a saved part waiting for its
+  // muscle's day stays); ✕ clears one.
   const handleDismissLeftovers = () => {
-    clearWorkoutLeftovers(leftoverOwnerId);
+    clearWorkoutLeftovers(leftoverOwnerId, leftoverItems.map(it => it.name));
+  };
+  const handleRemoveLeftover = (name) => {
+    clearWorkoutLeftovers(leftoverOwnerId, [name]);
   };
 
   // Drain the queue (see draftCheckDone above). The helpers it needs are
@@ -3990,7 +4024,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
-          <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} />
+          <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} onRemoveItem={handleRemoveLeftover} />
           <div className="form-header">
             <div className="form-header-title-row">
               <h3>🏋️ Today's Workout</h3>
@@ -4141,6 +4175,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                     rows={liveTickedRows} logDate={logDate} savedLogs={savedSetRows} level={trainingLevel}
                     workoutNames={logExercises.map(ex => ex.name)} laterNames={laterLeftoverNames}
                     onAddExercise={addExerciseToWorkout} onSaveForLater={handleSaveForLater}
+                    onUnsave={handleUnsaveForLater} onRemoveExercise={handleUndoSheetAdd}
+                    onAddSets={handleSheetAddSets}
                   />
                   <button
                     type="button"

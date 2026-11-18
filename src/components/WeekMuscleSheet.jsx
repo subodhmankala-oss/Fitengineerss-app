@@ -3,9 +3,8 @@ import { createPortal } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
-import { MUSCLE_GROUPS } from '../utils/muscleGroups';
-import { getRegionBreakdownForMuscle, hasRegions, getNextParts } from '../utils/muscleRegions';
-import { weekRangeFor } from '../utils/setMuscleRing';
+import { getWeekMuscleView } from '../utils/weekMuscleView';
+import { getRegionBreakdownForMuscle, hasRegions, getNextParts, getTopUpSets } from '../utils/muscleRegions';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './WeekMuscleSheet.css';
 
@@ -19,15 +18,23 @@ import './WeekMuscleSheet.css';
 // target, %), plus what today added and — for muscles with parts (Chest,
 // Back, Shoulders…) — the parts today's sets went to, e.g. "Mid Chest 4 / 4".
 //
-// Next-part row (any muscle with parts): once today finishes one part (✓ Mid
-// Chest 4/4), the parts still short this week get dashed chips. "Add now"
+// Next-part row (any muscle with parts): for a muscle worked today, the
+// parts still short this week that today hasn't touched get dashed chips
+// (Triceps Lateral Head today → Long Head; Mid Chest → Upper, Lower). "Add now"
 // while the muscle is under Optimal and has had < 10 sets today; otherwise
 // "Next <muscle> day", which saves the exercise to the client's leftovers
 // (see getNextParts). A chip opens a short exercise list for that part.
 // `workoutNames` = exercises in this workout, `laterNames` = leftovers
 // saved for later from this workout; `onAddExercise(name)` and
 // `onSaveForLater(name, part)` come from the logger. Without them the row
-// is not shown (read-only use).
+// is not shown (read-only use). An added or saved chip has an ✕ to undo it:
+// `onUnsave(name)` takes it off the leftovers, `onRemoveExercise(name)`
+// takes it back out of the workout (the logger refuses once a set is ticked).
+//
+// "+1 set" chips: a part today's sets went to that is only 1–2 sets short
+// (Upper Chest 3/4) becomes a button. It adds that many sets to the exercise
+// that trained it today (`onAddSets(name, count)`), under the same now-or-
+// later rule, so a muscle that has had enough is never pushed further.
 
 const fmt = n => String(Math.round((n || 0) * 10) / 10);
 const EPS = 0.001;
@@ -44,7 +51,7 @@ const CalendarIcon = () => (
 
 export default function WeekMuscleSheet({
   open, onClose, savedLogs, liveRows, logDate, level,
-  workoutNames, laterNames, onAddExercise, onSaveForLater,
+  workoutNames, laterNames, onAddExercise, onSaveForLater, onUnsave, onRemoveExercise, onAddSets,
 }) {
   // The part whose exercise list is open: { muscle, id, sets, min, mode, suggestions }.
   const [picking, setPicking] = useState(null);
@@ -60,18 +67,12 @@ export default function WeekMuscleSheet({
 
   const data = useMemo(() => {
     if (!open || !logDate) return null;
-    const [start, end] = weekRangeFor(logDate);
+    const view = getWeekMuscleView(savedLogs, liveRows, logDate, level);
+    const { start, end, all, statsAll, byAll, regionSplit } = view;
     const saved = savedLogs || [];
-    const all = [...saved, ...(liveRows || [])];
-    const statsAll = getWeeklyMuscleStats(all, start, end, { includeUntrained: true, level });
     const bySaved = Object.fromEntries(
       getWeeklyMuscleStats(saved, start, end, { includeUntrained: true, level }).map(s => [s.muscle, s])
     );
-    const byAll = Object.fromEntries(statsAll.map(s => [s.muscle, s]));
-    const regionSplit = Object.fromEntries(MUSCLE_GROUPS.filter(hasRegions).map(m => {
-      const parts = getRegionBreakdownForMuscle(all, m, start, end, { level }).filter(r => r.tier);
-      return [m, Object.fromEntries(parts.map(r => [r.id, r.tier]))];
-    }));
     const todaySets = (liveRows || []).filter(r => isCountableSet(r)).length;
 
     const cards = statsAll
@@ -83,9 +84,11 @@ export default function WeekMuscleSheet({
         const beforeRows = getRegionBreakdownForMuscle(saved, c.stat.muscle, start, end, { level });
         const before = Object.fromEntries(beforeRows.map(r => [r.id, r.sets]));
         const allRows = getRegionBreakdownForMuscle(all, c.stat.muscle, start, end, { level });
+        const todayRows = getRegionBreakdownForMuscle(liveRows || [], c.stat.muscle, start, end, { level });
+        const topUp = getTopUpSets(allRows, beforeRows, todayRows, c.stat, c.today);
         const parts = allRows
           .filter(r => r.band && r.sets - (before[r.id] || 0) > EPS)
-          .map(r => ({ id: r.id, sets: r.sets, min: r.band.min }));
+          .map(r => ({ id: r.id, sets: r.sets, min: r.band.min, topUp: topUp[r.id] || null }));
         const next = getNextParts(c.stat.muscle, allRows, beforeRows, c.stat, c.today);
         return { ...c, parts, next };
       });
@@ -155,16 +158,25 @@ export default function WeekMuscleSheet({
                   </div>
                   <div className="wms-card-foot">
                     <span className="wms-up">↗ +{fmt(today)} today</span>
-                    {parts.map(p => (
+                    {parts.map(p => (p.topUp && typeof onAddSets === 'function' ? (
+                      <button key={p.id} type="button" className="wms-chip wms-chip--topup"
+                        title={`Add ${p.topUp.count} set${p.topUp.count === 1 ? '' : 's'} of ${p.topUp.exercise}`}
+                        aria-label={`${p.id} ${fmt(p.sets)} of ${p.min}: add ${p.topUp.count} set${p.topUp.count === 1 ? '' : 's'} of ${p.topUp.exercise}`}
+                        onClick={() => onAddSets(p.topUp.exercise, p.topUp.count)}>
+                        {p.id} {fmt(p.sets)}/{p.min}
+                        <b aria-hidden="true">+</b>
+                      </button>
+                    ) : (
                       <span key={p.id} className={`wms-chip${p.sets >= p.min ? ' is-done' : ''}`}>
                         {p.sets >= p.min ? '✓ ' : ''}{p.id} {fmt(p.sets)}/{p.min}
                       </span>
-                    ))}
+                    )))}
                     <span className="wms-goal">{goal}</span>
                   </div>
                   {canAct && next && (
                     <NextPartRow muscle={stat.muscle} next={next} today={today}
                       workoutNames={workoutNames} laterNames={laterNames}
+                      onUnsave={onUnsave} onRemoveExercise={onRemoveExercise}
                       onPick={p => setPicking({ ...p, muscle: stat.muscle, mode: next.mode })} />
                   )}
                 </div>
@@ -187,7 +199,7 @@ export default function WeekMuscleSheet({
 const dayWord = muscle => `${muscle.toLowerCase()} day`;
 
 // The dashed chips under a card: parts not reached yet this week.
-function NextPartRow({ muscle, next, today, workoutNames, laterNames, onPick }) {
+function NextPartRow({ muscle, next, today, workoutNames, laterNames, onPick, onUnsave, onRemoveExercise }) {
   const now = next.mode === 'now';
   const why = now
     ? `${muscle} is under Optimal with ${fmt(today)} set${today === 1 ? '' : 's'} today, so there's room for one more exercise.`
@@ -202,10 +214,17 @@ function NextPartRow({ muscle, next, today, workoutNames, laterNames, onPick }) 
         const added = p.suggestions.find(n => hasName(workoutNames, n));
         const saved = p.suggestions.find(n => hasName(laterNames, n));
         if (added || saved) {
+          const undo = added ? onRemoveExercise : onUnsave;
           return (
             <span key={p.id} className={`wms-nchip is-set${added ? '' : ' is-saved'}`}>
               <RegionThumbnail region={p.id} color="currentColor" size={20} />
-              {added ? `${added} added` : `${p.id} saved for next time`}
+              {added ? `${added} added` : `${saved} saved for next time`}
+              {typeof undo === 'function' && (
+                <button type="button" className="wms-nchip-undo" aria-label={`Undo ${added || saved}`}
+                  onClick={() => undo(added || saved)}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                </button>
+              )}
             </span>
           );
         }

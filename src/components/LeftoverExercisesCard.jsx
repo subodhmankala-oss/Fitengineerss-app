@@ -6,7 +6,8 @@ import './LeftoverExercisesCard.css';
 // exercises not started when the client's previous session ran out of time
 // (see utils/workoutLeftovers.js). `items` is already filtered to names not
 // in the current session.
-const LeftoverExercisesCard = ({ items, onAdd, onDismiss }) => {
+// `onRemoveItem(name)`: the ✕ beside one item.
+const LeftoverExercisesCard = ({ items, onAdd, onDismiss, onRemoveItem }) => {
   if (!items || items.length === 0) return null;
   const dates = [...new Set(items.map(it => it.date).filter(Boolean))];
   const from = dates.length === 1 ? ` from ${formatShortLogDate(dates[0])}` : '';
@@ -22,8 +23,15 @@ const LeftoverExercisesCard = ({ items, onAdd, onDismiss }) => {
         <ul className="leftover-names">
           {items.map(it => (
             <li key={it.name}>
-              {it.name}
-              {it.part && <span className="leftover-part"> · for {it.part}</span>}
+              <span className="leftover-name">
+                {it.name}
+                {it.part && <span className="leftover-part"> · for {it.part}</span>}
+              </span>
+              {onRemoveItem && (
+                <button type="button" className="leftover-remove" aria-label={`Remove ${it.name}`} onClick={() => onRemoveItem(it.name)}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                </button>
+              )}
             </li>
           ))}
         </ul>

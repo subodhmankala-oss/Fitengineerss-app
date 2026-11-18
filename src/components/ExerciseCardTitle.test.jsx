@@ -33,6 +33,7 @@ describe('ExerciseCardTitle written note + Busy?', () => {
     const opts = ['Dumbbell Row', 'Inverted Row', 'Pull-up'].map((name, i) => ({ name, match: 80 - i, onSwap: () => { swapped = name; } }));
     render(<ExerciseCardTitle name="Lat Pull Down" busy={opts} onShowGuide={() => {}} onShowHistory={() => {}} />);
     expect(screen.getByText('Busy?')).toBeTruthy();
+    expect(screen.getByText('Swap to')).toBeTruthy();
     screen.getByRole('button', { name: /Swap to Inverted Row/ }).click();
     expect(swapped).toBe('Inverted Row');
     expect(screen.getAllByRole('button', { name: /^Swap to/ }).length).toBe(3);

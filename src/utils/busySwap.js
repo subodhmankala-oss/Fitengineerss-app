@@ -1,6 +1,6 @@
-// "Busy?" line on a logger card: when the machine/cable station or the
-// dumbbells for an exercise are taken, offer the closest stand-in that
-// doesn't need them, in one tap. Same library and match % as the ≡ menu's Swap sheet
+// "Busy?" line on a logger card: whatever an exercise needs (machine, cable,
+// dumbbells, a barbell) may be taken, so offer the closest stand-ins that
+// don't need it, in one tap — on every exercise. Same library and match % as the ≡ menu's Swap sheet
 // (swapAlternatives / swapMatchPercent), so the two never disagree.
 import { equipmentLabel, isSameExerciseName, swapAlternatives, swapMatchPercent } from './aiWorkoutCatalog';
 import { libraryExerciseId } from './exerciseName';
@@ -14,18 +14,25 @@ export function isStationExercise(name) {
   return equip === 'Machine' || equip === 'Cable' || MACHINE_BY_NATURE.test(String(name || ''));
 }
 
-const isDumbbellExercise = (name) => equipmentLabel(name) === 'Dumbbell';
+// What the exercise needs that might be taken: a station (machine/cable),
+// or a kind of free weight. Bodyweight and anything else needs nothing.
+const needOf = (name) => {
+  if (isStationExercise(name)) return 'station';
+  const equip = equipmentLabel(name);
+  return equip === 'Dumbbell' || equip === 'Barbell' || equip === 'Kettlebell' || equip === 'Band' ? equip : null;
+};
 
-// Which exercises get a Busy? line.
+// Every exercise card offers swaps.
 export function isBusyEligible(name) {
-  return isStationExercise(name) || isDumbbellExercise(name);
+  return !!String(name || '').trim();
 }
 
 // A stand-in must not need the thing that's busy: no station for a station
-// exercise, no dumbbells for a dumbbell one.
-const freeOfSame = (name, alt) => (isStationExercise(name)
-  ? !isStationExercise(alt)
-  : !isDumbbellExercise(alt));
+// exercise, no dumbbells for a dumbbell one, no barbell for a barbell one.
+const freeOfSame = (name, alt) => {
+  const need = needOf(name);
+  return !need || needOf(alt) !== need;
+};
 
 const MIN_MATCH = 50;
 

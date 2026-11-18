@@ -17,10 +17,17 @@ const catalog = [
 ];
 
 describe('Busy? swap options', () => {
-  it('only machines, cables and dumbbell exercises get them', () => {
+  it('every exercise gets options, including bodyweight ones', () => {
     expect(isStationExercise('Chest Press (Machine)')).toBe(true);
     expect(isStationExercise('Lat Pull Down')).toBe(true);
-    expect(busyAlternatives('Push Up', catalog)).toEqual([]);
+    const alts = busyAlternatives('Push Up', catalog);
+    expect(alts.length).toBeGreaterThan(0);
+    alts.forEach(a => expect(a.name).not.toBe('Push Up'));
+  });
+  it('a barbell exercise gets stand-ins that need no barbell', () => {
+    const alts = busyAlternatives('Barbell Row', catalog);
+    expect(alts.length).toBeGreaterThan(0);
+    alts.forEach(a => expect(a.name).not.toMatch(/barbell/i));
   });
   it('gives up to 3 options, none needing another machine', () => {
     const alts = busyAlternatives('Lat Pull Down', catalog);

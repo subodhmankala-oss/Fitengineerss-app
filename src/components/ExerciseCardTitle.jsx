@@ -65,6 +65,7 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
           <div className="ect-note ect-busy">
             <b>Busy?</b>
             <span className="ect-busy-opts">
+              <span className="ect-busy-label">Swap to</span>
               {busy.map(o => (
                 <button
                   key={o.name}
@@ -73,6 +74,9 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
                   aria-label={`Swap to ${o.name}, ${o.match}% match`}
                   onClick={o.onSwap}
                 >
+                  <svg className="ect-busy-ico" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M7 4 3 8l4 4" /><path d="M3 8h14" /><path d="m17 20 4-4-4-4" /><path d="M21 16H7" />
+                  </svg>
                   {o.name} <span className="ect-dim">{o.match}%</span>
                 </button>
               ))}

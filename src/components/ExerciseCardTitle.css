@@ -84,7 +84,9 @@
 .ect-busy { align-items: flex-start; }
 .ect-busy b { margin-top: 3px; }
 /* Each option is a tap-to-swap pill: outline only, never a solid fill. */
-.ect-busy-opts { display: flex; flex-wrap: wrap; gap: 5px; }
+.ect-busy-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.ect-busy-label { font-size: 0.74rem; font-weight: 700; color: var(--text-main); }
+.ect-busy-ico { margin-right: 4px; vertical-align: -1px; }
 .ect-busy-opt {
   padding: 3px 9px;
   font: inherit;

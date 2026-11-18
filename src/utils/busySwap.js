@@ -55,3 +55,19 @@ export function busyAlternatives(name, catalog, excludeNames = [], limit = 3) {
     .slice(0, limit)
     .map(({ e, match }) => ({ name: e.name, exerciseId: libraryExerciseId(e), match }));
 }
+
+// Busy? swaps chain: the card always offers stand-ins for the exercise the
+// plan started with (`busyBase`), skipping everything already tried
+// (`busyTried`), up to MAX_BUSY_SWAPS in a row. A card swapped from the ≡
+// menu (swappedFrom without busyBase) gets no Busy? line.
+export const MAX_BUSY_SWAPS = 3;
+
+export function nextBusyOption(entry, catalog, workoutNames = []) {
+  if (!entry || (entry.sets || []).some(s => s.isCompleted)) return null;
+  const base = entry.busyBase || (entry.swappedFrom ? null : entry.name);
+  if (!base) return null;
+  const tried = entry.busyTried || [];
+  if (tried.length >= MAX_BUSY_SWAPS) return null;
+  const [next] = busyAlternatives(base, catalog, [...workoutNames, ...tried], 1);
+  return next ? { ...next, base, tried: [...tried, next.name] } : null;
+}

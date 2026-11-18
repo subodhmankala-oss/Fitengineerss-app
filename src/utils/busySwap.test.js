@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { busyAlternatives, isStationExercise } from './busySwap';
+import { busyAlternatives, isStationExercise, nextBusyOption } from './busySwap';
 
 const ID = (n) => `00000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`;
 const catalog = [
@@ -49,5 +49,32 @@ describe('Busy? swap options', () => {
     const names = busyAlternatives('Lat Pull Down', catalog, ['Dumbbell Row']).map(a => a.name);
     expect(names).not.toContain('Dumbbell Row');
     expect(busyAlternatives('Lat Pull Down', null)).toEqual([]);
+  });
+});
+
+describe('Busy? swap chain', () => {
+  const card = (name, extra = {}) => ({ name, sets: [{ reps: '10', isCompleted: false }], ...extra });
+
+  it('offers the next stand-in after each swap, up to 3, never repeating', () => {
+    const first = nextBusyOption(card('Lat Pull Down'), catalog, ['Lat Pull Down']);
+    expect(first.base).toBe('Lat Pull Down');
+    expect(first.tried).toEqual([first.name]);
+
+    const afterOne = card(first.name, { swappedFrom: 'Lat Pull Down', busyBase: first.base, busyTried: first.tried });
+    const second = nextBusyOption(afterOne, catalog, [first.name]);
+    expect(second.name).not.toBe(first.name);
+    expect(second.tried).toEqual([first.name, second.name]);
+
+    const afterTwo = card(second.name, { swappedFrom: first.name, busyBase: 'Lat Pull Down', busyTried: second.tried });
+    const third = nextBusyOption(afterTwo, catalog, [second.name]);
+    expect([first.name, second.name]).not.toContain(third.name);
+
+    const afterThree = card(third.name, { swappedFrom: second.name, busyBase: 'Lat Pull Down', busyTried: third.tried });
+    expect(nextBusyOption(afterThree, catalog, [third.name])).toBeNull();
+  });
+
+  it('no Busy? on a card swapped from the menu, or once a set is ticked', () => {
+    expect(nextBusyOption(card('Dumbbell Row', { swappedFrom: 'Lat Pull Down' }), catalog)).toBeNull();
+    expect(nextBusyOption({ name: 'Lat Pull Down', sets: [{ isCompleted: true }] }, catalog)).toBeNull();
   });
 });

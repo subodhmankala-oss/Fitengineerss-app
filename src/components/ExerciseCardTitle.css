@@ -81,10 +81,6 @@
   border: 1px solid rgba(var(--fg-rgb), 0.22);
 }
 .ect-dim { color: var(--text-muted, #94a3b8); }
-.ect-busy { align-items: flex-start; }
-.ect-busy b { margin-top: 1px; }
-.ect-busy-rows { display: flex; flex-direction: column; gap: 3px; }
-.ect-busy-row { display: block; }
 .ect-busy-swap {
   margin-left: 6px;
   padding: 0;

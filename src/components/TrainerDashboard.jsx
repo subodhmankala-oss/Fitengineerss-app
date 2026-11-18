@@ -61,7 +61,7 @@ import { loadAiCatalog } from '../utils/loadAiCatalog';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
-import { busyAlternatives, isBusyEligible } from '../utils/busySwap';
+import { nextBusyOption, isBusyEligible } from '../utils/busySwap';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
@@ -3303,7 +3303,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       triggerLiveToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${e?.message || 'try again'}`);
     }
   };
-  const handleLiveSwap = ({ name, exerciseId }, { keep = false } = {}, atIdx = null) => {
+  const handleLiveSwap = ({ name, exerciseId }, { keep = false, busy = null } = {}, atIdx = null) => {
     const exIdx = atIdx ?? swapLiveIdx;
     setSwapLiveIdx(null);
     setActiveGuideExercise(null);
@@ -3313,7 +3313,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     const plan = keep ? findKeepablePlan(clientPlans, livePlanName, old) : null;
     const built = buildSwapEntry(old, { name, exerciseId }, { by: 'coach', prevSets: livePrevSetsFor(name, exerciseId) });
     const entry = plan ? { ...built, swapPlan: { before: plan } } : built;
-    const { exercises, split } = applyLiveSwap(liveExercises, exIdx, entry);
+    // A Busy? swap remembers the starting exercise and what's been tried,
+    // so the new card can offer the next stand-in (utils/busySwap).
+    const chained = busy ? { ...entry, busyBase: busy.base, busyTried: busy.tried } : entry;
+    const { exercises, split } = applyLiveSwap(liveExercises, exIdx, chained);
     setLiveSetTimers(prev => remapSetTimersForSwap(exIdx, old.sets, split, prev));
     setLiveExercises(exercises);
     markExerciseEntering(name);
@@ -10730,9 +10733,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               onShowHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
                               note={ex.note}
                               busy={(() => {
-                                if (ex.swappedFrom || ex.sets.some(s => s.isCompleted)) return null;
-                                return busyAlternatives(ex.name, aiCatalog, liveExercises.map(le => le.name))
-                                  .map(alt => ({ ...alt, onSwap: () => handleLiveSwap(alt, { keep: false }, exIdx) }));
+                                const next = nextBusyOption(ex, aiCatalog, liveExercises.map(le => le.name));
+                                return next && { ...next, onSwap: () => handleLiveSwap(next, { keep: false, busy: { base: next.base, tried: next.tried } }, exIdx) };
                               })()}
                             >
                               <ExerciseCaption

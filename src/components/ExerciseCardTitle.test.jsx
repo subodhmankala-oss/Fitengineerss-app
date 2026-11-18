@@ -28,14 +28,13 @@ describe('ExerciseCardTitle written note + Busy?', () => {
     expect(screen.getByText('Coach says hi')).toBeTruthy();
     expect(screen.queryByText(/collarbone/)).toBeNull();
   });
-  it('Busy? lists every option with its own Swap', () => {
-    let swapped = null;
-    const opts = ['Dumbbell Row', 'Inverted Row', 'Pull-up'].map((name, i) => ({ name, match: 80 - i, onSwap: () => { swapped = name; } }));
-    render(<ExerciseCardTitle name="Lat Pull Down" busy={opts} onShowGuide={() => {}} onShowHistory={() => {}} />);
+  it('Busy? shows one stand-in with Swap', () => {
+    let swapped = false;
+    render(<ExerciseCardTitle name="Lat Pull Down" busy={{ name: 'Dumbbell Row', match: 82, onSwap: () => { swapped = true; } }} onShowGuide={() => {}} onShowHistory={() => {}} />);
     expect(screen.getByText('Busy?')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /^Swap to/ }).length).toBe(3);
-    fireEvent.click(screen.getByRole('button', { name: 'Swap to Inverted Row' }));
-    expect(swapped).toBe('Inverted Row');
+    expect(screen.getByText(/Try Dumbbell Row/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Swap to Dumbbell Row' }));
+    expect(swapped).toBe(true);
   });
 });
 

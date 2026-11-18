@@ -14,7 +14,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl }
 import ExerciseGuideModal from './ExerciseGuideModal';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
-import { busyAlternatives, isBusyEligible } from '../utils/busySwap';
+import { nextBusyOption, isBusyEligible } from '../utils/busySwap';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
@@ -3114,7 +3114,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       triggerToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${e?.message || 'try again'}`);
     }
   };
-  const handleLogSwap = ({ name, exerciseId }, { keep = false } = {}, atIdx = null) => {
+  const handleLogSwap = ({ name, exerciseId }, { keep = false, busy = null } = {}, atIdx = null) => {
     const exIdx = atIdx ?? swapLogIdx;
     setSwapLogIdx(null);
     setActiveGuideExercise(null);
@@ -3124,7 +3124,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const plan = keep ? findKeepablePlan(clientPlans, templateName, old) : null;
     const built = buildSwapEntry(old, { name, exerciseId }, { by: 'client', prevSets: prevSetsFor(name, exerciseId) });
     const entry = plan ? { ...built, swapPlan: { before: plan } } : built;
-    const { exercises, split } = applyLiveSwap(logExercises, exIdx, entry);
+    // A Busy? swap remembers the starting exercise and what's been tried,
+    // so the new card can offer the next stand-in (utils/busySwap).
+    const chained = busy ? { ...entry, busyBase: busy.base, busyTried: busy.tried } : entry;
+    const { exercises, split } = applyLiveSwap(logExercises, exIdx, chained);
     setSetTimers(prev => remapSetTimersForSwap(exIdx, old.sets, split, prev));
     setLogExercises(exercises);
     markEntering(name);
@@ -4278,9 +4281,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           onShowHistory={() => setHistoryModalExercise(ex.name)}
                           note={ex.note}
                           busy={(() => {
-                            if (ex.swappedFrom || ex.sets.some(s => s.isCompleted)) return null;
-                            return busyAlternatives(ex.name, swapCatalog, logExercises.map(le => le.name))
-                              .map(alt => ({ ...alt, onSwap: () => handleLogSwap(alt, { keep: false }, exIdx) }));
+                            const next = nextBusyOption(ex, swapCatalog, logExercises.map(le => le.name));
+                            return next && { ...next, onSwap: () => handleLogSwap(next, { keep: false, busy: { base: next.base, tried: next.tried } }, exIdx) };
                           })()}
                         >
                           <ExerciseCaption

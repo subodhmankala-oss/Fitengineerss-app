@@ -59,7 +59,7 @@ import { weeklySetWarnings } from '../utils/programmingBriefDraft';
 import SwapExerciseSheet from './SwapExerciseSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
-import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, lastSetLabel, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
+import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
@@ -3211,7 +3211,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // ─── Live "Swap exercise" (≡ card menu → LiveSwapSheet) ───
   // Same rules as the client's logger (utils/exerciseSwap): ticked sets stay
   // on the original, kg comes from the new exercise's PREV, Undo until a set
-  // of the new one is ticked. Today's session only — no plan is changed.
+  // of the new one is ticked. "Keep in plan" (offered only when this session
+  // came from one of the client's saved plans holding the exercise) also
+  // rewrites that plan, and Undo puts the plan back too.
   const [swapLiveIdx, setSwapLiveIdx] = useState(null);
   // The Form Guide's extra "Swap to …" button when opened from a swap row.
   const [guideAction, setGuideAction] = useState(null);
@@ -3221,29 +3223,51 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setSwapLiveIdx(exIdx);
     ensureAiCatalog().catch(() => setAiCatalog([]));
   };
-  const handleLiveSwap = ({ name, exerciseId }) => {
+  // Saves a changed plan (keep or its undo) and shows it in the plan lists
+  // straight away. A failed save says so; the swap in today's workout
+  // stands either way.
+  const saveLiveSwappedPlan = async (nextPlan, doneMsg) => {
+    setClientPlans(prev => prev.map(p => (p.id === nextPlan.id ? nextPlan : p)));
+    try {
+      const saved = await databaseService.saveWorkoutPlan({ ...nextPlan });
+      if (saved?.syncError) {
+        triggerLiveToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${saved.syncError}`);
+        return;
+      }
+      setClientPlans(prev => prev.map(p => (p.id === saved.id ? saved : p)));
+      triggerLiveToast(doneMsg);
+    } catch (e) {
+      triggerLiveToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${e?.message || 'try again'}`);
+    }
+  };
+  const handleLiveSwap = ({ name, exerciseId }, { keep = false } = {}) => {
     const exIdx = swapLiveIdx;
     setSwapLiveIdx(null);
     setActiveGuideExercise(null);
     setGuideAction(null);
     const old = liveExercises[exIdx];
     if (!old) return;
-    const entry = buildSwapEntry(old, { name, exerciseId }, { by: 'coach', prevSets: livePrevSetsFor(name, exerciseId) });
+    const plan = keep ? findKeepablePlan(clientPlans, livePlanName, old) : null;
+    const built = buildSwapEntry(old, { name, exerciseId }, { by: 'coach', prevSets: livePrevSetsFor(name, exerciseId) });
+    const entry = plan ? { ...built, swapPlan: { before: plan } } : built;
     const { exercises, split } = applyLiveSwap(liveExercises, exIdx, entry);
     setLiveSetTimers(prev => remapSetTimersForSwap(exIdx, old.sets, split, prev));
     setLiveExercises(exercises);
     markExerciseEntering(name);
-    triggerLiveToast(`Swapped to ${name}`);
+    if (plan) saveLiveSwappedPlan(planWithSwap(plan, old, { name, exerciseId }), `Swapped to ${name} · saved in “${plan.planName}”`);
+    else triggerLiveToast(`Swapped to ${name}`);
   };
   const handleUndoLiveSwap = (exIdx) => {
+    const entry = liveExercises[exIdx];
     const { exercises, merged } = undoLiveSwap(liveExercises, exIdx);
     if (exercises === liveExercises) return;
     setLiveSetTimers(prev => (merged ? remapSetTimersForExerciseRemoval(exIdx, prev) : dropSetTimersForExercise(exIdx, prev)));
     setLiveExercises(exercises);
+    if (entry?.swapPlan?.before) saveLiveSwappedPlan(entry.swapPlan.before, `“${entry.swapPlan.before.planName}” is back to ${entry.swappedFrom}`);
   };
-  const watchLiveSwapOption = (record) => {
+  const watchLiveSwapOption = (record, opts) => {
     handleShowFormGuide(record.name, record.exerciseId);
-    setGuideAction({ label: `Swap to ${record.name}`, icon: <SwapIcon />, onClick: () => handleLiveSwap(record) });
+    setGuideAction({ label: `Swap to ${record.name}`, icon: <SwapIcon />, onClick: () => handleLiveSwap(record, opts) });
   };
 
   // Reordering permutes liveExercises without touching liveSetTimers, which
@@ -10589,6 +10613,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               swappedFrom={ex.swappedFrom}
                               finisherFor={ex.finisherFor}
                               swapBy={ex.swapBy}
+                              inPlan={!!ex.swapPlan}
                               onUndo={canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : undefined}
                             />
                           </div>
@@ -11466,6 +11491,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
           catalog={aiCatalog}
           excludeNames={liveExercises.map(le => le.name)}
           getLast={(name, exerciseId) => lastSetLabel(name, livePrevSetsFor(name, exerciseId))}
+          keepPlan={(() => {
+            const plan = findKeepablePlan(clientPlans, livePlanName, liveExercises[swapLiveIdx]);
+            return plan ? { label: 'Keep in plan', planName: plan.planName } : null;
+          })()}
           onWatch={watchLiveSwapOption}
           onSwap={handleLiveSwap}
           onClose={() => setSwapLiveIdx(null)}

@@ -17,6 +17,10 @@ import './LiveSwapSheet.css';
 //
 // catalog: the coach's library (utils/loadAiCatalog), null while loading.
 // getLast(name, exerciseId) → "14 kg × 10" | null.
+// keepPlan: { label: 'Keep in my plan', planName } when today's workout came
+// from a saved plan holding this exercise (utils/exerciseSwap
+// findKeepablePlan), else null and the swap is for today only. onSwap and
+// onWatch get the record and { keep }.
 
 export const SwapIcon = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -26,10 +30,11 @@ export const SwapIcon = ({ size = 16 }) => (
 
 const equipmentOf = (name) => equipmentLabel(name) || (isBodyweightExercise(name) ? 'Bodyweight' : null);
 
-export default function LiveSwapSheet({ exercise, catalog, excludeNames = [], getLast, onWatch, onSwap, onClose }) {
+export default function LiveSwapSheet({ exercise, catalog, excludeNames = [], getLast, keepPlan = null, onWatch, onSwap, onClose }) {
   const [query, setQuery] = useState('');
   const [equipment, setEquipment] = useState('All');
   const [picked, setPicked] = useState(null);
+  const [keep, setKeep] = useState(false);
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose(); };
@@ -120,7 +125,7 @@ export default function LiveSwapSheet({ exercise, catalog, excludeNames = [], ge
                   className="lss-icon"
                   title={`Watch how to do ${o.name}`}
                   aria-label={`Watch how to do ${o.name}`}
-                  onClick={e => { e.stopPropagation(); onWatch(toRecord(o)); }}
+                  onClick={e => { e.stopPropagation(); onWatch(toRecord(o), { keep: !!keepPlan && keep }); }}
                 >
                   {muscle ? <MuscleThumbnail muscle={muscle} color="#60a5fa" size={40} /> : <span className="lss-mono">{o.name.charAt(0)}</span>}
                   <span className="lss-play" aria-hidden="true">
@@ -137,11 +142,28 @@ export default function LiveSwapSheet({ exercise, catalog, excludeNames = [], ge
           })}
         </div>
         <div className="lss-foot">
+          {keepPlan && (
+            <>
+              <div className="lss-scope" role="radiogroup" aria-label="How long to swap">
+                {[[false, 'Today only'], [true, keepPlan.label]].map(([value, label]) => (
+                  <label key={label} className={keep === value ? 'on' : ''}>
+                    <input type="radio" name="lss-scope" checked={keep === value} onChange={() => setKeep(value)} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {keep && (
+                <p className="lss-scope-note">
+                  “{keepPlan.planName}” will have {pickedOption ? pickedOption.name : 'the new exercise'} instead of {exercise.name} from now on.
+                </p>
+              )}
+            </>
+          )}
           <button
             type="button"
             className="lss-go"
             disabled={!pickedOption}
-            onClick={() => pickedOption && onSwap(toRecord(pickedOption))}
+            onClick={() => pickedOption && onSwap(toRecord(pickedOption), { keep: !!keepPlan && keep })}
           >
             {pickedOption ? <><SwapIcon /><span>Swap to {pickedOption.name}</span></> : <span>Pick an exercise</span>}
           </button>

@@ -48,13 +48,13 @@ describe('LiveSwapSheet', () => {
     fireEvent.click(screen.getByText('Chest Press Machine'));
     const swap = screen.getByRole('button', { name: /Swap to Chest Press Machine/ });
     fireEvent.click(swap);
-    expect(onSwap).toHaveBeenCalledWith(expect.objectContaining({ name: 'Chest Press Machine' }));
+    expect(onSwap).toHaveBeenCalledWith(expect.objectContaining({ name: 'Chest Press Machine' }), { keep: false });
   });
 
   it('the round icon opens the video without picking the row', () => {
     const { onWatch, onSwap } = renderSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Watch how to do Dumbbell Bench Press' }));
-    expect(onWatch).toHaveBeenCalledWith(expect.objectContaining({ name: 'Dumbbell Bench Press' }));
+    expect(onWatch).toHaveBeenCalledWith(expect.objectContaining({ name: 'Dumbbell Bench Press' }), { keep: false });
     expect(onSwap).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Pick an exercise' }).disabled).toBe(true);
   });
@@ -63,5 +63,23 @@ describe('LiveSwapSheet', () => {
     renderSheet();
     fireEvent.change(screen.getByPlaceholderText('Search exercises'), { target: { value: 'row' } });
     expect(screen.getByText('Seated Cable Row')).toBeTruthy();
+  });
+});
+
+describe('LiveSwapSheet keep in plan', () => {
+  it('hides Today only / Keep when the workout is not from a saved plan', () => {
+    renderSheet();
+    expect(screen.queryByText('Today only')).toBeNull();
+  });
+
+  it('defaults to today only, and passes keep when Keep in my plan is picked', () => {
+    const { onSwap } = renderSheet({ keepPlan: { label: 'Keep in my plan', planName: 'Push Day' } });
+    fireEvent.click(screen.getByText('Chest Press Machine'));
+    fireEvent.click(screen.getByRole('button', { name: /Swap to Chest Press Machine/ }));
+    expect(onSwap).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Chest Press Machine' }), { keep: false });
+    fireEvent.click(screen.getByLabelText('Keep in my plan'));
+    expect(screen.getByText(/“Push Day” will have Chest Press Machine instead of Bench Press \(Barbell\) from now on/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Swap to Chest Press Machine/ }));
+    expect(onSwap).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Chest Press Machine' }), { keep: true });
   });
 });

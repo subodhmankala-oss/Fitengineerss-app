@@ -9,8 +9,9 @@ import { SwapIcon } from './LiveSwapSheet';
 //   - neglected-muscle finisher: "🎯 Finisher · Calves not trained in 12 days"
 //   - a live swap from the ≡ menu (swapBy set): line icon, "New · instead
 //     of Bench Press" ("Coach swapped · …" when the coach did it) and Undo
-//     until a set of the new exercise is ticked (onUndo)
-export default function ExerciseCaption({ warmupPosition, swappedFrom, finisherFor, swapBy, onUndo }) {
+//     until a set of the new exercise is ticked (onUndo); "· in plan"
+//     when the swap was also kept in the saved plan (inPlan)
+export default function ExerciseCaption({ warmupPosition, swappedFrom, finisherFor, swapBy, inPlan, onUndo }) {
   if (warmupPosition) {
     return (
       <div className="warmup-caption">
@@ -23,7 +24,7 @@ export default function ExerciseCaption({ warmupPosition, swappedFrom, finisherF
     return (
       <div className="swap-caption swap-caption--live">
         <SwapIcon size={13} />
-        <span>{swapBy === 'coach' ? 'Coach swapped' : 'New'} · instead of {swappedFrom}</span>
+        <span>{swapBy === 'coach' ? 'Coach swapped' : 'New'} · instead of {swappedFrom}{inPlan ? ' · in plan' : ''}</span>
         {onUndo && <button type="button" className="swap-undo" onClick={onUndo}>Undo</button>}
       </div>
     );

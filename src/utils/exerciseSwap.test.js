@@ -123,3 +123,32 @@ describe('isSameExerciseName', () => {
     expect(isSameExerciseName('Bench Press (Barbell)', 'Incline Bench Press (Barbell)')).toBe(false);
   });
 });
+
+describe('keep in my plan', () => {
+  const plan = {
+    id: 'p1', planName: 'Push Day', createdBy: 'coach', isAssigned: true,
+    exercises: [
+      { name: 'Bench Press (Barbell)', sets: [{ reps: 8, weight: 60 }, { reps: 8, weight: 60, setType: 'failure' }] },
+      { name: 'Seated Cable Row', sets: [{ reps: 10, weight: 30 }] }
+    ]
+  };
+
+  it('finds the saved plan by the workout name only when it holds the exercise', async () => {
+    const { findKeepablePlan } = await import('./exerciseSwap');
+    expect(findKeepablePlan([plan], ' push day ', { name: 'Bench Press (Barbell)' })).toBe(plan);
+    expect(findKeepablePlan([plan], 'Push Day', { name: 'Plank' })).toBeNull();
+    expect(findKeepablePlan([plan], 'Live Routine', { name: 'Bench Press (Barbell)' })).toBeNull();
+    expect(findKeepablePlan([{ ...plan, id: null }], 'Push Day', { name: 'Bench Press (Barbell)' })).toBeNull();
+  });
+
+  it('swaps the plan entry, keeping set count, reps and tags, with a blank kg', async () => {
+    const { planWithSwap } = await import('./exerciseSwap');
+    const next = planWithSwap(plan, { name: 'Bench Press (Barbell)' }, { name: 'Dumbbell Bench Press' });
+    expect(next.id).toBe('p1');
+    expect(next.createdBy).toBe('coach');
+    expect(next.exercises[0].name).toBe('Dumbbell Bench Press');
+    expect(next.exercises[0].sets).toEqual([{ reps: 8, weight: '' }, { reps: 8, weight: '', setType: 'failure' }]);
+    expect(next.exercises[1]).toBe(plan.exercises[1]);
+    expect(plan.exercises[0].name).toBe('Bench Press (Barbell)');
+  });
+});

@@ -13,7 +13,7 @@
 
 import { isBodyweightExercise, isCardioExercise, isLoadedCarryExercise, isTimedExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { applyPrevValues } from './prevSets';
-import { exerciseIdField } from './exerciseName';
+import { exerciseIdField, sameExerciseEntry } from './exerciseName';
 
 const repsShaped = (name) => !isCardioExercise(name) && !isTimedExercise(name) && !isLoadedCarryExercise(name);
 
@@ -145,4 +145,57 @@ export function lastSetLabel(name, prevSets) {
   const w = Number(p.weight) || 0;
   const weight = isBodyweightExercise(name) && !(w > 0) ? 'BW' : `${w} kg`;
   return p.reps != null && p.reps !== '' ? `${weight} × ${p.reps}` : weight;
+}
+
+// ─── "Keep in my plan" ───
+// The saved plan today's workout came from, when the swap can be kept in it:
+// a real saved plan (has an id) with the workout's name that still holds the
+// exercise being swapped. Matched by name because that is what the logger
+// keeps across reloads and drafts; plan names are unique per client
+// (saveWorkoutPlan mirrors by name too). null → offer "today only".
+export function findKeepablePlan(plans, planName, oldEntry) {
+  const name = String(planName || '').trim().toLowerCase();
+  if (!name || !oldEntry) return null;
+  const plan = (plans || []).find(p => p && p.id && String(p.planName || '').trim().toLowerCase() === name);
+  if (!plan || !Array.isArray(plan.exercises)) return null;
+  return plan.exercises.some(ex => sameExerciseEntry(ex, oldEntry)) ? plan : null;
+}
+
+// One plan exercise rewritten as `record`: same number of sets and reps
+// target (when both log reps), in the new exercise's own shape. kg is left
+// blank — PREV fills it when the plan is next started, never a weight that
+// belonged to the old exercise.
+function swapPlanExercise(ex, record) {
+  const name = record.name;
+  const bodyweight = isBodyweightExercise(name);
+  const keepReps = repsShaped(ex.name) && repsShaped(name);
+  const fresh = isCardioExercise(name)
+    ? { distanceKm: '', time: '' }
+    : isTimedExercise(name) && bodyweight
+      ? { time: '', weight: 0 }
+      : isTimedExercise(name)
+        ? { time: '' }
+        : { reps: 10, weight: bodyweight || isWarmupExercise(name) ? 0 : '' };
+  const sets = (ex.sets && ex.sets.length ? ex.sets : [{}]).map(s => ({
+    ...fresh,
+    ...(keepReps && s.reps != null && s.reps !== '' ? { reps: s.reps } : {}),
+    ...(s.isWarmup ? { isWarmup: true } : {}),
+    ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
+  }));
+  const { exerciseId, bodyweightMode, ...rest } = ex;
+  return {
+    ...rest,
+    name,
+    ...exerciseIdField(record.exerciseId),
+    sets,
+    ...(bodyweight ? { bodyweightMode: true } : {})
+  };
+}
+
+// `plan` with every entry for `oldEntry` swapped to `record`.
+export function planWithSwap(plan, oldEntry, record) {
+  return {
+    ...plan,
+    exercises: plan.exercises.map(ex => (sameExerciseEntry(ex, oldEntry) ? swapPlanExercise(ex, record) : ex))
+  };
 }

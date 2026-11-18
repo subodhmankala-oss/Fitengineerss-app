@@ -14,7 +14,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl }
 import ExerciseGuideModal from './ExerciseGuideModal';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
-import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, lastSetLabel, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
+import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
 import { notifyEvent } from '../utils/pushNotify';
@@ -3068,8 +3068,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // ─── Live "Swap exercise" (≡ card menu → LiveSwapSheet) ───
   // Same rules as the coach Live Log (utils/exerciseSwap): ticked sets stay
   // on the original, kg comes from the new exercise's PREV, Undo until a set
-  // of the new one is ticked. Today's workout only — the saved plan is left
-  // alone.
+  // of the new one is ticked. "Keep in my plan" (offered only when today's
+  // workout came from a saved plan holding the exercise) also rewrites that
+  // plan, and Undo puts the plan back too.
   const [swapLogIdx, setSwapLogIdx] = useState(null);
   const [swapCatalog, setSwapCatalog] = useState(null);
   // The Form Guide's extra "Swap to …" button when it was opened from a
@@ -3083,25 +3084,47 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   };
   const prevSetsFor = (name, exerciseId = null) =>
     findPreviousExerciseSetsIn(sessions, selectedClient, { name, exerciseId });
-  const handleLogSwap = ({ name, exerciseId }) => {
+  // Saves a changed plan (keep or its undo) and shows it in the plan lists
+  // straight away. A failed save says so; the swap in today's workout
+  // stands either way.
+  const saveSwappedPlan = async (nextPlan, doneMsg) => {
+    setClientPlans(prev => prev.map(p => (p.id === nextPlan.id ? nextPlan : p)));
+    try {
+      const saved = await databaseService.saveWorkoutPlan({ ...nextPlan });
+      if (saved?.syncError) {
+        triggerToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${saved.syncError}`);
+        return;
+      }
+      setClientPlans(prev => prev.map(p => (p.id === saved.id ? saved : p)));
+      triggerToast(doneMsg);
+    } catch (e) {
+      triggerToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${e?.message || 'try again'}`);
+    }
+  };
+  const handleLogSwap = ({ name, exerciseId }, { keep = false } = {}) => {
     const exIdx = swapLogIdx;
     setSwapLogIdx(null);
     setActiveGuideExercise(null);
     setGuideAction(null);
     const old = logExercises[exIdx];
     if (!old) return;
-    const entry = buildSwapEntry(old, { name, exerciseId }, { by: 'client', prevSets: prevSetsFor(name, exerciseId) });
+    const plan = keep ? findKeepablePlan(clientPlans, templateName, old) : null;
+    const built = buildSwapEntry(old, { name, exerciseId }, { by: 'client', prevSets: prevSetsFor(name, exerciseId) });
+    const entry = plan ? { ...built, swapPlan: { before: plan } } : built;
     const { exercises, split } = applyLiveSwap(logExercises, exIdx, entry);
     setSetTimers(prev => remapSetTimersForSwap(exIdx, old.sets, split, prev));
     setLogExercises(exercises);
     markEntering(name);
-    triggerToast(`Swapped to ${name}`);
+    if (plan) saveSwappedPlan(planWithSwap(plan, old, { name, exerciseId }), `Swapped to ${name} · saved in “${plan.planName}”`);
+    else triggerToast(`Swapped to ${name}`);
   };
   const handleUndoLogSwap = (exIdx) => {
+    const entry = logExercises[exIdx];
     const { exercises, merged } = undoLiveSwap(logExercises, exIdx);
     if (exercises === logExercises) return;
     setSetTimers(prev => (merged ? remapSetTimersForExerciseRemoval(exIdx, prev) : dropSetTimersForExercise(exIdx, prev)));
     setLogExercises(exercises);
+    if (entry?.swapPlan?.before) saveSwappedPlan(entry.swapPlan.before, `“${entry.swapPlan.before.planName}” is back to ${entry.swappedFrom}`);
   };
   // Form Guide for any exercise name — the card's own button and a swap
   // row's icon both come through here.
@@ -3125,9 +3148,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       });
     }
   };
-  const watchSwapOption = (record) => {
+  const watchSwapOption = (record, opts) => {
     openGuideFor(record.name, record.exerciseId);
-    setGuideAction({ label: `Swap to ${record.name}`, icon: <SwapIcon />, onClick: () => handleLogSwap(record) });
+    setGuideAction({ label: `Swap to ${record.name}`, icon: <SwapIcon />, onClick: () => handleLogSwap(record, opts) });
   };
 
   // Exercises not done in the last session, by the client or their coach
@@ -4222,6 +4245,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           swappedFrom={ex.swappedFrom}
                           finisherFor={ex.finisherFor}
                           swapBy={ex.swapBy}
+                          inPlan={!!ex.swapPlan}
                           onUndo={canUndoSwap(ex) ? () => handleUndoLogSwap(exIdx) : undefined}
                         />
                       </div>
@@ -5159,6 +5183,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           catalog={swapCatalog}
           excludeNames={logExercises.map(le => le.name)}
           getLast={(name, exerciseId) => lastSetLabel(name, prevSetsFor(name, exerciseId))}
+          keepPlan={(() => {
+            const plan = findKeepablePlan(clientPlans, templateName, logExercises[swapLogIdx]);
+            return plan ? { label: 'Keep in my plan', planName: plan.planName } : null;
+          })()}
           onWatch={watchSwapOption}
           onSwap={handleLogSwap}
           onClose={() => setSwapLogIdx(null)}

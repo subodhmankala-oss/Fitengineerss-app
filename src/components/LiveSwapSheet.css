@@ -129,6 +129,24 @@
   padding: 8px 0 calc(14px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-color);
 }
+/* Today only / Keep in my plan — grey pills with a radio; the picked one
+   only gets the blue dot and darker text. */
+.lss-scope { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.lss-scope label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.lss-scope label.on { color: var(--text-main); }
+.lss-scope input { margin: 0; accent-color: var(--primary-accent-light, #4364bd); }
+.lss-scope-note { margin: -2px 2px 8px; font-size: 0.74rem; color: var(--text-muted); text-align: center; }
 .lss-go {
   width: 100%;
   min-height: 50px;

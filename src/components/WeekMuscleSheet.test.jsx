@@ -105,6 +105,17 @@ describe('WeekMuscleSheet', () => {
       expect(set.some(t => t.endsWith('Incline Dumbbell Press added'))).toBe(true);
     });
 
+    it('works for leg muscles too: Vastus done on Quads offers Rectus Femoris', () => {
+      const n = regionBand('Quads', 'intermediate').min;
+      const squat = { ...bench(DATE), exercise_name: 'Barbell Squat' };
+      const { sheet } = showActs([], times(n, squat), { workoutNames: ['Barbell Squat'] });
+      const quads = [...sheet.querySelectorAll('.wms-card')].find(c => c.querySelector('strong').textContent === 'Quads');
+      expect(quads.textContent).toContain('Vastus Muscles');
+      const chips = [...quads.querySelectorAll('.wms-nchip')].map(b => b.textContent.trim());
+      expect(chips.some(t => t.startsWith('Rectus Femoris') || t.includes('Rectus Femoris'))).toBe(true);
+      expect(quads.textContent).toContain('Finish the rest of your quads');
+    });
+
     it('is not shown without logger actions (read-only)', () => {
       const sheet = show([], times(midMin, bench(DATE)));
       expect(sheet.querySelector('.wms-next')).toBeNull();

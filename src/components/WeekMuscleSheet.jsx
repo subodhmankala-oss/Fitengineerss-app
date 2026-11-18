@@ -19,7 +19,7 @@ import './WeekMuscleSheet.css';
 // target, %), plus what today added and — for muscles with parts (Chest,
 // Back, Shoulders…) — the parts today's sets went to, e.g. "Mid Chest 4 / 4".
 //
-// Next-part row (Back/Chest/Shoulders): once today finishes one part (✓ Mid
+// Next-part row (any muscle with parts): once today finishes one part (✓ Mid
 // Chest 4/4), the parts still short this week get dashed chips. "Add now"
 // while the muscle is under Optimal and has had < 10 sets today; otherwise
 // "Next <muscle> day", which saves the exercise to the client's leftovers

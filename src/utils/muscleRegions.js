@@ -265,8 +265,8 @@ export const SESSION_MUSCLE_SET_CAP = 10;
  * The live sheet's "next part" row: once today's sets have finished one part
  * of a muscle (Mid Chest 4/4), the parts still short this week and not
  * touched today (Upper Chest 0/3, Lower Chest 0/2), and whether to do them
- * now or keep them for the next session. Back/Chest/Shoulders only, the same
- * muscles the logger's set ring and "behind this week" nudge split.
+ * now or keep them for the next session. Every muscle with parts (Chest,
+ * Back, Shoulders, Quads, Glutes, Hamstrings, Calves, arms, Core…).
  * @param muscle      heat-map muscle
  * @param allParts    getRegionBreakdownForMuscle over saved + live rows
  * @param beforeParts the same over saved rows only (the week before today)
@@ -275,7 +275,7 @@ export const SESSION_MUSCLE_SET_CAP = 10;
  * @returns {{mode: 'now'|'later', parts: Array<{id, sets, min, suggestions}>}|null}
  */
 export function getNextParts(muscle, allParts, beforeParts, stat, today) {
-  if (!GAP_REGION_MUSCLES.has(muscle) || !stat) return null;
+  if (!hasRegions(muscle) || !stat) return null;
   const EPS = 0.001;
   const before = Object.fromEntries((beforeParts || []).map(r => [r.id, r.sets]));
   const addedToday = r => r.sets - (before[r.id] || 0) > EPS;

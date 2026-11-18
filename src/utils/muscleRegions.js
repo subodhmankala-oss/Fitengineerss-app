@@ -112,6 +112,13 @@ export const REGION_PLAIN = {
   Other: "Exercises for this muscle that don't focus on one part.",
 };
 
+// The heat-map muscle a part belongs to ('Upper Chest' → 'Chest'), or null.
+export function muscleOfRegion(part) {
+  if (!part) return null;
+  const hit = Object.entries(REGIONS_BY_MUSCLE).find(([, cfg]) => cfg.regions.some(r => r.id === part));
+  return hit ? hit[0] : null;
+}
+
 export function hasRegions(muscle) {
   return Boolean(REGIONS_BY_MUSCLE[muscle]);
 }
@@ -286,4 +293,35 @@ export function getNextParts(muscle, allParts, beforeParts, stat, today) {
   if (!parts.length) return null;
   const mode = stat.sets < stat.min && today < SESSION_MUSCLE_SET_CAP ? 'now' : 'later';
   return { mode, parts };
+}
+
+// A part today's sets went to that is this close to its weekly band gets a
+// "+N sets" button rather than a new exercise.
+export const TOP_UP_MAX_SETS = 2;
+
+/**
+ * The live sheet's "+1 set" chips: parts today's sets went to that are still
+ * 1–2 sets short this week (Upper Chest 3/4), with the exercise that trained
+ * each one today (most sets) and how many sets finish it. Only while the
+ * muscle is under Optimal with < 10 sets today (getNextParts' "now" rule).
+ * @param allParts    getRegionBreakdownForMuscle over saved + live rows
+ * @param beforeParts the same over saved rows only
+ * @param todayParts  the same over today's live rows only
+ * @returns {Object<string, {exercise: string, count: number}>} by part id
+ */
+export function getTopUpSets(allParts, beforeParts, todayParts, stat, today) {
+  const out = {};
+  if (!stat || !(stat.sets < stat.min && today < SESSION_MUSCLE_SET_CAP)) return out;
+  const EPS = 0.001;
+  const before = Object.fromEntries((beforeParts || []).map(r => [r.id, r.sets]));
+  const todayBy = Object.fromEntries((todayParts || []).map(r => [r.id, r]));
+  (allParts || []).forEach(r => {
+    if (!r.band || r.sets - (before[r.id] || 0) <= EPS) return;
+    const short = r.band.min - r.sets;
+    if (short <= EPS || short > TOP_UP_MAX_SETS + EPS) return;
+    const exercise = todayBy[r.id]?.exercises?.[0]?.name;
+    if (!exercise) return;
+    out[r.id] = { exercise, count: Math.ceil(short - EPS) };
+  });
+  return out;
 }

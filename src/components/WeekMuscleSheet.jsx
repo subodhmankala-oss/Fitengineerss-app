@@ -4,7 +4,7 @@ import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
 import { MUSCLE_GROUPS } from '../utils/muscleGroups';
-import { getRegionBreakdownForMuscle, hasRegions, getNextParts } from '../utils/muscleRegions';
+import { getRegionBreakdownForMuscle, hasRegions, getNextParts, getTopUpSets } from '../utils/muscleRegions';
 import { weekRangeFor } from '../utils/setMuscleRing';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './WeekMuscleSheet.css';
@@ -31,6 +31,11 @@ import './WeekMuscleSheet.css';
 // is not shown (read-only use). An added or saved chip has an ✕ to undo it:
 // `onUnsave(name)` takes it off the leftovers, `onRemoveExercise(name)`
 // takes it back out of the workout (the logger refuses once a set is ticked).
+//
+// "+1 set" chips: a part today's sets went to that is only 1–2 sets short
+// (Upper Chest 3/4) becomes a button. It adds that many sets to the exercise
+// that trained it today (`onAddSets(name, count)`), under the same now-or-
+// later rule, so a muscle that has had enough is never pushed further.
 
 const fmt = n => String(Math.round((n || 0) * 10) / 10);
 const EPS = 0.001;
@@ -47,7 +52,7 @@ const CalendarIcon = () => (
 
 export default function WeekMuscleSheet({
   open, onClose, savedLogs, liveRows, logDate, level,
-  workoutNames, laterNames, onAddExercise, onSaveForLater, onUnsave, onRemoveExercise,
+  workoutNames, laterNames, onAddExercise, onSaveForLater, onUnsave, onRemoveExercise, onAddSets,
 }) {
   // The part whose exercise list is open: { muscle, id, sets, min, mode, suggestions }.
   const [picking, setPicking] = useState(null);
@@ -86,9 +91,11 @@ export default function WeekMuscleSheet({
         const beforeRows = getRegionBreakdownForMuscle(saved, c.stat.muscle, start, end, { level });
         const before = Object.fromEntries(beforeRows.map(r => [r.id, r.sets]));
         const allRows = getRegionBreakdownForMuscle(all, c.stat.muscle, start, end, { level });
+        const todayRows = getRegionBreakdownForMuscle(liveRows || [], c.stat.muscle, start, end, { level });
+        const topUp = getTopUpSets(allRows, beforeRows, todayRows, c.stat, c.today);
         const parts = allRows
           .filter(r => r.band && r.sets - (before[r.id] || 0) > EPS)
-          .map(r => ({ id: r.id, sets: r.sets, min: r.band.min }));
+          .map(r => ({ id: r.id, sets: r.sets, min: r.band.min, topUp: topUp[r.id] || null }));
         const next = getNextParts(c.stat.muscle, allRows, beforeRows, c.stat, c.today);
         return { ...c, parts, next };
       });
@@ -158,11 +165,18 @@ export default function WeekMuscleSheet({
                   </div>
                   <div className="wms-card-foot">
                     <span className="wms-up">↗ +{fmt(today)} today</span>
-                    {parts.map(p => (
+                    {parts.map(p => (p.topUp && typeof onAddSets === 'function' ? (
+                      <button key={p.id} type="button" className="wms-chip wms-chip--topup"
+                        title={`Add ${p.topUp.count} set${p.topUp.count === 1 ? '' : 's'} of ${p.topUp.exercise}`}
+                        onClick={() => onAddSets(p.topUp.exercise, p.topUp.count)}>
+                        {p.id} {fmt(p.sets)}/{p.min}
+                        <b>+{p.topUp.count} set{p.topUp.count === 1 ? '' : 's'}</b>
+                      </button>
+                    ) : (
                       <span key={p.id} className={`wms-chip${p.sets >= p.min ? ' is-done' : ''}`}>
                         {p.sets >= p.min ? '✓ ' : ''}{p.id} {fmt(p.sets)}/{p.min}
                       </span>
-                    ))}
+                    )))}
                     <span className="wms-goal">{goal}</span>
                   </div>
                   {canAct && next && (

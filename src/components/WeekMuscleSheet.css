@@ -146,6 +146,26 @@
   background: rgba(16, 185, 129, 0.1);
   box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
 }
+.wms-chip--topup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  font: inherit;
+  font-size: inherit;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.45);
+  cursor: pointer;
+}
+.wms-chip--topup b {
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #6366f1;
+  color: #fff;
+}
+.wms-chip--topup:active { transform: scale(0.96); }
 .wms-goal { margin-left: auto; color: rgba(var(--fg-rgb), 0.55); white-space: nowrap; }
 @keyframes wms-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes wms-fade { from { opacity: 0; } to { opacity: 1; } }

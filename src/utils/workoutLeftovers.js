@@ -16,6 +16,10 @@
 
 import { isWarmupCardExercise } from './warmupBlocks';
 import databaseService from '../services/databaseService';
+import { getMuscleWeight } from './muscleGroups';
+import { muscleOfRegion } from './muscleRegions';
+import { weekRangeFor } from './setMuscleRing';
+import { getLocalDateString, shiftLocalDateString } from './dateUtils';
 
 export const LEFTOVER_TTL_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -134,14 +138,56 @@ export function updateWorkoutLeftovers(ownerId, { skipped = [], completed = [], 
 // for a muscle part not reached today (Incline Dumbbell Press for Upper
 // Chest). `nextSession` + `date` keep it off the card in the workout it was
 // saved from (see isForLaterSession); it shows from the next one on.
-export function addWorkoutLeftover(ownerId, { name, part = null, date = null, planName = null }, now = Date.now()) {
+export function addWorkoutLeftover(ownerId, { name, part = null, muscle = null, date = null, planName = null }, now = Date.now()) {
   if (!ownerId || !name) return Promise.resolve(false);
   const kept = getWorkoutLeftovers(ownerId, now).filter(it => !sameName(it.name, name));
-  return write(ownerId, [...kept, { name, part, date, planName, savedAt: now, nextSession: true }]);
+  return write(ownerId, [...kept, {
+    name, part, muscle: muscle || muscleOfRegion(part), date, planName, savedAt: now, nextSession: true,
+  }]);
 }
 
 // True for an item saved during the workout dated `logDate` for a later one.
 export const isForLaterSession = (item, logDate) => Boolean(item?.nextSession && item.date && item.date === logDate);
+
+// A part saved "for next time" is for that week's target: once its week
+// (Mon–Sun) is over it stops showing. It stays in the list (until the TTL)
+// so the coach's bell can see it was missed; next week the muscle sheet and
+// the "behind this week" hint suggest it again from fresh numbers.
+export const isExpiredLater = (item, today = getLocalDateString()) =>
+  Boolean(item?.nextSession && item.date && weekRangeFor(item.date)[1] < today);
+
+const itemMuscle = (item) => item?.muscle || muscleOfRegion(item?.part);
+
+/**
+ * The left-over items to show on this workout's card. Leaves out items
+ * saved from this same workout, saved parts whose week is over, ones already
+ * in the workout, and saved parts for a muscle this workout doesn't train
+ * (Long Head waits for a push day instead of showing on leg day).
+ * Skipped exercises (no `part`) always show.
+ */
+export function leftoversForWorkout(items, { logDate, exerciseNames = [], today = getLocalDateString() } = {}) {
+  const names = exerciseNames || [];
+  return (items || []).filter(it => {
+    if (isForLaterSession(it, logDate) || isExpiredLater(it, today)) return false;
+    if (names.some(n => sameName(n, it.name))) return false;
+    const muscle = it.nextSession ? itemMuscle(it) : null;
+    if (muscle && !names.some(n => getMuscleWeight(n, muscle) >= 0.5)) return false;
+    return true;
+  });
+}
+
+/**
+ * Parts a client saved "for next time" and didn't do before their week
+ * ended — shown on the coach's bell for the week after.
+ * @returns {Array<{name, part, date, weekEnd}>}
+ */
+export function getMissedSavedParts(items, today = getLocalDateString()) {
+  const from = shiftLocalDateString(today, -7);
+  return (items || [])
+    .filter(it => it?.nextSession && it.part && it.date)
+    .map(it => ({ name: it.name, part: it.part, date: it.date, weekEnd: weekRangeFor(it.date)[1] }))
+    .filter(it => it.weekEnd < today && it.weekEnd >= from);
+}
 
 // Removes the given names (added to a workout), or everything when omitted (dismissed).
 export function clearWorkoutLeftovers(ownerId, names) {

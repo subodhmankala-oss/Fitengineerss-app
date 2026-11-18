@@ -115,6 +115,22 @@ describe('WeekMuscleSheet', () => {
       expect(set.some(t => t.endsWith('Incline Dumbbell Press added'))).toBe(true);
     });
 
+    it('turns a part 1-2 sets short into a +N sets button for the exercise that trained it', () => {
+      const onAddSets = vi.fn();
+      const { card } = showActs([], times(midMin - 1, bench(DATE)), { onAddSets });
+      const btn = card.querySelector('.wms-chip--topup');
+      expect(btn.textContent).toContain(`Mid Chest ${midMin - 1}/${midMin}`);
+      expect(btn.textContent).toContain('+1 set');
+      fireEvent.click(btn);
+      expect(onAddSets).toHaveBeenCalledWith('Barbell Bench Press', 1);
+    });
+
+    it('no +N sets once the muscle has had enough', () => {
+      const saved = times(14, { ...bench('2026-11-16'), exercise_name: 'Incline Dumbbell Press' });
+      const { card } = showActs(saved, [bench(DATE)], { onAddSets: vi.fn() });
+      expect(card.querySelector('.wms-chip--topup')).toBeNull();
+    });
+
     it('undoes an added or saved exercise from the chip', () => {
       const onUnsave = vi.fn();
       const onRemoveExercise = vi.fn();

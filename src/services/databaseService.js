@@ -4730,6 +4730,24 @@ const databaseService = {
     }
   },
 
+  // Every listed client's carried-over list at once (the coach's bell looks
+  // for parts saved "for next time" and missed). { [userId]: items[] }, or
+  // null when the read failed.
+  async getWorkoutLeftoversForClients(userIds) {
+    const ids = (userIds || []).filter(Boolean);
+    if (!isSupabaseConfigured || ids.length === 0) return null;
+    try {
+      const rows = await restSelect(
+        `workout_leftovers?select=user_id,items&user_id=in.(${ids.map(encodeURIComponent).join(',')})`
+      );
+      if (!Array.isArray(rows)) return null;
+      return Object.fromEntries(rows.map(r => [r.user_id, Array.isArray(r.items) ? r.items : []]));
+    } catch (e) {
+      console.warn('getWorkoutLeftoversForClients failed (non-fatal):', e?.message || e);
+      return null;
+    }
+  },
+
   // Replaces the client's whole carried-over list. true once it landed.
   async saveWorkoutLeftoversRemote(userId, items) {
     if (!isSupabaseConfigured || !userId) return false;

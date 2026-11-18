@@ -81,18 +81,10 @@
   border: 1px solid rgba(var(--fg-rgb), 0.22);
 }
 .ect-dim { color: var(--text-muted, #94a3b8); }
-.ect-busy-next {
-  margin-left: 4px;
-  padding: 0 6px;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 1rem;
-  line-height: 1;
-  font-weight: 700;
-  color: var(--text-muted, #94a3b8);
-  cursor: pointer;
-}
+.ect-busy { align-items: flex-start; }
+.ect-busy b { margin-top: 1px; }
+.ect-busy-rows { display: flex; flex-direction: column; gap: 3px; }
+.ect-busy-row { display: block; }
 .ect-busy-swap {
   margin-left: 6px;
   padding: 0;

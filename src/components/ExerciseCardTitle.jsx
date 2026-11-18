@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import { getMuscleGroupsForExercise, parseMuscleText } from '../utils/muscleGroups';
 import { getExerciseNote } from '../data/exerciseNotes';
@@ -25,27 +25,25 @@ function getMainMuscle(name, record) {
   return { label, thumb };
 }
 
-// "Busy? Try Pull-up · 76% match Swap ›" — one suggestion at a time; ›
-// steps to the next of the (up to 3) options.
+// "Busy?" — the (up to 3) stand-ins, one row each: "Name · 76% match Swap".
 function BusyLine({ options }) {
-  const [i, setI] = useState(0);
-  const o = options[i % options.length];
   return (
     <div className="ect-note ect-busy">
       <b>Busy?</b>
-      <span>
-        Try {o.name} <span className="ect-dim">· {o.match}% match</span>
-        <button type="button" className="ect-busy-swap" onClick={o.onSwap}>Swap</button>
-        {options.length > 1 && (
-          <button
-            type="button"
-            className="ect-busy-next"
-            aria-label={`Next suggestion (${(i % options.length) + 1} of ${options.length})`}
-            onClick={() => setI(n => n + 1)}
-          >
-            ›
-          </button>
-        )}
+      <span className="ect-busy-rows">
+        {options.map(o => (
+          <span key={o.name} className="ect-busy-row">
+            {o.name} <span className="ect-dim">· {o.match}% match</span>
+            <button
+              type="button"
+              className="ect-busy-swap"
+              aria-label={`Swap to ${o.name}`}
+              onClick={o.onSwap}
+            >
+              Swap
+            </button>
+          </span>
+        ))}
       </span>
     </div>
   );

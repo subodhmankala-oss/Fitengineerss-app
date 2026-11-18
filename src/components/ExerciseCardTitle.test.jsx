@@ -5,27 +5,11 @@ import ExerciseCardTitle from './ExerciseCardTitle';
 
 afterEach(cleanup);
 
-describe('ExerciseCardTitle note line', () => {
-  it('shows the coach note under the name with a Note label', () => {
-    render(<ExerciseCardTitle name="Lat Pulldown" note="Pull to your collarbone" onShowGuide={() => {}} onShowHistory={() => {}} />);
-    expect(screen.getByText('Note')).toBeTruthy();
-    expect(screen.getByText('Pull to your collarbone')).toBeTruthy();
-  });
-
-  it('shows no Note line when there is no note', () => {
-    render(<ExerciseCardTitle name="My Made Up Move" onShowGuide={() => {}} onShowHistory={() => {}} />);
-    expect(screen.queryByText('Note')).toBeNull();
-  });
-});
-
-describe('ExerciseCardTitle written note + Busy?', () => {
-  it('shows the written library note when there is no coach note', () => {
-    render(<ExerciseCardTitle name="Lat Pull Down" onShowGuide={() => {}} onShowHistory={() => {}} />);
-    expect(screen.getByText(/collarbone/)).toBeTruthy();
-  });
-  it("a coach's note replaces the written one", () => {
+describe('ExerciseCardTitle Busy?', () => {
+  it('shows no Note line, even when a note is passed', () => {
     render(<ExerciseCardTitle name="Lat Pull Down" note="Coach says hi" onShowGuide={() => {}} onShowHistory={() => {}} />);
-    expect(screen.getByText('Coach says hi')).toBeTruthy();
+    expect(screen.queryByText('Note')).toBeNull();
+    expect(screen.queryByText('Coach says hi')).toBeNull();
     expect(screen.queryByText(/collarbone/)).toBeNull();
   });
   it('Busy? shows one stand-in with Swap, and Undo beside it after a Busy? swap', () => {

@@ -26,7 +26,9 @@ export default function MissedPartsCard({ userId }) {
         data-testid="missed-parts-card"
         style={{
           display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px',
-          borderRadius: '14px', background: 'rgba(245, 158, 11, 0.1)',
+          borderRadius: '14px',
+          // Opaque base under the tint, or SwipeToHide's red action shows through.
+          background: 'linear-gradient(rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.1)), var(--bg-card)',
           border: '1px solid rgba(245, 158, 11, 0.35)',
         }}
       >

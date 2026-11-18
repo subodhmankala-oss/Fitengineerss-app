@@ -14,7 +14,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl }
 import ExerciseGuideModal from './ExerciseGuideModal';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
-import { busyAlternative, isBusyEligible } from '../utils/busySwap';
+import { busyAlternatives, isBusyEligible } from '../utils/busySwap';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
@@ -4279,8 +4279,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           note={ex.note}
                           busy={(() => {
                             if (ex.swappedFrom || ex.sets.some(s => s.isCompleted)) return null;
-                            const alt = busyAlternative(ex.name, swapCatalog, logExercises.map(le => le.name));
-                            return alt && { ...alt, onSwap: () => handleLogSwap(alt, { keep: false }, exIdx) };
+                            return busyAlternatives(ex.name, swapCatalog, logExercises.map(le => le.name))
+                              .map(alt => ({ ...alt, onSwap: () => handleLogSwap(alt, { keep: false }, exIdx) }));
                           })()}
                         >
                           <ExerciseCaption

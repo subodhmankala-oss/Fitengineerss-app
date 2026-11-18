@@ -67,12 +67,21 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
             <span>{shownNote}</span>
           </div>
         )}
-        {busy && (
+        {busy && busy.length > 0 && (
           <div className="ect-note ect-busy">
             <b>Busy?</b>
-            <span>
-              Try {busy.name} <span className="ect-dim">· {busy.match}% match</span>
-              <button type="button" className="ect-busy-swap" onClick={busy.onSwap}>Swap</button>
+            <span className="ect-busy-opts">
+              {busy.map(o => (
+                <button
+                  key={o.name}
+                  type="button"
+                  className="ect-busy-opt"
+                  aria-label={`Swap to ${o.name}, ${o.match}% match`}
+                  onClick={o.onSwap}
+                >
+                  {o.name} <span className="ect-dim">{o.match}%</span>
+                </button>
+              ))}
             </span>
           </div>
         )}

@@ -27,16 +27,24 @@ const freeOfSame = (name, alt) => (isStationExercise(name)
   ? !isStationExercise(alt)
   : !isDumbbellExercise(alt));
 
-const MIN_MATCH = 60;
+const MIN_MATCH = 50;
 
-// → { name, exerciseId, match } or null. `excludeNames`: exercises already in
-// today's workout, so it never suggests something they're about to do anyway.
-export function busyAlternative(name, catalog, excludeNames = []) {
-  if (!isBusyEligible(name) || !Array.isArray(catalog) || catalog.length === 0) return null;
-  const best = swapAlternatives(name, catalog, { exclude: excludeNames, limit: 24 })
+// Bodyweight moves most people can't do yet: still offered, but after the
+// rest, so "Lat Pull Down" doesn't lead with Pull-up. Assisted versions are
+// easy and stay where they rank.
+const HARD = /(pull-?up|chin-?up|muscle-?up|\bdips?\b|nordic|pistol|handstand|sternum)/i;
+const isHard = (name) => HARD.test(name) && !/assisted/i.test(name);
+
+// → up to `limit` of { name, exerciseId, match }, best first (hard moves
+// last). `excludeNames`: exercises already in today's workout, so it never
+// suggests something they're about to do anyway.
+export function busyAlternatives(name, catalog, excludeNames = [], limit = 3) {
+  if (!isBusyEligible(name) || !Array.isArray(catalog) || catalog.length === 0) return [];
+  return swapAlternatives(name, catalog, { exclude: excludeNames, limit: 24 })
     .filter(e => !isSameExerciseName(name, e.name) && freeOfSame(name, e.name))
     .map(e => ({ e, match: swapMatchPercent(name, e, catalog) }))
     .filter(x => x.match >= MIN_MATCH)
-    .sort((a, b) => b.match - a.match)[0];
-  return best ? { name: best.e.name, exerciseId: libraryExerciseId(best.e), match: best.match } : null;
+    .sort((a, b) => (isHard(a.e.name) - isHard(b.e.name)) || (b.match - a.match))
+    .slice(0, limit)
+    .map(({ e, match }) => ({ name: e.name, exerciseId: libraryExerciseId(e), match }));
 }

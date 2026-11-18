@@ -61,7 +61,7 @@ import { loadAiCatalog } from '../utils/loadAiCatalog';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
-import { busyAlternative, isBusyEligible } from '../utils/busySwap';
+import { busyAlternatives, isBusyEligible } from '../utils/busySwap';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
@@ -10731,8 +10731,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               note={ex.note}
                               busy={(() => {
                                 if (ex.swappedFrom || ex.sets.some(s => s.isCompleted)) return null;
-                                const alt = busyAlternative(ex.name, aiCatalog, liveExercises.map(le => le.name));
-                                return alt && { ...alt, onSwap: () => handleLiveSwap(alt, { keep: false }, exIdx) };
+                                return busyAlternatives(ex.name, aiCatalog, liveExercises.map(le => le.name))
+                                  .map(alt => ({ ...alt, onSwap: () => handleLiveSwap(alt, { keep: false }, exIdx) }));
                               })()}
                             >
                               <ExerciseCaption

@@ -81,15 +81,19 @@
   border: 1px solid rgba(var(--fg-rgb), 0.22);
 }
 .ect-dim { color: var(--text-muted, #94a3b8); }
-.ect-busy-swap {
-  margin-left: 6px;
-  padding: 0;
-  border: none;
-  background: none;
+.ect-busy { align-items: flex-start; }
+.ect-busy b { margin-top: 3px; }
+/* Each option is a tap-to-swap pill: outline only, never a solid fill. */
+.ect-busy-opts { display: flex; flex-wrap: wrap; gap: 5px; }
+.ect-busy-opt {
+  padding: 3px 9px;
   font: inherit;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 600;
   color: var(--accent-text, #a5b4fc);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 999px;
   cursor: pointer;
 }
+.ect-busy-opt:active { transform: scale(0.97); }

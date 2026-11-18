@@ -32,6 +32,7 @@ import { getWeeklyMuscleStats, RECOMMENDED_EXERCISES } from '../src/utils/muscle
 import { decayWarningMessage } from '../src/utils/trainingLevelDecay.js';
 import { normalizeBreak, coachBreakTitle, activeBreak } from '../src/utils/clientBreaks.js';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '../src/utils/dateUtils.js';
+import { getSelfMissedAlert } from '../src/utils/selfMissedAlert.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -536,6 +537,37 @@ async function runMuscleBalanceSweep(supabaseClient, res) {
   }
 }
 
+// Sunday evening (IST): tell a self-guided user (no coach) about parts they
+// saved "for next time" and didn't get to this week. Coached clients are
+// skipped: their coach sees the same thing on the bell.
+async function runMissedPartSweep(supabaseClient, res) {
+  try {
+    const today = getLocalDateString(new Date(), 'Asia/Kolkata');
+    const clientRows = await rpcAll(supabaseClient, 'get_clients_for_server');
+    const usersRows = await rpcAll(supabaseClient, 'get_users_for_server');
+    const usersById = new Map((usersRows || []).map((u) => [u.id, u]));
+    const breaksByUser = await loadBreaksByUser(supabaseClient);
+    const { data: leftovers, error } = await supabaseClient.from('workout_leftovers').select('user_id,items');
+    if (error) throw error;
+    const itemsByUser = new Map((leftovers || []).map((r) => [r.user_id, r.items]));
+
+    let notified = 0, skipped = 0;
+    for (const client of clientRows || []) {
+      if (client.coach_id || onBreakToday(breaksByUser, client.user_id)) { skipped++; continue; }
+      const alert = getSelfMissedAlert(itemsByUser.get(client.user_id), today);
+      // Only on the Sunday the week ends; the home card covers the days after.
+      if (!alert || alert.weekEnd !== today) { skipped++; continue; }
+      const clientUser = usersById.get(client.user_id);
+      const result = await pushToUserId(supabaseClient, client.user_id, alert.title, alert.body, 'missed_part_nudge', '/', { email: clientUser?.email, name: client.full_name || clientUser?.full_name });
+      if (result.sent > 0) notified++;
+    }
+    return res.status(200).json({ success: true, message: `Missed-part sweep complete (${today}). Notified: ${notified}, skipped: ${skipped}.` });
+  } catch (error) {
+    console.error('Missed-part sweep error:', error);
+    return res.status(500).json({ error: 'Missed-part sweep failed.', details: error.message });
+  }
+}
+
 async function rpcBodyMeasurements(supabaseClient) {
   if (!BROADCAST_SECRET) throw new Error('BROADCAST_SECRET is not set — required for get_body_measurements_for_server.');
   const { data, error } = await supabaseClient.rpc('get_body_measurements_for_server', { secret: BROADCAST_SECRET });
@@ -650,6 +682,9 @@ async function handleSendNudges(req, res) {
   }
   if (req.query.job === 'muscle_balance') {
     return runMuscleBalanceSweep(supabase, res);
+  }
+  if (req.query.job === 'missed_part') {
+    return runMissedPartSweep(supabase, res);
   }
   if (req.query.job === 'measurement_reminder') {
     return runMeasurementReminderSweep(supabase, res);

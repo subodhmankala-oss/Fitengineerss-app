@@ -262,11 +262,12 @@ export function getMuscleGaps(logs, today = getLocalDateString(), level = null) 
 export const SESSION_MUSCLE_SET_CAP = 10;
 
 /**
- * The live sheet's "next part" row: once today's sets have finished one part
- * of a muscle (Mid Chest 4/4), the parts still short this week and not
- * touched today (Upper Chest 0/3, Lower Chest 0/2), and whether to do them
- * now or keep them for the next session. Every muscle with parts (Chest,
- * Back, Shoulders, Quads, Glutes, Hamstrings, Calves, arms, Core…).
+ * The live sheet's "next part" row: for a muscle worked today, the parts
+ * still short this week that today has not touched yet (Lateral Head done
+ * today → Long Head 1/4; Mid Chest → Upper Chest 0/4, Lower Chest 0/4),
+ * and whether to do them now or keep them for the next session. Every
+ * muscle with parts (Chest, Back, Shoulders, Quads, Glutes, Hamstrings,
+ * Calves, arms, Core…).
  * @param muscle      heat-map muscle
  * @param allParts    getRegionBreakdownForMuscle over saved + live rows
  * @param beforeParts the same over saved rows only (the week before today)
@@ -279,9 +280,7 @@ export function getNextParts(muscle, allParts, beforeParts, stat, today) {
   const EPS = 0.001;
   const before = Object.fromEntries((beforeParts || []).map(r => [r.id, r.sets]));
   const addedToday = r => r.sets - (before[r.id] || 0) > EPS;
-  const finished = (allParts || []).some(r => r.band && addedToday(r) && r.sets >= r.band.min);
-  if (!finished) return null;
-  const parts = allParts
+  const parts = (allParts || [])
     .filter(r => r.band && !addedToday(r) && r.sets < r.band.min && r.suggestions.length)
     .map(r => ({ id: r.id, sets: r.sets, min: r.band.min, suggestions: r.suggestions }));
   if (!parts.length) return null;

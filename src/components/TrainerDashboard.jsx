@@ -2897,6 +2897,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     addWorkoutLeftover(selectedClient.id, { name, part, date: liveDate });
     triggerLiveToast(`${name} saved for the next session`);
   };
+  // The muscle sheet's ✕ on a saved / added chip.
+  const handleLiveUnsave = (name) => {
+    if (!selectedClient?.id) return;
+    clearWorkoutLeftovers(selectedClient.id, [name]);
+    triggerLiveToast(`${name} no longer saved for next time`);
+  };
+  const handleLiveUndoSheetAdd = (name) => {
+    const exIdx = liveExercises.findIndex(ex => ex.name.toLowerCase() === name.toLowerCase());
+    if (exIdx < 0) return;
+    if ((liveExercises[exIdx].sets || []).some(s => s.isCompleted)) {
+      triggerLiveToast(`${name} has ticked sets, so it stays. Remove it from its card menu.`);
+      return;
+    }
+    handleLiveRemoveExercise(exIdx);
+    triggerLiveToast(`Removed ${name}`);
+  };
   const handleLiveAddFromSheet = (name) => {
     if (liveExercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) return;
     handleLiveAddExercise(name);
@@ -10526,6 +10542,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             rows={liveTickedRows} logDate={liveDate} savedLogs={rawWorkoutLogs} level={selectedClientLevel}
                             workoutNames={liveExercises.map(ex => ex.name)} laterNames={liveLaterNames}
                             onAddExercise={handleLiveAddFromSheet} onSaveForLater={handleLiveSaveForLater}
+                            onUnsave={handleLiveUnsave} onRemoveExercise={handleLiveUndoSheetAdd}
                           />
                           <button
                             type="button"

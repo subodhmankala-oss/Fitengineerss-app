@@ -3168,6 +3168,23 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     addWorkoutLeftover(leftoverOwnerId, { name, part, date: logDate });
     triggerToast(`${name} saved for your next session`);
   };
+  // The muscle sheet's ✕ on a saved / added chip.
+  const handleUnsaveForLater = (name) => {
+    if (!leftoverOwnerId) return;
+    clearWorkoutLeftovers(leftoverOwnerId, [name]);
+    triggerToast(`${name} no longer saved for next time`);
+  };
+  const handleUndoSheetAdd = (name) => {
+    const exIdx = logExercises.findIndex(ex => ex.name.toLowerCase() === name.toLowerCase());
+    if (exIdx < 0) return;
+    if ((logExercises[exIdx].sets || []).some(s => s.isCompleted)) {
+      triggerToast(`${name} has ticked sets, so it stays. Remove it from its card menu.`);
+      return;
+    }
+    setSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
+    setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+    triggerToast(`Removed ${name}`);
+  };
   const handleAddLeftovers = () => {
     const names = leftoverItems.map(it => it.name);
     names.forEach(name => addExerciseToWorkout(name));
@@ -4141,6 +4158,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                     rows={liveTickedRows} logDate={logDate} savedLogs={savedSetRows} level={trainingLevel}
                     workoutNames={logExercises.map(ex => ex.name)} laterNames={laterLeftoverNames}
                     onAddExercise={addExerciseToWorkout} onSaveForLater={handleSaveForLater}
+                    onUnsave={handleUnsaveForLater} onRemoveExercise={handleUndoSheetAdd}
                   />
                   <button
                     type="button"

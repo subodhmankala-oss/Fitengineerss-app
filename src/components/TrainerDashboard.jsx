@@ -61,7 +61,7 @@ import { loadAiCatalog } from '../utils/loadAiCatalog';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
-import { busyAlternative, isStationExercise } from '../utils/busySwap';
+import { busyAlternative, isBusyEligible } from '../utils/busySwap';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
@@ -4991,7 +4991,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   };
   // Live Log "Busy?" lines need the library as soon as a machine/cable
   // exercise is on the list, not only once the Swap sheet opens.
-  const needsLiveBusyCatalog = !aiCatalog && liveExercises.some(ex => isStationExercise(ex.name));
+  const needsLiveBusyCatalog = !aiCatalog && liveExercises.some(ex => isBusyEligible(ex.name));
   const busyCatalogCoachId = UUID_RE.test(String(resolvedCoachId || '')) ? resolvedCoachId : null;
   const liveBusyCatalogLoading = useRef(false);
   useEffect(() => {

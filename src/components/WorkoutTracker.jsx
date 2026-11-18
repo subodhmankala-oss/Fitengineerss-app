@@ -14,7 +14,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl }
 import ExerciseGuideModal from './ExerciseGuideModal';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
-import { busyAlternative, isStationExercise } from '../utils/busySwap';
+import { busyAlternative, isBusyEligible } from '../utils/busySwap';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
@@ -3087,7 +3087,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   };
   // "Busy?" lines need the library as soon as a machine/cable exercise is
   // on the card list, not only once the Swap sheet opens.
-  const needsBusyCatalog = !swapCatalog && logExercises.some(ex => isStationExercise(ex.name));
+  const needsBusyCatalog = !swapCatalog && logExercises.some(ex => isBusyEligible(ex.name));
   const busyCatalogOwner = needsBusyCatalog ? getPlanOwnerId() : null;
   const busyCatalogLoading = useRef(false);
   useEffect(() => {

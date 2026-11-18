@@ -16,7 +16,7 @@ describe('Busy? swap', () => {
     expect(isStationExercise('Cable Fly')).toBe(true);
     expect(isStationExercise('Lat Pull Down')).toBe(true);
     expect(isStationExercise('Bench Press (Dumbbell)')).toBe(false);
-    expect(busyAlternative('Bench Press (Dumbbell)', catalog)).toBeNull();
+    expect(busyAlternative('Push Up', catalog)).toBeNull();
   });
   it('suggests a free-weight or bodyweight stand-in, never another station', () => {
     const alt = busyAlternative('Chest Press (Machine)', catalog);
@@ -24,6 +24,11 @@ describe('Busy? swap', () => {
     expect(isStationExercise(alt.name)).toBe(false);
     expect(alt.match).toBeGreaterThanOrEqual(60);
     expect(alt.exerciseId).toBeTruthy();
+  });
+  it('dumbbell exercises get a stand-in that needs no dumbbells', () => {
+    const alt = busyAlternative('Bench Press (Dumbbell)', catalog);
+    expect(alt).toBeTruthy();
+    expect(alt.name).not.toMatch(/dumbbell/i);
   });
   it("skips exercises already in today's workout", () => {
     const alt = busyAlternative('Chest Press (Machine)', catalog, ['Bench Press (Dumbbell)', 'Push Up']);

@@ -1,13 +1,12 @@
 import React from 'react';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import { getMuscleGroupsForExercise, parseMuscleText } from '../utils/muscleGroups';
-import { getExerciseNote } from '../data/exerciseNotes';
 import './ExerciseCardTitle.css';
 
 // The exercise card's title block, shared by the client logger and the coach
 // Live Log (they must match): a round muscle picture with a play badge that
 // opens the Form Guide, the exercise name (tap = history) with the ONE muscle
-// it mainly trains in plain text beside it, then the Busy? and Note lines.
+// it mainly trains in plain text beside it, then the Busy? line.
 // The card's ≡ menu stays beside it, unchanged.
 
 // "Upper Chest (Pectoralis Major)" → "Upper Chest"; first of a list only.
@@ -54,11 +53,8 @@ function BusyLine({ option, onUndo }) {
   );
 }
 
-export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, note, busy, children }) {
+export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, busy, children }) {
   const { label: muscle, thumb } = getMainMuscle(name, record);
-  // A coach's own note on this plan exercise wins; otherwise every client
-  // gets the written cue for the exercise (src/data/exerciseNotes.js).
-  const shownNote = (note && String(note).trim()) || getExerciseNote(name);
   return (
     <div className="ect">
       <button
@@ -91,12 +87,6 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
           {muscle && <span className="ect-muscle">{muscle}</span>}
         </div>
         {busy && (busy.option || busy.onUndo) && <BusyLine option={busy.option} onUndo={busy.onUndo} />}
-        {shownNote && (
-          <div className="ect-note">
-            <b>Note</b>
-            <span>{shownNote}</span>
-          </div>
-        )}
         {children}
       </div>
     </div>

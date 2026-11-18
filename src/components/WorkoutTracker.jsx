@@ -53,7 +53,7 @@ import { levelFromHistory } from '../utils/clientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
-import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
+import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession } from '../utils/workoutLeftovers';
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
@@ -3065,8 +3065,18 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // Exercises not done in the last session, by the client or their coach
   // (see utils/workoutLeftovers.js), minus any already in this workout.
   const leftoverOwnerId = ownUserId || localStorage.getItem('userId');
-  const leftoverItems = useWorkoutLeftovers(leftoverOwnerId, isLoggingWorkout)
-    .filter(it => isLoggingWorkout && !logExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
+  const leftoverAll = useWorkoutLeftovers(leftoverOwnerId, isLoggingWorkout);
+  // Saved from this workout's muscle sheet "for next time": not offered back
+  // in the same workout.
+  const leftoverItems = leftoverAll
+    .filter(it => isLoggingWorkout && !isForLaterSession(it, logDate)
+      && !logExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
+  const laterLeftoverNames = leftoverAll.filter(it => isForLaterSession(it, logDate)).map(it => it.name);
+  const handleSaveForLater = (name, part) => {
+    if (!leftoverOwnerId) return;
+    addWorkoutLeftover(leftoverOwnerId, { name, part, date: logDate });
+    triggerToast(`${name} saved for your next session`);
+  };
   const handleAddLeftovers = () => {
     const names = leftoverItems.map(it => it.name);
     names.forEach(name => addExerciseToWorkout(name));
@@ -4036,7 +4046,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="timer-controls">
               {workoutTimerStatus !== 'idle' && (
                 <>
-                  <WorkoutMuscleHeat rows={liveTickedRows} logDate={logDate} savedLogs={savedSetRows} level={trainingLevel} />
+                  <WorkoutMuscleHeat
+                    rows={liveTickedRows} logDate={logDate} savedLogs={savedSetRows} level={trainingLevel}
+                    workoutNames={logExercises.map(ex => ex.name)} laterNames={laterLeftoverNames}
+                    onAddExercise={addExerciseToWorkout} onSaveForLater={handleSaveForLater}
+                  />
                   <button
                     type="button"
                     className="btn-timer-stopwatch"

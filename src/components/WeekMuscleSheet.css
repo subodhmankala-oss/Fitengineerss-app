@@ -149,3 +149,124 @@
 .wms-goal { margin-left: auto; color: rgba(var(--fg-rgb), 0.55); white-space: nowrap; }
 @keyframes wms-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes wms-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Next-part row: parts of this muscle still short this week. */
+.wms-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px dashed rgba(var(--fg-rgb), 0.14);
+  animation: wms-next-in 0.35s ease;
+}
+.wms-next-lbl {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(var(--fg-rgb), 0.6);
+}
+.wms-next.is-now .wms-next-lbl svg { color: #6366f1; }
+.wms-next.is-later .wms-next-lbl svg { color: #d97706; }
+.wms-next-why { width: 100%; font-size: 0.7rem; color: rgba(var(--fg-rgb), 0.5); margin-top: 1px; }
+.wms-nchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  border: 1.5px dashed;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.wms-nchip:active { transform: scale(0.96); }
+.wms-nchip > *:first-child { border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+.wms-nchip.is-now { color: #6366f1; border-color: rgba(99, 102, 241, 0.5); background: rgba(99, 102, 241, 0.08); }
+.wms-nchip.is-later { color: #d97706; border-color: rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.08); }
+.wms-nchip.is-set {
+  cursor: default;
+  border-style: solid;
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.08);
+}
+.wms-nchip.is-set.is-saved { color: #d97706; border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08); }
+
+/* Exercise list for one part, above the sheet. */
+.wms-pick-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1210;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.wms-pick-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.3); animation: wms-fade 0.2s ease; }
+.wms-pick {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-card, #121a2e);
+  color: var(--text-main, #e6e9f2);
+  border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
+  animation: wms-up 0.28s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.wms-pick-head { display: flex; gap: 12px; align-items: center; margin-bottom: 6px; }
+.wms-pick-head strong { display: block; font-size: 1rem; }
+.wms-pick-head span:not(.wms-pick-thumb) { font-size: 0.76rem; color: rgba(var(--fg-rgb), 0.55); }
+.wms-pick-thumb {
+  display: flex;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.4);
+}
+.wms-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+}
+.wms-pick-name { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 600; }
+.wms-pick-add,
+.wms-pick-later {
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.wms-pick-add { background: #6366f1; color: #fff; }
+.wms-pick-later { background: rgba(245, 158, 11, 0.14); color: #d97706; }
+.wms-pick-state { font-size: 0.76rem; font-weight: 600; color: rgba(var(--fg-rgb), 0.5); }
+.wms-pick-skip {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 11px;
+  border: 1.5px dashed rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+@keyframes wms-next-in { from { opacity: 0; transform: translateY(-4px); } }

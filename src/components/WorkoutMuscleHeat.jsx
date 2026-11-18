@@ -15,8 +15,10 @@ import './WorkoutMuscleHeat.css';
  * counts, so warm-ups and empty ticked sets are left out the same way.
  * `savedLogs` = the client's saved workout_logs rows, `level` their
  * training level — what the sheet needs to count the week like home does.
+ * `workoutNames`, `laterNames`, `onAddExercise`, `onSaveForLater` drive the
+ * sheet's next-part row (see WeekMuscleSheet).
  */
-export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level }) {
+export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...actions }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
@@ -46,7 +48,7 @@ export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level }) {
         <HeatBodyFigure view="front" height={46} colorFor={colorFor} pulseKey={pulseKey} />
         <HeatBodyFigure view="back" height={46} colorFor={colorFor} pulseKey={pulseKey} />
       </button>
-      <WeekMuscleSheet open={open} onClose={close} savedLogs={savedLogs} liveRows={rows} logDate={logDate} level={level} />
+      <WeekMuscleSheet open={open} onClose={close} savedLogs={savedLogs} liveRows={rows} logDate={logDate} level={level} {...actions} />
     </div>
   );
 }

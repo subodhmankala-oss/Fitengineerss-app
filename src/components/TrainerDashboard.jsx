@@ -78,7 +78,7 @@ import { addExerciseInOrder, getWarmupPosition, isWarmupCardExercise } from '../
 import { CORE_PPL_TEMPLATES } from '../utils/weekTemplates';
 import { warmupsFirst } from '../utils/warmupsFirst';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
-import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
+import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession } from '../utils/workoutLeftovers';
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
@@ -2883,8 +2883,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Exercises not started in this client's last session, by the coach or by
   // the client themselves — see utils/workoutLeftovers.js. Server-backed, so
   // they're here on any phone and after reopening the app.
-  const liveLeftovers = useWorkoutLeftovers(selectedClient?.id || null)
-    .filter(it => !liveExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
+  const liveLeftoverAll = useWorkoutLeftovers(selectedClient?.id || null);
+  // Saved from this session's muscle sheet "for next time": not offered back
+  // in the same session.
+  const liveLeftovers = liveLeftoverAll
+    .filter(it => !isForLaterSession(it, liveDate)
+      && !liveExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()));
+  const liveLaterNames = liveLeftoverAll.filter(it => isForLaterSession(it, liveDate)).map(it => it.name);
+  const handleLiveSaveForLater = (name, part) => {
+    if (!selectedClient?.id) return;
+    addWorkoutLeftover(selectedClient.id, { name, part, date: liveDate });
+    triggerLiveToast(`${name} saved for the next session`);
+  };
+  const handleLiveAddFromSheet = (name) => {
+    if (liveExercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) return;
+    handleLiveAddExercise(name);
+    triggerLiveToast(`Added ${name}`);
+  };
   const handleAddLiveLeftovers = () => {
     const names = liveLeftovers.map(it => it.name);
     names.forEach(name => handleLiveAddExercise(name));
@@ -10443,7 +10458,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         </div>
                         {/* Heat map, stopwatch and Pause flush at the bar's right end, all full height. */}
                         <div className="live-timer-end" style={{ marginLeft: 'auto' }}>
-                          <WorkoutMuscleHeat rows={liveTickedRows} logDate={liveDate} savedLogs={rawWorkoutLogs} level={selectedClientLevel} />
+                          <WorkoutMuscleHeat
+                            rows={liveTickedRows} logDate={liveDate} savedLogs={rawWorkoutLogs} level={selectedClientLevel}
+                            workoutNames={liveExercises.map(ex => ex.name)} laterNames={liveLaterNames}
+                            onAddExercise={handleLiveAddFromSheet} onSaveForLater={handleLiveSaveForLater}
+                          />
                           <button
                             type="button"
                             className="btn-timer-stopwatch"

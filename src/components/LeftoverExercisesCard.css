@@ -179,3 +179,8 @@
   background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid rgba(var(--fg-rgb), 0.1);
 }
+
+.leftover-part {
+  font-weight: 600;
+  color: var(--text-muted);
+}

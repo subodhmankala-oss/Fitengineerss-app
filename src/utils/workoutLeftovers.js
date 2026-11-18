@@ -130,6 +130,19 @@ export function updateWorkoutLeftovers(ownerId, { skipped = [], completed = [], 
   return write(ownerId, [...kept, ...added]);
 }
 
+// "Save for next session" from the live sheet's next-part row: one exercise
+// for a muscle part not reached today (Incline Dumbbell Press for Upper
+// Chest). `nextSession` + `date` keep it off the card in the workout it was
+// saved from (see isForLaterSession); it shows from the next one on.
+export function addWorkoutLeftover(ownerId, { name, part = null, date = null, planName = null }, now = Date.now()) {
+  if (!ownerId || !name) return Promise.resolve(false);
+  const kept = getWorkoutLeftovers(ownerId, now).filter(it => !sameName(it.name, name));
+  return write(ownerId, [...kept, { name, part, date, planName, savedAt: now, nextSession: true }]);
+}
+
+// True for an item saved during the workout dated `logDate` for a later one.
+export const isForLaterSession = (item, logDate) => Boolean(item?.nextSession && item.date && item.date === logDate);
+
 // Removes the given names (added to a workout), or everything when omitted (dismissed).
 export function clearWorkoutLeftovers(ownerId, names) {
   if (!names) return write(ownerId, []);

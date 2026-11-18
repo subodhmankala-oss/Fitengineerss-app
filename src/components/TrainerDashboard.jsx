@@ -61,6 +61,7 @@ import { loadAiCatalog } from '../utils/loadAiCatalog';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
+import { nextBusyOption, isBusyEligible } from '../utils/busySwap';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
@@ -84,6 +85,7 @@ import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, ad
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
+import ExerciseCardTitle from './ExerciseCardTitle';
 import WarmupMoveRow from './WarmupMoveRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { sameExerciseEntry, findLibraryExercise, libraryExerciseId, exerciseIdField, foldExerciseDashes } from '../utils/exerciseName';
@@ -3301,8 +3303,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       triggerLiveToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${e?.message || 'try again'}`);
     }
   };
-  const handleLiveSwap = ({ name, exerciseId }, { keep = false } = {}) => {
-    const exIdx = swapLiveIdx;
+  const handleLiveSwap = ({ name, exerciseId }, { keep = false, busy = null } = {}, atIdx = null) => {
+    const exIdx = atIdx ?? swapLiveIdx;
     setSwapLiveIdx(null);
     setActiveGuideExercise(null);
     setGuideAction(null);
@@ -3311,7 +3313,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     const plan = keep ? findKeepablePlan(clientPlans, livePlanName, old) : null;
     const built = buildSwapEntry(old, { name, exerciseId }, { by: 'coach', prevSets: livePrevSetsFor(name, exerciseId) });
     const entry = plan ? { ...built, swapPlan: { before: plan } } : built;
-    const { exercises, split } = applyLiveSwap(liveExercises, exIdx, entry);
+    // A Busy? swap remembers the starting exercise and what's been tried,
+    // so the new card can offer the next stand-in (utils/busySwap).
+    const chained = busy ? { ...entry, busyBase: busy.base, busyTried: busy.tried } : entry;
+    const { exercises, split } = applyLiveSwap(liveExercises, exIdx, chained);
     setLiveSetTimers(prev => remapSetTimersForSwap(exIdx, old.sets, split, prev));
     setLiveExercises(exercises);
     markExerciseEntering(name);
@@ -4908,9 +4913,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // persisted (same cleanup handleSavePlan always did).
   const cleanEditorExercises = (exercises) => exercises.map(ex => {
     const exIsCardio = isCardioExercise(ex.name);
+    const note = String(ex.note || '').trim().slice(0, 120);
     return {
       name: ex.name,
       ...exerciseIdField(ex.exerciseId),
+      ...(note ? { note } : {}),
       sets: ex.sets.map(s => ({
         ...(exIsCardio
           ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
@@ -4985,6 +4992,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       return catalog;
     });
   };
+  // Live Log "Busy?" lines need the library as soon as a machine/cable
+  // exercise is on the list, not only once the Swap sheet opens.
+  const needsLiveBusyCatalog = !aiCatalog && liveExercises.some(ex => isBusyEligible(ex.name));
+  const busyCatalogCoachId = UUID_RE.test(String(resolvedCoachId || '')) ? resolvedCoachId : null;
+  const liveBusyCatalogLoading = useRef(false);
+  useEffect(() => {
+    if (!needsLiveBusyCatalog || liveBusyCatalogLoading.current) return;
+    liveBusyCatalogLoading.current = true;
+    loadAiCatalog({ coachId: busyCatalogCoachId }).then(setAiCatalog).catch(() => setAiCatalog([]));
+  }, [needsLiveBusyCatalog, busyCatalogCoachId]);
 
   const handleAiDraftGenerated = async (draft, request = null, meta = null) => {
     const days = await Promise.all((draft.days || []).map(linkAiDayToLibrary));
@@ -5739,6 +5756,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setLiveExercises(applyLivePrev(applyPrevWeights(plan.exercises).map(ex => ({
       name: ex.name,
       ...exerciseIdField(ex.exerciseId),
+      ...(ex.note ? { note: ex.note } : {}),
       ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
       // `time` is deliberately NOT carried over from the saved
       // plan, unlike reps/weight/distanceKm — it's a past
@@ -9828,6 +9846,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   />
                                 </div>
 
+                                <input
+                                  type="text"
+                                  className="editor-ex-note"
+                                  placeholder="Note for the client (optional)"
+                                  aria-label={`Note for ${ex.name}`}
+                                  maxLength={120}
+                                  value={ex.note || ''}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setEditorExercises(prev => prev.map((x, i) => (i === exIdx ? { ...x, note: v } : x)));
+                                  }}
+                                />
+
                                 <div className="hevy-sets-table">
                                   <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
                                     <span className="col-set">SET</span>
@@ -10694,40 +10725,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       <div className="live-logger-exercise-card">
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
-                          <div style={{ minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                            <span
-                              className="live-logger-ex-name ex-name-clickable"
-                              role="button"
-                              tabIndex={0}
-                              title="View exercise history"
-                              onClick={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalSource('live'); setHistoryModalExercise(ex.name); } }}
-                              // See the matching comment in WorkoutTracker.jsx
-                              // — suppresses the browser's default tap-to-
-                              // focus scroll (iOS Safari in particular) on
-                              // this focusable non-input element, without
-                              // touching the click handler or Tab-key focus.
-                              onPointerDown={(e) => e.preventDefault()}
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <ExerciseCardTitle
+                              name={ex.name}
+                              record={findExerciseGuideMatch(guideExercisesList, ex.name, ex.exerciseId) || findExerciseGuideMatch(presetExercises, ex.name)}
+                              onShowGuide={() => handleShowFormGuide(ex.name, ex.exerciseId)}
+                              onShowHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
+                              note={ex.note}
+                              busy={(() => {
+                                const next = nextBusyOption(ex, aiCatalog, liveExercises.map(le => le.name));
+                                const onUndo = ex.busyBase && canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : null;
+                                if (!next && !onUndo) return null;
+                                return {
+                                  option: next && { ...next, onSwap: () => handleLiveSwap(next, { keep: false, busy: { base: next.base, tried: next.tried } }, exIdx) },
+                                  onUndo
+                                };
+                              })()}
                             >
-                              {ex.name}
-                            </span>
-                            <button
-                              type="button"
-                              className="btn-form-guide-sm"
-                              onClick={() => handleShowFormGuide(ex.name, ex.exerciseId)}
-                            >
-                              🎬 Form Guide
-                            </button>
-                          </div>
-                            <ExerciseCaption
-                              warmupPosition={getWarmupPosition(liveExercises, exIdx)}
-                              swappedFrom={ex.swappedFrom}
-                              finisherFor={ex.finisherFor}
-                              swapBy={ex.swapBy}
-                              inPlan={!!ex.swapPlan}
-                              onUndo={canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : undefined}
-                            />
+                              <ExerciseCaption
+                                warmupPosition={getWarmupPosition(liveExercises, exIdx)}
+                                swappedFrom={ex.busyBase ? null : ex.swappedFrom}
+                                finisherFor={ex.finisherFor}
+                                swapBy={ex.swapBy}
+                                inPlan={!!ex.swapPlan}
+                                onUndo={canUndoSwap(ex) ? () => handleUndoLiveSwap(exIdx) : undefined}
+                              />
+                            </ExerciseCardTitle>
                           </div>
                           {cardMenu}
                         </div>

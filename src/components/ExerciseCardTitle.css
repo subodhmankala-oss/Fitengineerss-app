@@ -1,0 +1,100 @@
+/* Exercise card title block — shared by the client logger and coach Live Log. */
+.ect {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+.ect-thumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.ect-thumb > div { border-radius: 10px; overflow: hidden; }
+.ect-mono { font-weight: 800; color: var(--tint-blue, #60a5fa); }
+.ect-play {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-accent-light, #4364bd);
+  border: 2px solid var(--bg-card, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ect-text { min-width: 0; flex: 1; }
+.ect-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.ect .ect-name {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+/* The one muscle it mainly trains — plain text beside the name. */
+.ect-muscle {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+}
+
+/* The coach's one-line note for this exercise (set in the plan editor). */
+.ect-note {
+  margin-top: 5px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-main);
+}
+.ect-note b {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--accent-text, #a5b4fc);
+  background: rgba(var(--accent-rgb), 0.14);
+}
+
+/* "Busy?" — machine/cable taken: closest free-weight stand-in, one tap. */
+.ect-busy b {
+  color: var(--text-muted, #94a3b8);
+  background: transparent;
+  border: 1px solid rgba(var(--fg-rgb), 0.22);
+}
+.ect-dim { color: var(--text-muted, #94a3b8); }
+.ect-busy-swap {
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent-text, #a5b4fc);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ect-busy-undo {
+  margin-left: 10px;
+  color: var(--text-muted, #94a3b8);
+}
+.ect-busy span > .ect-busy-undo:first-child { margin-left: 0; }

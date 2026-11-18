@@ -120,7 +120,8 @@ describe('WeekMuscleSheet', () => {
       const { card } = showActs([], times(midMin - 1, bench(DATE)), { onAddSets });
       const btn = card.querySelector('.wms-chip--topup');
       expect(btn.textContent).toContain(`Mid Chest ${midMin - 1}/${midMin}`);
-      expect(btn.textContent).toContain('+1 set');
+      expect(btn.textContent.trim().endsWith('+')).toBe(true);
+      expect(btn.getAttribute('aria-label')).toContain('add 1 set of Barbell Bench Press');
       fireEvent.click(btn);
       expect(onAddSets).toHaveBeenCalledWith('Barbell Bench Press', 1);
     });

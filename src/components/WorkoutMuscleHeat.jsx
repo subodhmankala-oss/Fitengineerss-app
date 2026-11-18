@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
-import { heatColor } from '../utils/workoutHeat';
+import { getHeatMapTier } from '../utils/muscleAnalytics';
+import { getWeekMuscleView } from '../utils/weekMuscleView';
 import { HeatBodyFigure } from './MuscleAnalytics/MuscleThumbnail';
 import WeekMuscleSheet from './WeekMuscleSheet';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
@@ -8,7 +9,9 @@ import './WorkoutMuscleHeat.css';
 
 /**
  * Live muscle heat map for the logger's timer bar (client WorkoutTracker and
- * coach Live Log). Front + back figures light up as sets are ticked; tapping
+ * coach Live Log). Front + back figures light up as sets are ticked, in the
+ * same weekly-status colours as the sheet they open (blue Low, green
+ * Optimal, orange High…), with a glow on the muscles a set just hit; tapping
  * slides up "This week's muscles" (WeekMuscleSheet): the week so far, with
  * the same numbers as the home Muscle Balance cards.
  * `rows` = tickedSetRows(exercises, logDate) — the same rows the Muscles tab
@@ -28,7 +31,14 @@ export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...
       .sort((a, b) => b.totalSets - a.totalSets)
   ), [rows, logDate]);
   const setsBy = useMemo(() => Object.fromEntries(hit.map(s => [s.muscle, s.totalSets])), [hit]);
-  const colorFor = (m) => heatColor(setsBy[m] || 0);
+  // The figures wear the sheet's colours (the week's status per muscle and
+  // part, saved + this workout), so the bar and the sheet it opens agree.
+  const view = useMemo(() => getWeekMuscleView(savedLogs, rows, logDate, level), [savedLogs, rows, logDate, level]);
+  const colorFor = (m) => {
+    const stat = view?.byAll[m];
+    const tier = stat ? getHeatMapTier(stat) : null;
+    return tier && tier.key !== 'not_trained' ? tier.color : null;
+  };
   const pulseKey = (m) => setsBy[m] || 0;
 
   const label = hit.length
@@ -45,8 +55,8 @@ export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...
         aria-label={label}
         title="This week's muscles"
       >
-        <HeatBodyFigure view="front" height={46} colorFor={colorFor} pulseKey={pulseKey} />
-        <HeatBodyFigure view="back" height={46} colorFor={colorFor} pulseKey={pulseKey} />
+        <HeatBodyFigure view="front" height={46} colorFor={colorFor} pulseKey={pulseKey} regionSplit={view?.regionSplit} />
+        <HeatBodyFigure view="back" height={46} colorFor={colorFor} pulseKey={pulseKey} regionSplit={view?.regionSplit} />
       </button>
       <WeekMuscleSheet open={open} onClose={close} savedLogs={savedLogs} liveRows={rows} logDate={logDate} level={level} {...actions} />
     </div>

@@ -3,6 +3,8 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import { heatColor } from '../utils/workoutHeat';
 import { tickedSetRows } from '../utils/liveSessionStore';
+import { getWeekMuscleView } from '../utils/weekMuscleView';
+import { getHeatMapTier } from '../utils/muscleAnalytics';
 
 const DAY = '2026-11-15';
 const bench = (sets) => ({ name: 'Bench Press', sets });
@@ -46,5 +48,19 @@ describe('WorkoutMuscleHeat', () => {
     expect(heatColor(1)).toBe('#f97316');
     expect(heatColor(3)).toBe('#dc2626');
     expect(heatColor(6)).toBe('#991b1b');
+  });
+
+  it('paints the bar figures in the same weekly colours the sheet uses', () => {
+    const rows = tickedSetRows([bench([
+      { weight: '60', reps: '8', isCompleted: true },
+      { weight: '60', reps: '8', isCompleted: true },
+    ])], DAY);
+    const { container } = render(<WorkoutMuscleHeat rows={rows} logDate={DAY} level="intermediate" />);
+    const painted = container.innerHTML.toLowerCase();
+    // 2 chest sets of ~16 is "Low" (blue), not today's peach/orange scale.
+    const stat = getWeekMuscleView([], rows, DAY, 'intermediate').byAll.Chest;
+    expect(getHeatMapTier(stat).key).toBe('low');
+    expect(painted).toContain(getHeatMapTier(stat).color);
+    expect(painted).not.toContain(heatColor(2).toLowerCase());
   });
 });

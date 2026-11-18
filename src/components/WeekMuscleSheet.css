@@ -159,9 +159,15 @@
   cursor: pointer;
 }
 .wms-chip--topup b {
-  font-weight: 700;
-  padding: 0 6px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  border-radius: 50%;
   background: #6366f1;
   color: #fff;
 }

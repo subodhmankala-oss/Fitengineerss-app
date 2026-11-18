@@ -3,9 +3,8 @@ import { createPortal } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
-import { MUSCLE_GROUPS } from '../utils/muscleGroups';
+import { getWeekMuscleView } from '../utils/weekMuscleView';
 import { getRegionBreakdownForMuscle, hasRegions, getNextParts, getTopUpSets } from '../utils/muscleRegions';
-import { weekRangeFor } from '../utils/setMuscleRing';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './WeekMuscleSheet.css';
 
@@ -68,18 +67,12 @@ export default function WeekMuscleSheet({
 
   const data = useMemo(() => {
     if (!open || !logDate) return null;
-    const [start, end] = weekRangeFor(logDate);
+    const view = getWeekMuscleView(savedLogs, liveRows, logDate, level);
+    const { start, end, all, statsAll, byAll, regionSplit } = view;
     const saved = savedLogs || [];
-    const all = [...saved, ...(liveRows || [])];
-    const statsAll = getWeeklyMuscleStats(all, start, end, { includeUntrained: true, level });
     const bySaved = Object.fromEntries(
       getWeeklyMuscleStats(saved, start, end, { includeUntrained: true, level }).map(s => [s.muscle, s])
     );
-    const byAll = Object.fromEntries(statsAll.map(s => [s.muscle, s]));
-    const regionSplit = Object.fromEntries(MUSCLE_GROUPS.filter(hasRegions).map(m => {
-      const parts = getRegionBreakdownForMuscle(all, m, start, end, { level }).filter(r => r.tier);
-      return [m, Object.fromEntries(parts.map(r => [r.id, r.tier]))];
-    }));
     const todaySets = (liveRows || []).filter(r => isCountableSet(r)).length;
 
     const cards = statsAll
@@ -168,9 +161,10 @@ export default function WeekMuscleSheet({
                     {parts.map(p => (p.topUp && typeof onAddSets === 'function' ? (
                       <button key={p.id} type="button" className="wms-chip wms-chip--topup"
                         title={`Add ${p.topUp.count} set${p.topUp.count === 1 ? '' : 's'} of ${p.topUp.exercise}`}
+                        aria-label={`${p.id} ${fmt(p.sets)} of ${p.min}: add ${p.topUp.count} set${p.topUp.count === 1 ? '' : 's'} of ${p.topUp.exercise}`}
                         onClick={() => onAddSets(p.topUp.exercise, p.topUp.count)}>
                         {p.id} {fmt(p.sets)}/{p.min}
-                        <b>+{p.topUp.count} set{p.topUp.count === 1 ? '' : 's'}</b>
+                        <b aria-hidden="true">+</b>
                       </button>
                     ) : (
                       <span key={p.id} className={`wms-chip${p.sets >= p.min ? ' is-done' : ''}`}>

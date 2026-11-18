@@ -118,10 +118,14 @@
 }
 [data-theme="light"] .ccl-away { color: var(--text-main); }
 
-.ccl-week-skeleton {
-  width: 140px; height: 12px; border-radius: 6px;
-  background: rgba(var(--fg-rgb), 0.06);
+/* Loading: blank day dots that pulse, rippling down the rows (--row-delay). */
+.ccl-week-loading .ccl-day {
+  background: rgba(var(--fg-rgb), 0.08);
+  animation: ccl-day-load 1.6s ease-in-out infinite;
+  animation-delay: var(--row-delay, 0s);
 }
+@keyframes ccl-day-load { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ccl-week-loading .ccl-day { animation: none; opacity: 0.6; } }
 
 .ccl-alert {
   display: inline-flex; align-items: center; gap: 5px;

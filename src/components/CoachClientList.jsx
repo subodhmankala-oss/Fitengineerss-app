@@ -159,7 +159,9 @@ export default function CoachClientList({
                   ) : (
                     <>
                       <WeekDots glance={glance} />
-                      <span className="ccl-sub-text">{glance.weekCount > 0 ? `${glance.weekCount} this week` : glance.label}</span>
+                      {/* The filled dots already show how many days they trained; text only
+                          when the week is empty, to say how long ago the last workout was. */}
+                      {glance.weekCount === 0 && <span className="ccl-sub-text">{glance.label}</span>}
                     </>
                   )}
                 </span>

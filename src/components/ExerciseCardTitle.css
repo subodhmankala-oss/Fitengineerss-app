@@ -44,23 +44,13 @@
   color: var(--text-main);
   line-height: 1.25;
 }
-.ect-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.ect-chip {
-  font-size: 0.68rem;
-  line-height: 1.3;
-  padding: 2px 8px;
-  border-radius: 6px;
+/* The one muscle it mainly trains — plain text beside the name. */
+.ect-muscle {
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--text-muted, #94a3b8);
-  border: 1px solid rgba(var(--fg-rgb), 0.18);
+  white-space: nowrap;
 }
-/* Primary: tint + ring, never a solid fill. */
-.ect-chip--primary {
-  font-weight: 700;
-  color: #f0997b;
-  background: rgba(216, 90, 48, 0.12);
-  border-color: rgba(216, 90, 48, 0.45);
-}
-[data-theme="light"] .ect-chip--primary { color: #993c1d; }
 
 /* The coach's one-line note for this exercise (set in the plan editor). */
 .ect-note {

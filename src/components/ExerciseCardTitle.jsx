@@ -6,31 +6,27 @@ import './ExerciseCardTitle.css';
 
 // The exercise card's title block, shared by the client logger and the coach
 // Live Log (they must match): a round muscle picture with a play badge that
-// opens the Form Guide, the exercise name (tap = history), its equipment, and
-// a Primary chip plus lighter Secondary chips. The card's ≡ menu stays beside
-// it, unchanged.
+// opens the Form Guide, the exercise name (tap = history) with the ONE muscle
+// it mainly trains in plain text beside it, then the Note and Busy? lines.
+// The card's ≡ menu stays beside it, unchanged.
 
-const splitList = (text) => String(text || '')
-  .split(/[,;]/)
-  .map(s => s.trim())
-  .filter(s => s && !/^none$/i.test(s));
+// "Upper Chest (Pectoralis Major)" → "Upper Chest"; first of a list only.
+const shortMuscle = (text) => String(text || '')
+  .split(/[,;]/)[0]
+  .replace(/\(.*?\)/g, '')
+  .replace(/[:.]+\s*$/, '')
+  .trim();
 
-function getExerciseMuscleLabels(name, record) {
+function getMainMuscle(name, record) {
   const canon = getMuscleGroupsForExercise(name) || [];
-  let primary = splitList(record?.primary_muscle)[0] || '';
-  let secondary = splitList(record?.secondary_muscle);
-  if (!primary) {
-    primary = canon[0] || '';
-    secondary = canon.slice(1);
-  }
-  const seen = new Set([primary.toLowerCase()]);
-  secondary = secondary.filter(m => !seen.has(m.toLowerCase()) && seen.add(m.toLowerCase()));
-  const thumb = canon[0] || parseMuscleText(primary)[0] || null;
-  return { primary, secondary: secondary.slice(0, 3), thumb };
+  const fromLibrary = shortMuscle(record?.primary_muscle);
+  const label = (fromLibrary && !/^none$/i.test(fromLibrary)) ? fromLibrary : (canon[0] || '');
+  const thumb = canon[0] || parseMuscleText(label)[0] || null;
+  return { label, thumb };
 }
 
 export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, note, busy, children }) {
-  const { primary, secondary, thumb } = getExerciseMuscleLabels(name, record);
+  const { label: muscle, thumb } = getMainMuscle(name, record);
   // A coach's own note on this plan exercise wins; otherwise every client
   // gets the written cue for the exercise (src/data/exerciseNotes.js).
   const shownNote = (note && String(note).trim()) || getExerciseNote(name);
@@ -63,13 +59,8 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
           >
             {name}
           </h5>
+          {muscle && <span className="ect-muscle">{muscle}</span>}
         </div>
-        {(primary || secondary.length > 0) && (
-          <div className="ect-chips">
-            {primary && <span className="ect-chip ect-chip--primary">{primary}</span>}
-            {secondary.map(m => <span key={m} className="ect-chip">{m}</span>)}
-          </div>
-        )}
         {shownNote && (
           <div className="ect-note">
             <b>Note</b>

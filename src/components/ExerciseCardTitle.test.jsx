@@ -36,3 +36,16 @@ describe('ExerciseCardTitle written note + Busy?', () => {
     expect(swapped).toBe(true);
   });
 });
+
+describe('ExerciseCardTitle muscle label', () => {
+  it('shows only the one main muscle, short, beside the name', () => {
+    render(<ExerciseCardTitle
+      name="Incline Dumbbell Press"
+      record={{ primary_muscle: 'Upper Chest (Pectoralis Major)', secondary_muscle: 'Anterior Deltoids, Triceps' }}
+      onShowGuide={() => {}} onShowHistory={() => {}} />);
+    expect(screen.getByText('Upper Chest')).toBeTruthy();
+    expect(screen.queryByText(/Pectoralis/)).toBeNull();
+    expect(screen.queryByText('Triceps')).toBeNull();
+    expect(screen.queryByText('Anterior Deltoids')).toBeNull();
+  });
+});

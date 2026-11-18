@@ -28,7 +28,7 @@ function getExerciseMuscleLabels(name, record) {
   return { primary, secondary: secondary.slice(0, 3), thumb };
 }
 
-export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, children }) {
+export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, note, children }) {
   const { primary, secondary, thumb } = getExerciseMuscleLabels(name, record);
   return (
     <div className="ect">
@@ -64,6 +64,12 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
           <div className="ect-chips">
             {primary && <span className="ect-chip ect-chip--primary">{primary}</span>}
             {secondary.map(m => <span key={m} className="ect-chip">{m}</span>)}
+          </div>
+        )}
+        {note && (
+          <div className="ect-note">
+            <b>Note</b>
+            <span>{note}</span>
           </div>
         )}
         {children}

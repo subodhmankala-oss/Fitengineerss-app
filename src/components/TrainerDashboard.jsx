@@ -4909,9 +4909,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // persisted (same cleanup handleSavePlan always did).
   const cleanEditorExercises = (exercises) => exercises.map(ex => {
     const exIsCardio = isCardioExercise(ex.name);
+    const note = String(ex.note || '').trim().slice(0, 120);
     return {
       name: ex.name,
       ...exerciseIdField(ex.exerciseId),
+      ...(note ? { note } : {}),
       sets: ex.sets.map(s => ({
         ...(exIsCardio
           ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
@@ -5740,6 +5742,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setLiveExercises(applyLivePrev(applyPrevWeights(plan.exercises).map(ex => ({
       name: ex.name,
       ...exerciseIdField(ex.exerciseId),
+      ...(ex.note ? { note: ex.note } : {}),
       ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
       // `time` is deliberately NOT carried over from the saved
       // plan, unlike reps/weight/distanceKm — it's a past
@@ -9829,6 +9832,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   />
                                 </div>
 
+                                <input
+                                  type="text"
+                                  className="editor-ex-note"
+                                  placeholder="Note for the client (optional)"
+                                  aria-label={`Note for ${ex.name}`}
+                                  maxLength={120}
+                                  value={ex.note || ''}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setEditorExercises(prev => prev.map((x, i) => (i === exIdx ? { ...x, note: v } : x)));
+                                  }}
+                                />
+
                                 <div className="hevy-sets-table">
                                   <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
                                     <span className="col-set">SET</span>
@@ -10701,6 +10717,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               record={findExerciseGuideMatch(guideExercisesList, ex.name, ex.exerciseId) || findExerciseGuideMatch(presetExercises, ex.name)}
                               onShowGuide={() => handleShowFormGuide(ex.name, ex.exerciseId)}
                               onShowHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
+                              note={ex.note}
                             >
                               <ExerciseCaption
                                 warmupPosition={getWarmupPosition(liveExercises, exIdx)}

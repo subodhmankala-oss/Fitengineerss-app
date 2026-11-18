@@ -61,3 +61,25 @@
   border-color: rgba(216, 90, 48, 0.45);
 }
 [data-theme="light"] .ect-chip--primary { color: #993c1d; }
+
+/* The coach's one-line note for this exercise (set in the plan editor). */
+.ect-note {
+  margin-top: 5px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-main);
+}
+.ect-note b {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--accent-text, #a5b4fc);
+  background: rgba(var(--accent-rgb), 0.14);
+}

@@ -2875,6 +2875,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       ...planExercises.map(ex => ({
         name: ex.name,
         ...exerciseIdField(ex.exerciseId),
+        ...(ex.note ? { note: ex.note } : {}),
         // `time` is deliberately NOT carried over from the saved plan, unlike
         // reps/weight/distanceKm which are legitimate reusable targets. A
         // saved mm:ss is the actual duration a PAST session's stopwatch ran
@@ -4071,6 +4072,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         setLogExercises(plan.exercises.map(ex => ({
                           name: ex.name,
                           ...exerciseIdField(ex.exerciseId),
+                          ...(ex.note ? { note: ex.note } : {}),
                           // See startPlan's identical comment above: `time` is
                           // never carried over from the saved plan — it's a
                           // past session's real duration, not a target, and a
@@ -4263,6 +4265,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           record={findExerciseGuideMatch(exercisesList, ex.name, ex.exerciseId) || findExerciseGuideMatch(allExerciseOptions, ex.name)}
                           onShowGuide={showFormGuide}
                           onShowHistory={() => setHistoryModalExercise(ex.name)}
+                          note={ex.note}
                         >
                           <ExerciseCaption
                             warmupPosition={getWarmupPosition(logExercises, exIdx)}

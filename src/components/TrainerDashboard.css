@@ -2574,3 +2574,19 @@
   font-size: 0.74rem;
   color: var(--text-muted);
 }
+
+/* One-line coach note under an exercise in the plan editor — shown to the
+   client as a "Note" line on that exercise's card. */
+.editor-ex-note {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 2px 0 8px;
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.14);
+  border-radius: var(--radius-sm);
+}
+.editor-ex-note::placeholder { color: var(--text-muted, #94a3b8); }
+.editor-ex-note:focus { outline: none; border-color: rgba(var(--accent-rgb), 0.6); }

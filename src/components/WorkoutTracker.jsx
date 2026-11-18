@@ -14,6 +14,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl }
 import ExerciseGuideModal from './ExerciseGuideModal';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { loadAiCatalog } from '../utils/loadAiCatalog';
+import { busyAlternative, isStationExercise } from '../utils/busySwap';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
@@ -3084,6 +3085,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       loadAiCatalog({ clientUserId: getPlanOwnerId() }).then(setSwapCatalog).catch(() => setSwapCatalog([]));
     }
   };
+  // "Busy?" lines need the library as soon as a machine/cable exercise is
+  // on the card list, not only once the Swap sheet opens.
+  const needsBusyCatalog = !swapCatalog && logExercises.some(ex => isStationExercise(ex.name));
+  const busyCatalogOwner = needsBusyCatalog ? getPlanOwnerId() : null;
+  const busyCatalogLoading = useRef(false);
+  useEffect(() => {
+    if (!needsBusyCatalog || busyCatalogLoading.current) return;
+    busyCatalogLoading.current = true;
+    loadAiCatalog({ clientUserId: busyCatalogOwner }).then(setSwapCatalog).catch(() => setSwapCatalog([]));
+  }, [needsBusyCatalog, busyCatalogOwner]);
   const prevSetsFor = (name, exerciseId = null) =>
     findPreviousExerciseSetsIn(sessions, selectedClient, { name, exerciseId });
   // Saves a changed plan (keep or its undo) and shows it in the plan lists
@@ -3103,8 +3114,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       triggerToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${e?.message || 'try again'}`);
     }
   };
-  const handleLogSwap = ({ name, exerciseId }, { keep = false } = {}) => {
-    const exIdx = swapLogIdx;
+  const handleLogSwap = ({ name, exerciseId }, { keep = false } = {}, atIdx = null) => {
+    const exIdx = atIdx ?? swapLogIdx;
     setSwapLogIdx(null);
     setActiveGuideExercise(null);
     setGuideAction(null);
@@ -4266,6 +4277,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           onShowGuide={showFormGuide}
                           onShowHistory={() => setHistoryModalExercise(ex.name)}
                           note={ex.note}
+                          busy={(() => {
+                            if (ex.swappedFrom || ex.sets.some(s => s.isCompleted)) return null;
+                            const alt = busyAlternative(ex.name, swapCatalog, logExercises.map(le => le.name));
+                            return alt && { ...alt, onSwap: () => handleLogSwap(alt, { keep: false }, exIdx) };
+                          })()}
                         >
                           <ExerciseCaption
                             warmupPosition={getWarmupPosition(logExercises, exIdx)}

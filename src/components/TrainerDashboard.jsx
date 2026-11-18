@@ -61,6 +61,7 @@ import { loadAiCatalog } from '../utils/loadAiCatalog';
 import LiveSwapSheet, { SwapIcon } from './LiveSwapSheet';
 import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, findKeepablePlan, lastSetLabel, planWithSwap, remapSetTimersForSwap, undoLiveSwap } from '../utils/exerciseSwap';
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
+import { busyAlternative, isStationExercise } from '../utils/busySwap';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
@@ -3302,8 +3303,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       triggerLiveToast(`⚠️ Couldn't update “${nextPlan.planName}”: ${e?.message || 'try again'}`);
     }
   };
-  const handleLiveSwap = ({ name, exerciseId }, { keep = false } = {}) => {
-    const exIdx = swapLiveIdx;
+  const handleLiveSwap = ({ name, exerciseId }, { keep = false } = {}, atIdx = null) => {
+    const exIdx = atIdx ?? swapLiveIdx;
     setSwapLiveIdx(null);
     setActiveGuideExercise(null);
     setGuideAction(null);
@@ -4988,6 +4989,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       return catalog;
     });
   };
+  // Live Log "Busy?" lines need the library as soon as a machine/cable
+  // exercise is on the list, not only once the Swap sheet opens.
+  const needsLiveBusyCatalog = !aiCatalog && liveExercises.some(ex => isStationExercise(ex.name));
+  const busyCatalogCoachId = UUID_RE.test(String(resolvedCoachId || '')) ? resolvedCoachId : null;
+  const liveBusyCatalogLoading = useRef(false);
+  useEffect(() => {
+    if (!needsLiveBusyCatalog || liveBusyCatalogLoading.current) return;
+    liveBusyCatalogLoading.current = true;
+    loadAiCatalog({ coachId: busyCatalogCoachId }).then(setAiCatalog).catch(() => setAiCatalog([]));
+  }, [needsLiveBusyCatalog, busyCatalogCoachId]);
 
   const handleAiDraftGenerated = async (draft, request = null, meta = null) => {
     const days = await Promise.all((draft.days || []).map(linkAiDayToLibrary));
@@ -10718,6 +10729,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               onShowGuide={() => handleShowFormGuide(ex.name, ex.exerciseId)}
                               onShowHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
                               note={ex.note}
+                              busy={(() => {
+                                if (ex.swappedFrom || ex.sets.some(s => s.isCompleted)) return null;
+                                const alt = busyAlternative(ex.name, aiCatalog, liveExercises.map(le => le.name));
+                                return alt && { ...alt, onSwap: () => handleLiveSwap(alt, { keep: false }, exIdx) };
+                              })()}
                             >
                               <ExerciseCaption
                                 warmupPosition={getWarmupPosition(liveExercises, exIdx)}

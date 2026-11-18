@@ -83,3 +83,23 @@
   color: var(--accent-text, #a5b4fc);
   background: rgba(var(--accent-rgb), 0.14);
 }
+
+/* "Busy?" — machine/cable taken: closest free-weight stand-in, one tap. */
+.ect-busy b {
+  color: var(--text-muted, #94a3b8);
+  background: transparent;
+  border: 1px solid rgba(var(--fg-rgb), 0.22);
+}
+.ect-dim { color: var(--text-muted, #94a3b8); }
+.ect-busy-swap {
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent-text, #a5b4fc);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

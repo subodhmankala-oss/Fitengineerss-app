@@ -1,6 +1,7 @@
 import React from 'react';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import { getMuscleGroupsForExercise, parseMuscleText } from '../utils/muscleGroups';
+import { getExerciseNote } from '../data/exerciseNotes';
 import './ExerciseCardTitle.css';
 
 // The exercise card's title block, shared by the client logger and the coach
@@ -28,8 +29,11 @@ function getExerciseMuscleLabels(name, record) {
   return { primary, secondary: secondary.slice(0, 3), thumb };
 }
 
-export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, note, children }) {
+export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHistory, note, busy, children }) {
   const { primary, secondary, thumb } = getExerciseMuscleLabels(name, record);
+  // A coach's own note on this plan exercise wins; otherwise every client
+  // gets the written cue for the exercise (src/data/exerciseNotes.js).
+  const shownNote = (note && String(note).trim()) || getExerciseNote(name);
   return (
     <div className="ect">
       <button
@@ -66,10 +70,19 @@ export default function ExerciseCardTitle({ name, record, onShowGuide, onShowHis
             {secondary.map(m => <span key={m} className="ect-chip">{m}</span>)}
           </div>
         )}
-        {note && (
+        {shownNote && (
           <div className="ect-note">
             <b>Note</b>
-            <span>{note}</span>
+            <span>{shownNote}</span>
+          </div>
+        )}
+        {busy && (
+          <div className="ect-note ect-busy">
+            <b>Busy?</b>
+            <span>
+              Try {busy.name} <span className="ect-dim">· {busy.match}% match</span>
+              <button type="button" className="ect-busy-swap" onClick={busy.onSwap}>Swap</button>
+            </span>
           </div>
         )}
         {children}

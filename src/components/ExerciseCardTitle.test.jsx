@@ -13,7 +13,26 @@ describe('ExerciseCardTitle note line', () => {
   });
 
   it('shows no Note line when there is no note', () => {
-    render(<ExerciseCardTitle name="Lat Pulldown" onShowGuide={() => {}} onShowHistory={() => {}} />);
+    render(<ExerciseCardTitle name="My Made Up Move" onShowGuide={() => {}} onShowHistory={() => {}} />);
     expect(screen.queryByText('Note')).toBeNull();
+  });
+});
+
+describe('ExerciseCardTitle written note + Busy?', () => {
+  it('shows the written library note when there is no coach note', () => {
+    render(<ExerciseCardTitle name="Lat Pull Down" onShowGuide={() => {}} onShowHistory={() => {}} />);
+    expect(screen.getByText(/collarbone/)).toBeTruthy();
+  });
+  it("a coach's note replaces the written one", () => {
+    render(<ExerciseCardTitle name="Lat Pull Down" note="Coach says hi" onShowGuide={() => {}} onShowHistory={() => {}} />);
+    expect(screen.getByText('Coach says hi')).toBeTruthy();
+    expect(screen.queryByText(/collarbone/)).toBeNull();
+  });
+  it('Busy? Swap calls back', () => {
+    let swapped = false;
+    render(<ExerciseCardTitle name="Chest Press (Machine)" busy={{ name: 'Push Up', match: 81, onSwap: () => { swapped = true; } }} onShowGuide={() => {}} onShowHistory={() => {}} />);
+    expect(screen.getByText('Busy?')).toBeTruthy();
+    screen.getByRole('button', { name: 'Swap' }).click();
+    expect(swapped).toBe(true);
   });
 });

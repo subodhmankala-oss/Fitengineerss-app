@@ -57,7 +57,7 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
     let cancelled = false;
     const since = shiftLocalDateString(getLocalDateString(), -(RECAP_DAYS - 1));
     databaseService.getRecentWorkoutRowsForClients(quietIdsKey.split(','), since)
-      .then(rows => { if (!cancelled) setRecaps(summarizeRecentSessions(rows)); })
+      .then(rows => { if (!cancelled) setRecaps(summarizeRecentSessions(rows || [])); })
       .catch(() => { /* recap is optional — falls back to the generic message */ });
     return () => { cancelled = true; };
   }, [quietIdsKey]);

@@ -3799,7 +3799,9 @@ const databaseService = {
       );
     } catch (e) {
       console.error('Cloud DB getRecentWorkoutRowsForClients error:', e);
-      return [];
+      // null, not []: "couldn't load" must not read as "no workouts" (the
+      // client list would turn every client red).
+      return null;
     }
   },
 

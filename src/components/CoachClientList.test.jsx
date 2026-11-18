@@ -66,6 +66,27 @@ describe('CoachClientList goals', () => {
     expect(rows[1].querySelector('.ccl-sub-text').textContent).toBe('Last workout 5 days ago');
   });
 
+  it('while workouts load: names and goals show, each row gets 7 pulsing day dots', () => {
+    const { container } = render(
+      <CoachClientList
+        clients={[
+          { ...base, id: 'c1', userName: 'Nagesh A', userGoal: 'Fat Loss' },
+          { ...base, id: 'c2', userName: 'Vinitha Reddy', userGoal: 'Fat Loss' },
+        ]}
+        glances={null}
+        onOpen={() => {}}
+        hasUnread={() => false}
+        isNewConnection={() => false}
+      />
+    );
+    const loading = container.querySelectorAll('.ccl-week-loading');
+    expect(loading).toHaveLength(2);
+    expect(loading[0].querySelectorAll('.ccl-day')).toHaveLength(7);
+    expect(loading[1].style.getPropertyValue('--row-delay')).toBe('0.12s');
+    expect(container.textContent).toContain('Nagesh A');
+    expect(container.textContent).not.toMatch(/days since last workout/);
+  });
+
   it('does not repeat a goal picked twice', () => {
     const { container } = renderList([
       { ...base, id: 'c1', userName: 'Priya Rao', userGoal: 'Fat Loss', userSecondaryGoal: 'Fat Loss' },

@@ -78,7 +78,7 @@ export default function CoachClientList({
       </div>
       <div className="ccl-card">
         {demoRow}
-        {clients.map(client => {
+        {clients.map((client, rowIndex) => {
           const glance = glances?.[client.id];
           const paused = !!client.paused_at;
           const live = !!liveIds?.has(client.id) && !paused;
@@ -138,7 +138,13 @@ export default function CoachClientList({
                 </span>
                 <span className="ccl-sub">
                   {!glance ? (
-                    !glances && <span className="ccl-week-skeleton" aria-hidden="true" />
+                    !glances && (
+                      // Loading this week's workouts: the 7 day dots pulse in place,
+                      // each row a beat after the one above (a ripple down the list).
+                      <span className="ccl-week ccl-week-loading" aria-label="Loading this week" style={{ '--row-delay': `${Math.min(rowIndex, 8) * 0.12}s` }}>
+                        {DAY_LETTERS.map((_, i) => <span key={i} className="ccl-day" aria-hidden="true" />)}
+                      </span>
+                    )
                   ) : needs ? (
                     <span className="ccl-alert">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>

@@ -22,6 +22,20 @@ const needOf = (name) => {
   return equip === 'Dumbbell' || equip === 'Barbell' || equip === 'Kettlebell' || equip === 'Band' ? equip : null;
 };
 
+// The few words before the chip: what this exercise needs that someone else
+// may be using. "Cable busy?", "Machine busy?", "Dumbbells taken?"…; no
+// equipment (bodyweight, floor work) → "Mat taken?".
+const PROMPT = {
+  Cable: 'Cable busy?', Machine: 'Machine busy?', Barbell: 'Barbell busy?',
+  Dumbbell: 'Dumbbells taken?', Kettlebell: 'Kettlebell taken?', Band: 'Band taken?'
+};
+export function busyPrompt(name) {
+  const equip = equipmentLabel(name);
+  if (PROMPT[equip]) return PROMPT[equip];
+  if (MACHINE_BY_NATURE.test(String(name || ''))) return 'Machine busy?';
+  return 'Mat taken?';
+}
+
 // Every exercise card offers swaps.
 export function isBusyEligible(name) {
   return !!String(name || '').trim();

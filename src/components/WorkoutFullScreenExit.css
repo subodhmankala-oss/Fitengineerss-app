@@ -57,17 +57,18 @@ body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card
   pointer-events: none;
 }
 
-/* The down arrow at the start of the timer bar: springs in with a half
+/* The down arrow at the right end of the timer bar, after Pause: springs in with a half
    turn, pulses three times so people notice it, then stays still (a
    non-stop pulse was a distraction mid-workout). */
 .workout-full-screen-exit {
   flex-shrink: 0;
   display: grid;
   place-items: center;
+  align-self: center;
   width: 34px;
   height: 34px;
   padding: 0;
-  margin: 0;
+  margin: 0 8px 0 2px;
   border: 0;
   background: none;
   cursor: pointer;
@@ -133,12 +134,15 @@ body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card
   }
 }
 
-/* Coach Live Log bar wraps when it runs out of width; while the arrow is
-   in it, tighten the spacing so time, heat map, stopwatch and Pause still
-   fit on one line on a phone. */
-.live-timer-bar:has(> .workout-full-screen-exit) {
-  gap: 8px;
-  padding-left: 8px;
+/* The coach Live Log bar wraps when it runs out of width; with the arrow
+   on the end, trim its margin and the bar's gap so time, heat map,
+   stopwatch, Pause and the arrow stay on one line on a phone. */
+.live-timer-end > .workout-full-screen-exit {
+  margin: 0 4px 0 0;
+}
+
+.live-timer-bar:has(.workout-full-screen-exit) {
+  gap: 10px;
 }
 
 /* Clock before the running time in both timer bars (client + coach). */
@@ -151,4 +155,16 @@ body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card
 .timer-clock-icon {
   flex-shrink: 0;
   color: var(--accent-text, var(--primary-accent));
+}
+
+/* Time a touch smaller, calories a touch bigger — the burn is the number
+   people watch mid-workout. Both timer bars (client + coach). */
+.hevy-stopwatch-banner .stopwatch-time,
+.live-timer-bar .live-timer-value {
+  font-size: 1.02rem;
+}
+
+.hevy-stopwatch-banner .live-kcal-badge,
+.live-timer-bar .live-timer-kcal {
+  font-size: 0.88rem;
 }

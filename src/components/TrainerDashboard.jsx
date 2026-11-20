@@ -10642,7 +10642,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       never from an incrementing counter, so getting
                       distracted or leaving this tab open never causes drift. */}
                   <div className="live-timer-bar" ref={liveTimerBarRef}>
-                    {liveFullScreen.active && <WorkoutFullScreenExit onClick={liveFullScreen.exit} />}
                     {liveTimerStatus === 'idle' ? (
                       <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
                     ) : (
@@ -10681,6 +10680,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           ) : (
                             <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
                           )}
+                          {liveFullScreen.active && <WorkoutFullScreenExit onClick={liveFullScreen.exit} />}
                         </div>
                       </>
                     )}

@@ -4185,7 +4185,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               set is marked done, then ticks and shows live calories. */}
           <div className="hevy-stopwatch-banner" ref={timerBarRef}>
             <div className="timer-display">
-              {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
               {workoutTimerStatus === 'idle' ? (
                 <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
               ) : (
@@ -4231,6 +4230,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   </button>
                 </>
               )}
+              {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
             </div>
           </div>
 

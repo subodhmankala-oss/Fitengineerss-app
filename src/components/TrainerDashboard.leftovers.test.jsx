@@ -84,6 +84,8 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     expect(screen.queryByText(/for next session/)).toBeNull(); // nothing done yet
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]); // one Squat set
+    // Ticking focuses that exercise; the chevron brings the rest back.
+    fireEvent.click(screen.getByTestId('focus-show-all'));
     const note = await screen.findByText(/for next session/);
     expect(note.closest('label').textContent).toContain('Leg Curl, Calf Raise');
 
@@ -99,6 +101,8 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     renderLiveLog();
     await loadPlan();
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
+    // Ticking focuses that exercise; the chevron brings the rest back.
+    fireEvent.click(screen.getByTestId('focus-show-all'));
     const box = (await screen.findByText(/for next session/)).closest('label').querySelector('input');
     fireEvent.click(box);
     fireEvent.click(screen.getByRole('button', { name: /Save Workout Session/ }));

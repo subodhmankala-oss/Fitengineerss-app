@@ -1,0 +1,79 @@
+/* "Show all" chevron under the focused exercise (useFocusExercise). Tint +
+   ring, not a solid fill — same language as the rest of the logger. */
+.focus-show-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 14px 16px 6px;
+  padding: 12px 14px 12px 18px;
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  border-radius: 14px;
+  background: rgba(var(--accent-rgb), 0.07);
+  color: var(--text-primary, inherit);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: focus-show-all-in 260ms ease-out both;
+}
+
+.focus-show-all:active {
+  transform: scale(0.985);
+}
+
+.focus-show-all-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.95rem;
+}
+
+.focus-show-all-text strong {
+  font-weight: 700;
+}
+
+.focus-show-all-text small {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.focus-show-all-chevron {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--accent-rgb), 0.45);
+  color: var(--primary-accent);
+  animation: focus-chevron-nudge 1.8s ease-in-out infinite;
+}
+
+/* Rows hidden while focusing; the focused row clears the sticky timer bar
+   when it is scrolled to the top. */
+.ex-reorder-row.focus-hidden {
+  display: none;
+}
+
+.ex-reorder-row[data-focus-key] {
+  scroll-margin-top: 120px;
+}
+
+@keyframes focus-show-all-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes focus-chevron-nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-show-all,
+  .focus-show-all-chevron {
+    animation: none;
+  }
+}

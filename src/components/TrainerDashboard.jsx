@@ -88,6 +88,8 @@ import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
 import ExerciseCardTitle from './ExerciseCardTitle';
 import WarmupMoveRow from './WarmupMoveRow';
+import useFocusExercise, { isFocusActive, focusSummary } from '../hooks/useFocusExercise';
+import FocusShowAllButton from './FocusShowAllButton';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { sameExerciseEntry, findLibraryExercise, libraryExerciseId, exerciseIdField, foldExerciseDashes } from '../utils/exerciseName';
 import SetNumberPad from './SetNumberPad';
@@ -3356,6 +3358,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     moveByKeyboard: moveLiveExerciseByKeyboard,
     getItemKey: getLiveItemKey,
   } = useReorderableList(liveExercises, handleLiveExercisesReordered);
+
+  // Ticking a set puts that exercise alone on screen — same as the client's
+  // logger (see useFocusExercise).
+  const liveFocus = useFocusExercise();
+  const liveKeys = liveExercises.map((_, i) => getLiveItemKey(i));
+  const liveFocusOn = isFocusActive(liveFocus, liveKeys, isLiveReordering);
 
   // Same double-tap guard as the client's Confirm Save (see
   // handleConfirmSaveWorkout in WorkoutTracker): liveSaving only disables the
@@ -10707,8 +10715,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         onRemove={() => handleLiveRemoveExercise(exIdx)}
                       />
                     );
+                    const rowKey = liveKeys[exIdx];
                     return (
-                      <div key={getLiveItemKey(exIdx)} ref={exerciseEnterRef(ex.name)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
+                      <div key={rowKey} ref={exerciseEnterRef(ex.name)} data-focus-key={rowKey} className={`ex-reorder-row ${liveFocusOn && rowKey !== liveFocus.focusKey ? 'focus-hidden' : ''}`} style={getLiveRowStyle(exIdx)}>
                       <div className={`ex-reorder-morph ${isLiveReordering ? 'is-reordering' : ''}`}>
                       <div className="ex-reorder-full">
                       {/* Warm-up block → compact rows in one "🔥 Warm-up"
@@ -11119,7 +11128,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   <button
                                     type="button"
                                     className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
-                                    onClick={() => (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx)) : handleLiveToggleSet(exIdx, setIdx)}
+                                    onClick={() => {
+                                      liveFocus.onSetTicked(rowKey, !set.isCompleted);
+                                      return (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx)) : handleLiveToggleSet(exIdx, setIdx);
+                                    }}
                                     title={(isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? "Save time and complete" : (set.isCompleted ? 'Mark incomplete' : 'Mark complete')}
                                   >
                                     {set.isCompleted ? '✓' : ''}
@@ -11169,11 +11181,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     })}
                   </div>
 
+                  {liveFocusOn && (
+                    <FocusShowAllButton
+                      {...focusSummary(liveExercises, liveKeys.indexOf(liveFocus.focusKey))}
+                      onClick={liveFocus.expand}
+                    />
+                  )}
+
                   {/* Same reorder-declutter as the block above the list —
                       Add Exercise, the Coach note toggle/composer, the
                       floating rest timer, and the Discard/Save bar all hide
                       for the duration of an active reorder drag. */}
-                  {!isLiveReordering && (
+                  {!isLiveReordering && !liveFocusOn && (
                   <>
                   {/* What this client is behind on this week — same hint as
                       their own logger; chips add straight into the live log. */}
@@ -11279,7 +11298,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         mounted so it slides both ways (height measured in
                         JS, coachNoteSlideMaxHeight effect). Hidden during a
                         reorder drag like the rest of this screen's chrome. */}
-                    {!isLiveReordering && (
+                    {!isLiveReordering && !liveFocusOn && (
                     <CoachNoteComposer
                       mode="attach"
                       clientLabel={noteClientLabel}
@@ -11301,7 +11320,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       client to finish on their phone (handleHandOverLiveSession),
                       or save now and carry the not-started exercises to
                       their next session (the tick box). One card, two choices. */}
-                  {!isLiveReordering && liveHasDoneSets && liveHasSetsLeft && (
+                  {!isLiveReordering && !liveFocusOn && liveHasDoneSets && liveHasSetsLeft && (
                     <div className="live-handover-card">
                       <div className="live-handover-title">🏃 Need to leave early?</div>
                       <button
@@ -11344,7 +11363,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       the pad's own opaque background simply covers it like
                       any other content, no dueling stacking. Matched that
                       here instead of chasing more positioning fixes. */
-                  <div ref={liveLogActionBarRef} className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
+                  <div ref={liveLogActionBarRef} className="live-log-action-bar" style={{ display: liveFocusOn ? 'none' : 'flex', gap: '10px' }}>
                     <button
                       type="button"
                       className="btn-discard-session"

@@ -41,6 +41,12 @@ const SwapIcon = () => (
   </svg>
 );
 
+const UndoIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M9 14l-4-4 4-4" /><path d="M5 10h11a4 4 0 0 1 0 8h-1" />
+  </svg>
+);
+
 // "Cable busy?  [⇄ Dumbbell Row 82%]" — one line, one tap. The prompt names
 // what this exercise needs; the chip IS the swap. After a Busy? swap a small
 // Undo sits at the end (until a set is ticked); after the 3rd only Undo stays.
@@ -61,7 +67,7 @@ function BusyLine({ name, option, onUndo }) {
         </button>
       )}
       {onUndo && (
-        <button type="button" className="ect-busy-undo" onClick={onUndo}>Undo</button>
+        <button type="button" className="ect-busy-undo" onClick={onUndo}><UndoIcon />Undo</button>
       )}
     </div>
   );

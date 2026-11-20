@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal, flushSync } from 'react-dom';
+import { createPortal } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
@@ -290,64 +290,35 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
   const n = others.length;
   const peek = Math.min(n - 1, 2);
   const stackRef = useRef(null);
-  // Fold state lives in React so the logger's every-second re-render can't
-  // undo it: `foldPlan` = each card's slide-down style, `settle` = one frame
-  // with transitions off while the layout switches back to the stack.
-  const [foldPlan, setFoldPlan] = useState(null);
-  const [settle, setSettle] = useState(false);
+  // "Stack them" mirrors "Tap to fan out": the cards play the drop-in in
+  // reverse (top card first) while the sheet glides back to the top, then the
+  // stack fades in. Kept in React state so the live logger's every-second
+  // re-render can't cut it short.
+  const [phase, setPhase] = useState(null); // null | 'folding' | 'arriving'
   const glide = useRef(false);
   const stopScroll = useRef(null);
   const timers = useRef([]);
   useEffect(() => () => { stopScroll.current?.(); timers.current.forEach(clearTimeout); }, []);
   const later = (fn, ms) => { timers.current.push(window.setTimeout(fn, ms)); };
   const sheetOf = () => stackRef.current?.closest('.wms-sheet') || null;
+  const motionMs = 420 + Math.min(n, 10) * 35;
 
-  // Fold back, in two moves. 1) From the top down, each card slides down onto
-  // the last one, forming the stack where the eye already is. 2) The sheet
-  // glides back to the top while the stack rides up into its place under the
-  // workout's cards.
   const fold = () => {
-    const box = stackRef.current;
-    if (!box || reduceMotion()) { setFanned(false); setOpenMuscle(null); return; }
-    if (foldPlan) return;
+    if (phase === 'folding') return;
+    if (reduceMotion()) { setFanned(false); setOpenMuscle(null); return; }
     stopScroll.current?.();
-    const cards = [...box.children];
-    const pileTop = cards[cards.length - 1].offsetTop;
-    const step = 45;
-    const steps = Math.min(cards.length - 1, 8);
-    const plan = {};
-    cards.forEach((el, i) => {
-      const k = Math.min(i, 2);
-      const delay = Math.min(i, 8) * step; // top card first, then down the list
-      plan[others[i]?.stat.muscle] = {
-        zIndex: 100 - i,
-        transition: `transform 0.42s cubic-bezier(0.4, 0, 0.2, 1) ${delay}ms, opacity 0.3s ease ${delay + 120}ms`,
-        transform: `translateY(${pileTop - k * 10 - el.offsetTop}px) scale(${1 - k * 0.045})`,
-        opacity: i > 2 ? 0 : 1,
-      };
-    });
-    setFoldPlan(plan);
+    setPhase('folding');
+    const sheet = sheetOf();
+    if (sheet) stopScroll.current = glideScroll(sheet, 0, motionMs);
     later(() => {
-      const sheet = sheetOf();
-      const pileAt = box.children[0]?.getBoundingClientRect().top;
-      flushSync(() => { setSettle(true); setFoldPlan(null); setFanned(false); setOpenMuscle(null); });
-      // The stack now sits in its real place; start it where the pile was and
-      // let it ride up with the scroll.
-      const front = box.children[0];
-      const shift = front && pileAt != null ? pileAt - front.getBoundingClientRect().top : 0;
-      const ms = 520;
-      box.style.transition = 'none';
-      box.style.transform = `translateY(${shift}px)`;
-      void box.offsetHeight;
-      box.style.transition = `transform ${ms}ms cubic-bezier(0.65, 0, 0.35, 1)`;
-      box.style.transform = '';
-      later(() => setSettle(false), 60);
-      later(() => { box.style.transition = ''; }, ms + 50);
-      if (sheet) stopScroll.current = glideScroll(sheet, 0, ms);
-    }, 420 + steps * step);
+      setFanned(false);
+      setOpenMuscle(null);
+      setPhase('arriving');
+      later(() => setPhase(null), 320);
+    }, motionMs);
   };
 
-  const toggleFan = () => { if (fanned) fold(); else { glide.current = true; setFanned(true); setOpenMuscle(null); } };
+  const toggleFan = () => { if (fanned) fold(); else if (!phase) { glide.current = true; setFanned(true); setOpenMuscle(null); } };
   // Fanning out: the sheet scrolls down with the cards as they drop in, ending
   // on the last card and "Stack them".
   useEffect(() => {
@@ -356,8 +327,8 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
     const sheet = sheetOf();
     if (!sheet) return;
     stopScroll.current?.();
-    stopScroll.current = glideScroll(sheet, sheet.scrollHeight - sheet.clientHeight, 420 + Math.min(n, 10) * 35);
-  }, [fanned, n]);
+    stopScroll.current = glideScroll(sheet, sheet.scrollHeight - sheet.clientHeight, motionMs);
+  }, [fanned, motionMs]);
   const shown = fanned ? others : others.slice(0, 3);
   const stackProps = fanned ? {} : {
     role: 'button',
@@ -369,7 +340,7 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
   return (
     <section className="wms-others" aria-label="Other muscles this week">
       <div className="wms-divider"><span>{n} more muscle{n === 1 ? '' : 's'} this week</span></div>
-      <div ref={stackRef} className={`wms-stack${fanned ? ' is-fanned' : ''}${foldPlan ? ' is-folding' : ''}${settle ? ' is-settling' : ''}`}
+      <div ref={stackRef} className={`wms-stack${fanned ? ' is-fanned' : ''}${phase ? ` is-${phase}` : ''}`}
         style={fanned ? undefined : { height: 78 + peek * 10 }} {...stackProps}>
         {shown.map(({ stat, parts, next, last }, i) => {
           const isOpen = fanned && openMuscle === stat.muscle;
@@ -378,7 +349,7 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
           return (
             <div key={stat.muscle}
               className={`wms-ocard status-${stat.status.color}${isOpen ? ' is-open' : ''}`}
-              style={fanned ? (foldPlan?.[stat.muscle] || { animationDelay: `${i * 35}ms` }) : {
+              style={fanned ? { animationDelay: `${Math.min(i, 10) * 35}ms` } : {
                 top: (peek - i) * 10,
                 transform: `scale(${1 - i * 0.045})`,
                 zIndex: 10 - i,

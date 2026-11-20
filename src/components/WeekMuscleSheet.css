@@ -445,5 +445,7 @@
   cursor: pointer;
 }
 @keyframes wms-fan-in { from { opacity: 0; transform: translateY(-14px) scale(0.97); } }
-.wms-stack.is-folding .wms-ocard { animation: none; }
-.wms-stack.is-settling .wms-ocard { transition: none; animation: none; }
+.wms-stack.is-folding .wms-ocard { animation-name: wms-fan-out; }
+.wms-stack.is-arriving .wms-ocard { transition: none; animation: wms-stack-in 0.3s ease both; }
+@keyframes wms-fan-out { to { opacity: 0; transform: translateY(-14px) scale(0.97); } }
+@keyframes wms-stack-in { from { opacity: 0; } }

@@ -8763,7 +8763,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               </div>
 
               <div className="client-detail-main">
-              {liveFullScreen.active && <WorkoutFullScreenExit onClick={liveFullScreen.exit} />}
               {/* Tab Navigation — status tabs (CoachDetailTabs). Hidden while
                   the Live Log is full-screen. */}
               {!liveFullScreen.active && (() => {
@@ -10676,6 +10675,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           ) : (
                             <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
                           )}
+                          {liveFullScreen.active && <WorkoutFullScreenExit onClick={liveFullScreen.exit} />}
                         </div>
                       </>
                     )}

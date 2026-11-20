@@ -3298,8 +3298,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         </div>
       )}
 
-      {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
-
       {/* Tab Segmented Control — hidden while the workout is full-screen. */}
       {!fullScreen.active && (
       <div className="workouts-segmented-tabs">
@@ -4226,6 +4224,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   </button>
                 </>
               )}
+              {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
             </div>
           </div>
 

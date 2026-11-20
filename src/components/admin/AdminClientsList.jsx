@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getActivityStatus, isNewSignup, compareNewestJoinFirst, formatJoined } from '../../utils/activityStatus';
+import Avatar from '../Avatar';
 import AdminSearchBox from './AdminSearchBox';
 import AdminWhatsappNudge from './AdminWhatsappNudge';
 import { matchesSearch } from '../../utils/matchesSearch';
@@ -189,126 +190,129 @@ export default function AdminClientsList({
               return (
                 <tr key={client.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '64px' }}>
                   <td style={{ padding: '8px 8px', verticalAlign: 'middle' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {client.userName || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 600 }}>No name yet</span>}
-                        {isNewSignup(client.joined_at) && <NewBadge />}
-                        {unreadClientIds.has(client.id) && <span className="unread-dot" aria-label="New update" />}
-                      </div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{client.email}</div>
-                      {client.phone && (
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>📞 {client.phone}</div>
-                      )}
-                      {client.joined_at && (
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          🗓️ Joined {formatJoined(client.joined_at)}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <Avatar email={client.email} name={client.userName} avatarUrl={client.avatarUrl} size={40} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {client.userName || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 600 }}>No name yet</span>}
+                          {isNewSignup(client.joined_at) && <NewBadge />}
+                          {unreadClientIds.has(client.id) && <span className="unread-dot" aria-label="New update" />}
                         </div>
-                      )}
-                      {founderReplies[client.id] && (() => {
-                        const r = founderReplies[client.id];
-                        const unread = unreadReplyIds.has(client.id);
-                        return (
-                          <div
-                            style={{
-                              marginTop: '2px', padding: '8px 10px', borderRadius: '10px', fontSize: '0.78rem',
-                              background: unread ? 'rgba(139, 92, 246, 0.14)' : 'rgba(var(--fg-rgb), 0.04)',
-                              border: `1px solid ${unread ? 'rgba(139, 92, 246, 0.45)' : 'var(--border-color)'}`,
-                              color: 'var(--text-main)', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '6px'
-                            }}
-                          >
-                            <div>
-                              <span style={{ fontWeight: 700, color: 'var(--tint-violet)' }}>
-                                {unread && <span className="unread-dot" style={{ marginRight: '6px' }} aria-label="New reply" />}
-                                💬 {unread ? 'New reply' : 'Replied'}:{' '}
-                              </span>
-                              {r.reply}
-                              {r.at && <span style={{ color: 'var(--text-muted)' }}> · {new Date(r.at).toLocaleDateString()}</span>}
-                            </div>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              {onMessageClient && (
-                                <button
-                                  type="button"
-                                  onClick={() => onMessageClient(client)}
-                                  style={{ background: 'var(--tint-violet, #8b5cf6)', border: 'none', color: '#fff', padding: '4px 12px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-                                >
-                                  Reply
-                                </button>
-                              )}
-                              {unread && onMarkReplyRead && (
-                                <button
-                                  type="button"
-                                  onClick={() => onMarkReplyRead(client.id)}
-                                  style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-                                >
-                                  Mark read
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                        {client.userGoal && (
-                          <span style={{
-                            background: 'rgba(var(--accent-rgb), 0.08)',
-                            border: '1px solid rgba(var(--accent-rgb), 0.15)',
-                            color: 'var(--accent-text)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            fontSize: '0.62rem',
-                            fontWeight: 700
-                          }}>
-                            🎯 {client.userGoal}{client.userSecondaryGoal ? ` + ${client.userSecondaryGoal}` : ''}
-                          </span>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{client.email}</div>
+                        {client.phone && (
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>📞 {client.phone}</div>
                         )}
-                        <span
-                          onClick={() => client.coach_id && coach && onSelectCoachDetails(coach)}
-                          style={{
-                            background: client.coach_id ? 'rgba(59, 130, 246, 0.08)' : 'rgba(148, 163, 184, 0.08)',
-                            border: `1px solid ${client.coach_id ? 'rgba(59, 130, 246, 0.15)' : 'rgba(148, 163, 184, 0.15)'}`,
-                            color: client.coach_id ? 'var(--tint-blue)' : 'var(--text-muted)',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            fontSize: '0.62rem',
-                            fontWeight: 700,
-                            cursor: client.coach_id ? 'pointer' : 'default'
-                          }}
-                        >
-                          👤 {client.coach_id ? `Coach: ${coachName}` : 'Self-Guided'}
-                        </span>
-                        <span
-                          title={client.last_login ? new Date(client.last_login).toLocaleString() : 'No login recorded yet'}
-                          style={{
-                            background: activity.bg,
-                            border: `1px solid ${activity.border}`,
-                            color: activity.color,
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            fontSize: '0.62rem',
-                            fontWeight: 700
-                          }}
-                        >
-                          ⏱ {activity.label}
-                        </span>
-                        {onMessageClient && (
-                          <button
-                            type="button"
-                            onClick={() => onMessageClient(client)}
+                        {client.joined_at && (
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            🗓️ Joined {formatJoined(client.joined_at)}
+                          </div>
+                        )}
+                        {founderReplies[client.id] && (() => {
+                          const r = founderReplies[client.id];
+                          const unread = unreadReplyIds.has(client.id);
+                          return (
+                            <div
+                              style={{
+                                marginTop: '2px', padding: '8px 10px', borderRadius: '10px', fontSize: '0.78rem',
+                                background: unread ? 'rgba(139, 92, 246, 0.14)' : 'rgba(var(--fg-rgb), 0.04)',
+                                border: `1px solid ${unread ? 'rgba(139, 92, 246, 0.45)' : 'var(--border-color)'}`,
+                                color: 'var(--text-main)', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '6px'
+                              }}
+                            >
+                              <div>
+                                <span style={{ fontWeight: 700, color: 'var(--tint-violet)' }}>
+                                  {unread && <span className="unread-dot" style={{ marginRight: '6px' }} aria-label="New reply" />}
+                                  💬 {unread ? 'New reply' : 'Replied'}:{' '}
+                                </span>
+                                {r.reply}
+                                {r.at && <span style={{ color: 'var(--text-muted)' }}> · {new Date(r.at).toLocaleDateString()}</span>}
+                              </div>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {onMessageClient && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onMessageClient(client)}
+                                    style={{ background: 'var(--tint-violet, #8b5cf6)', border: 'none', color: '#fff', padding: '4px 12px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                                  >
+                                    Reply
+                                  </button>
+                                )}
+                                {unread && onMarkReplyRead && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onMarkReplyRead(client.id)}
+                                    style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                                  >
+                                    Mark read
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                          {client.userGoal && (
+                            <span style={{
+                              background: 'rgba(var(--accent-rgb), 0.08)',
+                              border: '1px solid rgba(var(--accent-rgb), 0.15)',
+                              color: 'var(--accent-text)',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              fontWeight: 700
+                            }}>
+                              🎯 {client.userGoal}{client.userSecondaryGoal ? ` + ${client.userSecondaryGoal}` : ''}
+                            </span>
+                          )}
+                          <span
+                            onClick={() => client.coach_id && coach && onSelectCoachDetails(coach)}
                             style={{
-                              background: 'rgba(139, 92, 246, 0.08)',
-                              border: '1px solid rgba(139, 92, 246, 0.2)',
-                              color: 'var(--tint-violet)',
-                              padding: '1px 6px',
+                              background: client.coach_id ? 'rgba(59, 130, 246, 0.08)' : 'rgba(148, 163, 184, 0.08)',
+                              border: `1px solid ${client.coach_id ? 'rgba(59, 130, 246, 0.15)' : 'rgba(148, 163, 184, 0.15)'}`,
+                              color: client.coach_id ? 'var(--tint-blue)' : 'var(--text-muted)',
+                              padding: '1px 5px',
                               borderRadius: '4px',
                               fontSize: '0.62rem',
                               fontWeight: 700,
-                              cursor: 'pointer',
-                              fontFamily: 'inherit'
+                              cursor: client.coach_id ? 'pointer' : 'default'
                             }}
                           >
-                            ✉️ Message
-                          </button>
-                        )}
+                            👤 {client.coach_id ? `Coach: ${coachName}` : 'Self-Guided'}
+                          </span>
+                          <span
+                            title={client.last_login ? new Date(client.last_login).toLocaleString() : 'No login recorded yet'}
+                            style={{
+                              background: activity.bg,
+                              border: `1px solid ${activity.border}`,
+                              color: activity.color,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              fontWeight: 700
+                            }}
+                          >
+                            ⏱ {activity.label}
+                          </span>
+                          {onMessageClient && (
+                            <button
+                              type="button"
+                              onClick={() => onMessageClient(client)}
+                              style={{
+                                background: 'rgba(139, 92, 246, 0.08)',
+                                border: '1px solid rgba(139, 92, 246, 0.2)',
+                                color: 'var(--tint-violet)',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                fontSize: '0.62rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit'
+                              }}
+                            >
+                              ✉️ Message
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>

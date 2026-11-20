@@ -290,7 +290,40 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
       window.requestAnimationFrame(() => cards.forEach(el => { el.style.transition = ''; el.style.opacity = ''; }));
     }, 380 + Math.min(cards.length - 1, 6) * 25);
   };
-  const toggleFan = () => { if (fanned) fold(); else { setFanned(true); setOpenMuscle(null); } };
+  const glide = useRef(false);
+  const toggleFan = () => { if (fanned) fold(); else { glide.current = true; setFanned(true); setOpenMuscle(null); } };
+  // Fanning out: the sheet scrolls down with the cards as they drop in, ending
+  // on the last card and "Stack them". A touch or wheel stops the glide.
+  useEffect(() => {
+    if (!fanned || !glide.current) return undefined;
+    glide.current = false;
+    const sheet = stackRef.current?.closest('.wms-sheet');
+    if (!sheet) return undefined;
+    const from = sheet.scrollTop;
+    const to = sheet.scrollHeight - sheet.clientHeight;
+    if (to - from < 2) return undefined;
+    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { sheet.scrollTop = to; return undefined; }
+    const ms = 420 + Math.min(n, 10) * 35;
+    const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    let raf = 0;
+    const start = performance.now();
+    const stop = () => { window.cancelAnimationFrame(raf); raf = 0; };
+    const step = now => {
+      const t = Math.min(1, (now - start) / ms);
+      sheet.scrollTop = from + (to - from) * ease(t);
+      raf = t < 1 ? window.requestAnimationFrame(step) : 0;
+    };
+    raf = window.requestAnimationFrame(step);
+    const opts = { passive: true };
+    sheet.addEventListener('wheel', stop, opts);
+    sheet.addEventListener('touchstart', stop, opts);
+    return () => {
+      stop();
+      sheet.removeEventListener('wheel', stop, opts);
+      sheet.removeEventListener('touchstart', stop, opts);
+    };
+  }, [fanned, n]);
   const shown = fanned ? others : others.slice(0, 3);
   const stackProps = fanned ? {} : {
     role: 'button',

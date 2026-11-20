@@ -76,6 +76,8 @@ describe('Coach Live Log workout clock', { timeout: 30000 }, () => {
     const saved = databaseService.saveWorkoutDraft.mock.calls.at(-1)[0];
     expect(saved.timerStatus).toBe('running');
     expect(typeof saved.timerStartedAt).toBe('number');
-    expect(saved.exercises.map(ex => ex.name)).toEqual(['Squat']);
+    // Today's warm-up first (utils/dailyWarmup), then the plan.
+    expect(saved.exercises.at(-1).name).toBe('Squat');
+    expect(saved.exercises.slice(0, -1).every(ex => ex.sets.every(s => s.isWarmup))).toBe(true);
   });
 });

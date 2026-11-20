@@ -5754,6 +5754,26 @@ html.keyboard-open .rest-timer-floating-card {
   border-bottom: 1px solid rgba(var(--fg-rgb), 0.06);
   padding-bottom: 12px;
 }
+.warmup-move-why {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(217, 119, 6, 0.12);
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.warmup-move-why svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+[data-theme="light"] .warmup-move-why {
+  color: #92400e;
+}
 .warmup-move-head {
   margin-bottom: 6px;
   font-size: 0.95rem;

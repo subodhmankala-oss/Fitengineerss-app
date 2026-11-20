@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
@@ -260,7 +260,37 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
   const [openMuscle, setOpenMuscle] = useState(null);
   const n = others.length;
   const peek = Math.min(n - 1, 2);
-  const toggleFan = () => { setFanned(f => !f); setOpenMuscle(null); };
+  const stackRef = useRef(null);
+  const folding = useRef(false);
+  // Fold back: slide every card up onto its place in the stack (the cards past
+  // the third fade into it), then switch to the stacked layout.
+  const fold = () => {
+    const box = stackRef.current;
+    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!box || reduce) { setFanned(false); setOpenMuscle(null); return; }
+    if (folding.current) return;
+    folding.current = true;
+    const cards = [...box.children];
+    box.classList.add('is-folding');
+    cards.forEach((el, i) => {
+      const k = Math.min(i, 2);
+      const dy = (peek - k) * 10 - el.offsetTop;
+      const delay = Math.min(cards.length - 1 - i, 6) * 25;
+      el.style.zIndex = String(10 - i);
+      el.style.transition = `transform 0.38s cubic-bezier(0.4, 0, 0.2, 1) ${delay}ms, opacity 0.3s ease ${delay}ms`;
+      el.style.transform = `translateY(${dy}px) scale(${1 - k * 0.045})`;
+      if (i > 2) el.style.opacity = '0';
+    });
+    window.setTimeout(() => {
+      cards.forEach(el => { el.style.transition = 'none'; });
+      box.classList.remove('is-folding');
+      folding.current = false;
+      setFanned(false);
+      setOpenMuscle(null);
+      window.requestAnimationFrame(() => cards.forEach(el => { el.style.transition = ''; el.style.opacity = ''; }));
+    }, 380 + Math.min(cards.length - 1, 6) * 25);
+  };
+  const toggleFan = () => { if (fanned) fold(); else { setFanned(true); setOpenMuscle(null); } };
   const shown = fanned ? others : others.slice(0, 3);
   const stackProps = fanned ? {} : {
     role: 'button',
@@ -272,7 +302,7 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
   return (
     <section className="wms-others" aria-label="Other muscles this week">
       <div className="wms-divider"><span>{n} more muscle{n === 1 ? '' : 's'} this week</span></div>
-      <div className={`wms-stack${fanned ? ' is-fanned' : ''}`}
+      <div ref={stackRef} className={`wms-stack${fanned ? ' is-fanned' : ''}`}
         style={fanned ? undefined : { height: 78 + peek * 10 }} {...stackProps}>
         {shown.map(({ stat, parts, next, last }, i) => {
           const isOpen = fanned && openMuscle === stat.muscle;

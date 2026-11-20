@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, cleanup, fireEvent, screen } from '@testing-library/react';
+import { render, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import WeekMuscleSheet from './WeekMuscleSheet';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import { regionBand } from '../utils/muscleRegions';
@@ -174,7 +174,7 @@ describe('WeekMuscleSheet', () => {
       expect(show([], []).querySelector('.wms-now')).toBeNull();
     });
 
-    it('stacks every muscle this workout skipped, worst first, and fans out on tap', () => {
+    it('stacks every muscle this workout skipped, worst first, and fans out on tap', async () => {
       cleanup();
       const sheet = show([squat('2026-11-16'), squat('2026-11-16')], [bench(DATE)]);
       const names = () => [...sheet.querySelectorAll('.wms-ocard strong')].map(n => n.textContent);
@@ -191,7 +191,7 @@ describe('WeekMuscleSheet', () => {
       expect(quads.querySelector('.wms-odetail')).not.toBeNull();
       expect(quads.querySelector('.wms-chip')).not.toBeNull();
       fireEvent.click(screen.getByRole('button', { name: /Stack them/ }));
-      expect(names()).toHaveLength(3);
+      await waitFor(() => expect(names()).toHaveLength(3)); // after the fold animation
     });
   });
 });

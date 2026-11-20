@@ -53,6 +53,9 @@ const PLAN = { id: 'p1', planName: 'Leg Day', exercises: [
   { name: 'Calf Raise', sets: [set] },
 ] };
 
+// Today's daily warm-up (utils/dailyWarmup) opens every loaded plan.
+const isWarm = ex => ex.sets.every(s => s.isWarmup || s.setType === 'warmup');
+
 const loadPlan = async () => {
   const planSelect = await screen.findByLabelText('Load a template', {}, SLOW);
   fireEvent.change(planSelect, { target: { value: PLAN.id } });
@@ -95,8 +98,9 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     const draft = databaseService.handOverLiveSession.mock.calls[0][0];
     expect(draft.userId).toBe(CLIENT.id);
     expect(draft.planName).toBe('Leg Day');
-    expect(draft.exercises.map(ex => ex.name)).toEqual(['Squat', 'Leg Curl', 'Calf Raise']);
-    expect(draft.exercises[0].sets[0].isCompleted).toBe(true);
+    const work = draft.exercises.filter(ex => !isWarm(ex));
+    expect(work.map(ex => ex.name)).toEqual(['Squat', 'Leg Curl', 'Calf Raise']);
+    expect(work[0].sets[0].isCompleted).toBe(true);
 
     await waitFor(() => expect(databaseService.deleteWorkoutDraft).toHaveBeenCalledWith(CLIENT.id, 'coach'));
     expect(notifyEvent).toHaveBeenCalledWith('session_handed_over', { clientUserId: CLIENT.id, planName: 'Leg Day' });
@@ -117,7 +121,7 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     expect(screen.getAllByTitle('Mark complete').length).toBeGreaterThan(0);
   });
 
-  it('puts warm-up moves at the top of the handed-over session', async () => {
+  it("replaces the plan's own warm-up with today's, at the top of the handed-over session", async () => {
     databaseService.handOverLiveSession.mockResolvedValue('ok');
     databaseService.getWorkoutPlansForUser.mockResolvedValue([{ id: 'p2', planName: 'Mixed', exercises: [
       { name: 'Squat', sets: [set] },
@@ -133,6 +137,10 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
 
     await waitFor(() => expect(databaseService.handOverLiveSession).toHaveBeenCalled());
     const names = databaseService.handOverLiveSession.mock.calls[0][0].exercises.map(ex => ex.name);
-    expect(names).toEqual(['Arm Circle', 'Squat', 'Leg Curl']);
+    const exercises = databaseService.handOverLiveSession.mock.calls[0][0].exercises;
+    const warm = exercises.filter(isWarm);
+    expect(warm.length).toBeGreaterThan(0);
+    expect(names.slice(0, warm.length)).toEqual(warm.map(ex => ex.name));
+    expect(names.slice(warm.length)).toEqual(['Squat', 'Leg Curl']);
   });
 });

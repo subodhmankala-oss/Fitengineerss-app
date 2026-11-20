@@ -14,7 +14,10 @@ import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
 //
 // Rep moves get a reps box; cardio and timed moves show their target time
 // (ticking logs it, same as ticking a full card without running the timer).
-export default function WarmupMoveRow({ ex, isFirst, isLast, onShowFormGuide, onRepsChange, onTick, menu }) {
+//
+// `why` (a coach plan's daily warm-up, see utils/dailyWarmup) is one line
+// under the last row saying why these moves fit today.
+export default function WarmupMoveRow({ ex, isFirst, isLast, why, onShowFormGuide, onRepsChange, onTick, menu }) {
   const timeBased = isCardioExercise(ex.name) || isTimedExercise(ex.name);
   const done = ex.sets.length > 0 && ex.sets.every(s => s.isCompleted);
   return (
@@ -79,6 +82,14 @@ export default function WarmupMoveRow({ ex, isFirst, isLast, onShowFormGuide, on
         </div>
         {menu}
       </div>
+      {isLast && why && (
+        <p className="warmup-move-why">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" />
+          </svg>
+          <span>{why}</span>
+        </p>
+      )}
     </div>
   );
 }

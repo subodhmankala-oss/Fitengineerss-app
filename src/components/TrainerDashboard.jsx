@@ -80,6 +80,7 @@ import { useSetNumberPad } from '../utils/setInputUtils';
 import { addExerciseInOrder, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { CORE_PPL_TEMPLATES } from '../utils/weekTemplates';
 import { warmupsFirst } from '../utils/warmupsFirst';
+import { buildDailyWarmup, getWarmupWhy, withoutWarmups } from '../utils/dailyWarmup';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, leftoversForWorkout, getMissedSavedParts } from '../utils/workoutLeftovers';
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
@@ -5753,7 +5754,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     // applyPrevWeights), not whatever the saved plan holds —
     // or, if their history is still loading, as soon as it
     // lands (applyLivePrev).
-    setLiveExercises(applyLivePrev(applyPrevWeights(plan.exercises).map(ex => ({
+    // Today's warm-up first, the same one the client's logger picks (see
+    // utils/dailyWarmup) — replacing any warm-up moves the plan carries.
+    const workExercises = withoutWarmups(plan.exercises);
+    setLiveExercises([...buildDailyWarmup({ planName: plan.planName, exercises: workExercises }), ...applyLivePrev(applyPrevWeights(workExercises).map(ex => ({
       name: ex.name,
       ...exerciseIdField(ex.exerciseId),
       ...(ex.note ? { note: ex.note } : {}),
@@ -5776,7 +5780,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         : isTimedExercise(ex.name)
         ? { time: '', targetTime: s.time || '', isCompleted: false }
         : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false, ...(s.bodyweightMode !== undefined ? { bodyweightMode: s.bodyweightMode } : {}) })
-    }))));
+    })))]);
     // liveSetTimers is keyed purely by "exIdx,setIdx" (see
     // getSetTimerKey), not by exercise identity — loading a
     // different plan into the same session left whatever
@@ -10714,6 +10718,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           ex={ex}
                           isFirst={!isWarmupCardExercise(liveExercises[exIdx - 1])}
                           isLast={!isWarmupCardExercise(liveExercises[exIdx + 1])}
+                          why={getWarmupWhy(liveExercises)}
                           onShowFormGuide={() => handleShowFormGuide(ex.name, ex.exerciseId)}
                           onRepsChange={(setIdx, v) => handleLiveSetChange(exIdx, setIdx, 'reps', v)}
                           onTick={(setIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[setIdx].isCompleted

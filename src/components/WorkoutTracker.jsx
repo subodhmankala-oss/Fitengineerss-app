@@ -57,6 +57,7 @@ import { levelFromHistory } from '../utils/clientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { buildDailyWarmup, getWarmupWhy, withoutWarmups } from '../utils/dailyWarmup';
 import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, leftoversForWorkout } from '../utils/workoutLeftovers';
 import useWorkoutLeftovers from '../utils/useWorkoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
@@ -2871,9 +2872,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     }
     setLogClient(selectedClient);
     setLogDate(getLocalDateString());
+    // Today's warm-up, different every day (see utils/dailyWarmup) — it
+    // replaces any warm-up moves the plan itself carries.
+    const workExercises = withoutWarmups(planExercises);
     setLogExercises([
-      ...getDefaultWarmupExercises(),
-      ...planExercises.map(ex => ({
+      ...buildDailyWarmup({ planName: plan.planName, exercises: workExercises }),
+      ...workExercises.map(ex => ({
         name: ex.name,
         ...exerciseIdField(ex.exerciseId),
         ...(ex.note ? { note: ex.note } : {}),
@@ -4263,6 +4267,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       ex={ex}
                       isFirst={!isWarmupCardExercise(logExercises[exIdx - 1])}
                       isLast={!isWarmupCardExercise(logExercises[exIdx + 1])}
+                      why={getWarmupWhy(logExercises)}
                       onShowFormGuide={showFormGuide}
                       onRepsChange={(sIdx, v) => handleSetChange(exIdx, sIdx, 'reps', v)}
                       onTick={(sIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[sIdx].isCompleted

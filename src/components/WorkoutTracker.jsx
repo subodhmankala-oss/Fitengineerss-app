@@ -1297,7 +1297,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // or discarded, when the saved rows take over.
   const liveTickedRows = useMemo(() => tickedSetRows(logExercises, logDate), [logExercises, logDate]);
   // Timer bar spans the screen edge to edge, past the form's padding.
-  const timerBarRef = useFullBleed();
+  const timerBarRef = useFullBleed({ trackStuck: true });
   useEffect(() => {
     const userId = ownUserId || localStorage.getItem('userId');
     publishLiveRows(userId, isLoggingWorkout ? liveTickedRows : []);

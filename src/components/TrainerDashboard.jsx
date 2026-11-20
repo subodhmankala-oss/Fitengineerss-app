@@ -2008,7 +2008,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // client's own logger — see utils/liveSessionStore.js).
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
   // Live Log timer bar spans the screen edge to edge.
-  const liveTimerBarRef = useFullBleed();
+  const liveTimerBarRef = useFullBleed({ trackStuck: true });
   // Phones: the client header runs edge to edge and joins the tabs band
   // below it into one panel (see .client-detail-header.is-full-bleed).
   const clientHeaderRef = useFullBleed();

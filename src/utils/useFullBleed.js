@@ -18,11 +18,15 @@ const isScroller = (el) => {
  * whole page, so stretching would run the bar under side columns (coach
  * Manage Client view, reported 2026-11-15) — there it stays a normal card.
  *
+ * With `{ trackStuck: true }` it also toggles `is-stuck` while the element
+ * (position: sticky) is pinned at the top of its scroller — the timer bars
+ * show their blue edge + shadow only then.
+ *
  * Returns a callback ref (the bar may mount later than the screen does).
  */
 export const FULL_BLEED_MAX_WIDTH = 768;
 
-export default function useFullBleed() {
+export default function useFullBleed({ trackStuck = false } = {}) {
   // The node lives in a ref (it's written to below); `mounted` re-runs the
   // effect when the bar appears or is swapped for a new node.
   const nodeRef = useRef(null);
@@ -37,6 +41,24 @@ export default function useFullBleed() {
     let scroller = parent;
     while (scroller && scroller !== document.body && !isScroller(scroller)) scroller = scroller.parentElement;
     if (scroller === document.body) scroller = null;
+
+    // Pinned = scrolled, and sitting at the scroller's top edge (plus its
+    // sticky `top`). At rest in its normal spot it isn't stuck, even when
+    // that spot is the very top (scroll position 0).
+    let stuckFrame = 0;
+    const checkStuck = () => {
+      stuckFrame = 0;
+      const scrolled = scroller ? scroller.scrollTop : window.scrollY;
+      const edge = (scroller ? scroller.getBoundingClientRect().top + scroller.clientTop : 0)
+        + (parseFloat(getComputedStyle(el).top) || 0);
+      el.classList.toggle('is-stuck', scrolled > 0 && el.getBoundingClientRect().top <= edge + 1);
+    };
+    const onScroll = () => { if (!stuckFrame) stuckFrame = requestAnimationFrame(checkStuck); };
+    const scrollTarget = scroller || window;
+    if (trackStuck) {
+      checkStuck();
+      scrollTarget.addEventListener('scroll', onScroll, { passive: true });
+    }
 
     const reset = () => {
       el.classList.remove('is-full-bleed');
@@ -91,9 +113,14 @@ export default function useFullBleed() {
       window.removeEventListener('resize', measure);
       document.removeEventListener('animationend', measure, true);
       document.removeEventListener('animationcancel', measure, true);
+      if (trackStuck) {
+        scrollTarget.removeEventListener('scroll', onScroll);
+        if (stuckFrame) cancelAnimationFrame(stuckFrame);
+        el.classList.remove('is-stuck');
+      }
       reset();
     };
-  }, [mounted]);
+  }, [mounted, trackStuck]);
 
   return setRef;
 }

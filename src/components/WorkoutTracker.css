@@ -2013,16 +2013,23 @@
   flex: 0 0 auto;
 }
 
-/* Both timer bars stay pinned while the set rows scroll under them; a firm
-   bottom edge and a soft shadow below keep the card from dissolving into
-   the rows (a 1px light-grey line on white wasn't enough). */
-/* `div.` so it outranks each bar's own `border` shorthand whatever order
-   the stylesheets load in. */
+/* Both timer bars stay pinned while the set rows scroll under them. Only
+   while pinned (`is-stuck`, from useFullBleed's trackStuck) do they get a
+   2px logo-blue bottom edge and a soft shadow, so the card stands clear of
+   the rows sliding underneath; at rest they keep their normal border.
+   `div.` so it outranks each bar's own border rules whatever order the
+   stylesheets load in. */
 div.hevy-stopwatch-banner,
 div.live-timer-bar {
-  /* Logo blue, 2px — the card's edge reads at a glance. */
-  border-bottom: 2px solid var(--primary-accent);
-  box-shadow: 0 8px 14px -10px rgba(0, 0, 0, 0.28);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+div.hevy-stopwatch-banner.is-stuck,
+div.live-timer-bar.is-stuck {
+  /* Drawn as an inset shadow, not a thicker border, so the card's height
+     (and the rows under it) don't jump by a pixel as it pins. */
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -2px 0 var(--primary-accent), 0 8px 14px -10px rgba(0, 0, 0, 0.28);
 }
 
 /* Order in the bar: numbers on the left, every control (heat map,

@@ -56,8 +56,8 @@ import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
 import { levelFromHistory } from '../utils/clientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
-import useFocusExercise, { isFocusActive, focusSummary } from '../hooks/useFocusExercise';
-import FocusShowAllButton from './FocusShowAllButton';
+import useWorkoutFullScreen from '../hooks/useWorkoutFullScreen';
+import WorkoutFullScreenExit from './WorkoutFullScreenExit';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { buildDailyWarmup, getWarmupWhy, withoutWarmups } from '../utils/dailyWarmup';
 import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, leftoversForWorkout } from '../utils/workoutLeftovers';
@@ -1426,10 +1426,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     getItemKey: getLogItemKey,
   } = useReorderableList(logExercises, handleLogExercisesReordered);
 
-  // Ticking a set puts that exercise alone on screen (see useFocusExercise).
-  const logFocus = useFocusExercise();
-  const logKeys = logExercises.map((_, i) => getLogItemKey(i));
-  const logFocusOn = isFocusActive(logFocus, logKeys, isLogReordering);
+  // Ticking a set hides the tabs + bottom navbar (see useWorkoutFullScreen).
+  const fullScreen = useWorkoutFullScreen(activeView === 'log' && isLoggingWorkout);
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
     // Real click, right here — unlocks audio for the rest timer's alarm,
@@ -3300,9 +3298,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         </div>
       )}
 
-      {/* Tab Segmented Control — hidden while focus mode keeps only the
-          ticked exercise and the timer bar on screen. */}
-      {!(activeView === 'log' && isLoggingWorkout && logFocusOn) && (
+      {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
+
+      {/* Tab Segmented Control — hidden while the workout is full-screen. */}
+      {!fullScreen.active && (
       <div className="workouts-segmented-tabs">
         <button 
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
@@ -4053,7 +4052,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       })()}
 
       {activeView === 'log' && isLoggingWorkout && (
-        <form onSubmit={handleFinishWorkoutPress} className={`coach-log-form-wrapper glass-panel hevy-logger-wrapper ${logFocusOn ? 'is-focusing' : ''}`}>
+        <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
           <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} onRemoveItem={handleRemoveLeftover} />
           <div className="form-header">
             <div className="form-header-title-row">
@@ -4231,11 +4230,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           </div>
 
           <div className="exercises-form-section">
-            {!logFocusOn && (
             <div className="section-title-row" style={{ position: 'relative' }}>
               <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>
             </div>
-            )}
             <SetLiftOverlay undo={setLiftDrop.undo} onUndo={setLiftDrop.runUndo} />
 
             <div className="exercises-input-list">
@@ -4268,9 +4265,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                     }}
                   />
                 );
-                const rowKey = logKeys[exIdx];
                 return (
-                  <div key={rowKey} ref={enterRef(ex.name)} data-focus-key={rowKey} className={`ex-reorder-row ${logFocusOn && rowKey !== logFocus.focusKey ? 'focus-hidden' : ''}`} style={getLogRowStyle(exIdx)}>
+                  <div key={getLogItemKey(exIdx)} ref={enterRef(ex.name)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
                   <div className={`ex-reorder-morph ${isLogReordering ? 'is-reordering' : ''}`}>
                   <div className="ex-reorder-full">
                   {/* The warm-up block's moves render as compact rows that
@@ -4837,7 +4833,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                                   type="button"
                                   className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
                                   onClick={() => {
-                                    logFocus.onSetTicked(rowKey, !set.isCompleted);
+                                    fullScreen.onSetTicked(!set.isCompleted);
                                     return (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleCardioSetComplete(exIdx, sIdx) : handleSetStopwatchComplete(exIdx, sIdx)) : handleToggleSetCompleted(exIdx, sIdx);
                                   }}
                                   title={(isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? "Save time and complete" : "Toggle Complete"}
@@ -4895,14 +4891,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               })}
             </div>
 
-            {logFocusOn && (
-              <FocusShowAllButton
-                {...focusSummary(logExercises, logKeys.indexOf(logFocus.focusKey))}
-                onClick={logFocus.expand}
-              />
-            )}
-
-            {!logFocusOn && (<>
             {/* What's behind this week, right where the next exercise gets
                 picked — chips add straight into this workout. */}
             <MuscleGapHint
@@ -4959,7 +4947,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 Save Workout Session
               </button>
             </div>
-            </>)}
 
             {/* Reserve room to scroll the list fully clear of the floating
                 rest timer (portaled to .app-container — see its own comment —

@@ -59,10 +59,7 @@ const draft = () => ({
   pauseIntervals: []
 });
 
-const rowOf = (weight) => screen.getByRole('button', { name: weight }).closest('.ex-reorder-row');
-const tickIn = (row, i = 0) => fireEvent.click(row.querySelectorAll('.btn-hevy-check')[i]);
-
-describe('Coach Live Log focus mode', { timeout: 30000 }, () => {
+describe('Coach Live Log full-screen after a tick', { timeout: 30000 }, () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem('userId', 'coach1');
@@ -78,20 +75,17 @@ describe('Coach Live Log focus mode', { timeout: 30000 }, () => {
     localStorage.clear();
   });
 
-  it('ticking a set leaves only that exercise until the chevron is tapped', async () => {
+  it('ticking a set hides the client tabs until the down arrow is tapped', async () => {
     renderLiveLog();
     expect(await screen.findByRole('button', { name: '40' }, SLOW)).toBeTruthy();
-    const bench = rowOf('40');
-    tickIn(bench);
-    await waitFor(() => expect(hasClass(rowOf('60'), 'focus-hidden')).toBe(true));
-    expect(hasClass(bench, 'focus-hidden')).toBe(false);
-    expect(document.querySelector('.live-workout-config-panel').style.display).toBe('none');
-    expect(document.querySelector('.live-timer-bar')).toBeTruthy();
-    expect(bench.querySelectorAll('.hevy-set-row').length).toBe(2);
-    const chevron = screen.getByTestId('focus-show-all');
-    expect(chevron.textContent).toContain('Barbell Squat');
-    fireEvent.click(chevron);
-    expect(hasClass(rowOf('60'), 'focus-hidden')).toBe(false);
-    expect(screen.queryByTestId('focus-show-all')).toBeNull();
+    const tabs = () => document.querySelector('.coach-tabs');
+    expect(tabs()).toBeTruthy();
+    fireEvent.click(document.querySelectorAll('.btn-hevy-check')[0]);
+    await waitFor(() => expect(tabs()).toBeNull());
+    expect(screen.getByRole('button', { name: '60' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Save Workout Session/ })).toBeTruthy();
+    fireEvent.click(screen.getByTestId('full-screen-exit'));
+    expect(tabs()).toBeTruthy();
+    expect(hasClass(document.body, 'workout-full-screen')).toBe(false);
   });
 });

@@ -92,8 +92,6 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     expect(screen.queryByText(/Need to leave early/)).toBeNull(); // no set ticked yet
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
-    // Ticking focuses that exercise; the chevron brings the rest back.
-    fireEvent.click(screen.getByTestId('focus-show-all'));
     await handOver();
 
     await waitFor(() => expect(databaseService.handOverLiveSession).toHaveBeenCalled());
@@ -115,8 +113,6 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     renderLiveLog();
     await loadPlan();
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
-    // Ticking focuses that exercise; the chevron brings the rest back.
-    fireEvent.click(screen.getByTestId('focus-show-all'));
     await handOver();
 
     expect(await screen.findByText(/Asha already has a workout started/)).toBeTruthy();
@@ -137,8 +133,6 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     fireEvent.change(planSelect, { target: { value: 'p2' } });
     await waitFor(() => expect(screen.getAllByTitle('Mark complete').length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
-    // Ticking focuses that exercise; the chevron brings the rest back.
-    fireEvent.click(screen.getByTestId('focus-show-all'));
     await handOver();
 
     await waitFor(() => expect(databaseService.handOverLiveSession).toHaveBeenCalled());

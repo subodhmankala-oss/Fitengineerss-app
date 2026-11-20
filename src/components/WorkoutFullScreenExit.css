@@ -1,0 +1,53 @@
+/* Workout full-screen (useWorkoutFullScreen): the app's bottom navbar steps
+   aside while the body carries this class. */
+body.workout-full-screen .bottom-nav {
+  display: none;
+}
+
+/* Floating down arrow — tint + ring, bottom-right where the navbar was, so
+   it never covers a set row's inputs in the middle of the screen. */
+.workout-full-screen-exit {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--accent-rgb), 0.45);
+  background: rgba(var(--accent-rgb), 0.12);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--primary-accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+  animation: workout-full-screen-exit-in 240ms ease-out both;
+}
+
+.workout-full-screen-exit:active {
+  transform: scale(0.94);
+}
+
+.workout-full-screen-exit svg {
+  animation: workout-full-screen-nudge 1.8s ease-in-out infinite;
+}
+
+@keyframes workout-full-screen-exit-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes workout-full-screen-nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workout-full-screen-exit,
+  .workout-full-screen-exit svg {
+    animation: none;
+  }
+}

@@ -39,7 +39,6 @@ const today = () => {
 const draft = () => ({
   isLoggingWorkout: true,
   logExercises: [
-    { name: 'Arm Circle', sets: [{ reps: '10', weight: '0', isCompleted: false, isWarmup: true, setType: 'warmup' }] },
     { name: 'Bench Press', sets: [{ reps: 10, weight: '40', isCompleted: false }, { reps: 9, weight: '42.5', isCompleted: false }] },
     { name: 'Barbell Squat', sets: [{ reps: 8, weight: '60', isCompleted: false }] }
   ],
@@ -54,9 +53,7 @@ const draft = () => ({
   savedAt: Date.now()
 });
 
-const rowOf = (name) => screen.getAllByText(name)[0].closest('.ex-reorder-row');
-
-describe('WorkoutTracker focus mode', () => {
+describe('WorkoutTracker full-screen after a tick', () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem('userName', 'TestClient');
@@ -66,42 +63,32 @@ describe('WorkoutTracker focus mode', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    document.body.classList.remove('workout-full-screen');
   });
 
-  it('ticking a set leaves only that exercise on screen until the chevron is tapped', async () => {
+  it('ticking a set hides the tabs and navbar, keeps the whole workout, and the down arrow brings them back', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft()));
     renderWorkoutTracker();
     expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
-    expect(screen.queryByTestId('focus-show-all')).toBeNull();
-
-    const benchRow = rowOf('Bench Press');
-    fireEvent.click(benchRow.querySelectorAll('.btn-hevy-check')[0]);
-
-    expect(hasClass(rowOf('Arm Circle'), 'focus-hidden')).toBe(true);
-    expect(hasClass(rowOf('Barbell Squat'), 'focus-hidden')).toBe(true);
-    expect(hasClass(benchRow, 'focus-hidden')).toBe(false);
-    expect(screen.queryByText('Save Workout Session')).toBeNull();
-    // Only the timer bar and this card: tabs and the workout header go too…
-    expect(screen.queryByText('📝 Log Sets')).toBeNull();
-    expect(hasClass(document.querySelector('.hevy-logger-wrapper'), 'is-focusing')).toBe(true);
-    expect(document.querySelector('.hevy-stopwatch-banner')).toBeTruthy();
-    // …but every set of the focused exercise stays, ticked or not.
-    expect(benchRow.querySelectorAll('.hevy-set-row').length).toBe(2);
-    const chevron = screen.getByTestId('focus-show-all');
-    expect(chevron.textContent).toContain('Barbell Squat');
-
-    // A second tick keeps the focus.
-    fireEvent.click(benchRow.querySelectorAll('.btn-hevy-check')[1]);
-    expect(hasClass(rowOf('Barbell Squat'), 'focus-hidden')).toBe(true);
-
-    fireEvent.click(chevron);
-    expect(hasClass(rowOf('Barbell Squat'), 'focus-hidden')).toBe(false);
-    expect(screen.getByText('Save Workout Session')).toBeTruthy();
     expect(screen.getByText('📝 Log Sets')).toBeTruthy();
+    expect(screen.queryByTestId('full-screen-exit')).toBeNull();
 
-    // Ticking the next exercise focuses that one.
-    fireEvent.click(rowOf('Barbell Squat').querySelector('.btn-hevy-check'));
-    expect(hasClass(rowOf('Bench Press'), 'focus-hidden')).toBe(true);
-    expect(hasClass(rowOf('Barbell Squat'), 'focus-hidden')).toBe(false);
+    fireEvent.click(document.querySelectorAll('.btn-hevy-check')[0]);
+
+    expect(screen.queryByText('📝 Log Sets')).toBeNull();
+    expect(hasClass(document.body, 'workout-full-screen')).toBe(true);
+    // Everything else stays: both exercises, every set, Save.
+    expect(screen.getAllByText('Barbell Squat').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.hevy-set-row').length).toBe(3);
+    expect(screen.getByText('Save Workout Session')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('full-screen-exit'));
+    expect(screen.getByText('📝 Log Sets')).toBeTruthy();
+    expect(hasClass(document.body, 'workout-full-screen')).toBe(false);
+    expect(screen.queryByTestId('full-screen-exit')).toBeNull();
+
+    // The next tick goes full-screen again.
+    fireEvent.click(document.querySelectorAll('.btn-hevy-check')[2]);
+    expect(screen.queryByText('📝 Log Sets')).toBeNull();
   });
 });

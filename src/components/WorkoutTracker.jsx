@@ -3300,7 +3300,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         </div>
       )}
 
-      {/* Tab Segmented Control */}
+      {/* Tab Segmented Control — hidden while focus mode keeps only the
+          ticked exercise and the timer bar on screen. */}
+      {!(activeView === 'log' && isLoggingWorkout && logFocusOn) && (
       <div className="workouts-segmented-tabs">
         <button 
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
@@ -3321,6 +3323,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           🏋️ Library
         </button>
       </div>
+      )}
 
       {activeView === 'analytics' && (
         <div className="analytics-view-wrapper">
@@ -4050,7 +4053,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       })()}
 
       {activeView === 'log' && isLoggingWorkout && (
-        <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
+        <form onSubmit={handleFinishWorkoutPress} className={`coach-log-form-wrapper glass-panel hevy-logger-wrapper ${logFocusOn ? 'is-focusing' : ''}`}>
           <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} onRemoveItem={handleRemoveLeftover} />
           <div className="form-header">
             <div className="form-header-title-row">

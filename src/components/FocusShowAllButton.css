@@ -77,3 +77,10 @@
     animation: none;
   }
 }
+
+/* Focus mode keeps only the timer bar and the ticked exercise: the workout
+   header (title, date, plan picker) and the carried-over card step aside. */
+.hevy-logger-wrapper.is-focusing > .form-header,
+.hevy-logger-wrapper.is-focusing > .leftover-card {
+  display: none;
+}

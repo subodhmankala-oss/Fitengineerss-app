@@ -85,6 +85,9 @@ describe('Coach Live Log focus mode', { timeout: 30000 }, () => {
     tickIn(bench);
     await waitFor(() => expect(hasClass(rowOf('60'), 'focus-hidden')).toBe(true));
     expect(hasClass(bench, 'focus-hidden')).toBe(false);
+    expect(document.querySelector('.live-workout-config-panel').style.display).toBe('none');
+    expect(document.querySelector('.live-timer-bar')).toBeTruthy();
+    expect(bench.querySelectorAll('.hevy-set-row').length).toBe(2);
     const chevron = screen.getByTestId('focus-show-all');
     expect(chevron.textContent).toContain('Barbell Squat');
     fireEvent.click(chevron);

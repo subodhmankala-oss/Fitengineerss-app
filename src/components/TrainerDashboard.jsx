@@ -8765,8 +8765,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               </div>
 
               <div className="client-detail-main">
-              {/* Tab Navigation — status tabs (CoachDetailTabs) */}
-              {(() => {
+              {/* Tab Navigation — status tabs (CoachDetailTabs). Hidden while
+                  the Live Log's focus mode keeps only the ticked exercise. */}
+              {!(detailTab === 'livelog' && liveFocusOn) && (() => {
                 const ms = clientMeasurements;
                 const statuses = tabStatuses({
                   coachPlanCount: clientPlans.filter(p => p.createdBy === 'coach').length,
@@ -10567,7 +10568,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   {/* Session card, top: who this is for and which day. The
                       calendar button is a real date input laid invisibly over
                       the icon, so tapping it opens the phone's date picker. */}
-                  <div className="live-session-who">
+                  <div className="live-session-who" style={liveFocusOn ? { display: 'none' } : undefined}>
                     <Avatar
                       email={selectedClient?.email}
                       name={selectedClient?.userName || 'Client'}
@@ -10596,7 +10597,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
 
                   {/* Plan/Routine configuration — always visible, no toggle */}
-                  <div className="live-workout-config-panel">
+                  <div className="live-workout-config-panel" style={liveFocusOn ? { display: 'none' } : undefined}>
                       <div className="live-plan-name-field">
                         <input
                           type="text"
@@ -10688,7 +10689,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   {/* Exercise List — edge-to-edge: bleeds past the dashboard's
                       16px outer padding so the table reaches the true screen
                       edges, matching the app's standard flush logging layout. */}
-                  <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} onRemoveItem={handleRemoveLiveLeftover} />
+                  {!liveFocusOn && <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} onRemoveItem={handleRemoveLiveLeftover} />}
 
                   <SetLiftOverlay undo={liveLiftDrop.undo} onUndo={liveLiftDrop.runUndo} />
                   <div className="live-logger-exercise-list">

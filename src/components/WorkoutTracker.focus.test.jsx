@@ -81,6 +81,12 @@ describe('WorkoutTracker focus mode', () => {
     expect(hasClass(rowOf('Barbell Squat'), 'focus-hidden')).toBe(true);
     expect(hasClass(benchRow, 'focus-hidden')).toBe(false);
     expect(screen.queryByText('Save Workout Session')).toBeNull();
+    // Only the timer bar and this card: tabs and the workout header go too…
+    expect(screen.queryByText('📝 Log Sets')).toBeNull();
+    expect(hasClass(document.querySelector('.hevy-logger-wrapper'), 'is-focusing')).toBe(true);
+    expect(document.querySelector('.hevy-stopwatch-banner')).toBeTruthy();
+    // …but every set of the focused exercise stays, ticked or not.
+    expect(benchRow.querySelectorAll('.hevy-set-row').length).toBe(2);
     const chevron = screen.getByTestId('focus-show-all');
     expect(chevron.textContent).toContain('Barbell Squat');
 
@@ -91,6 +97,7 @@ describe('WorkoutTracker focus mode', () => {
     fireEvent.click(chevron);
     expect(hasClass(rowOf('Barbell Squat'), 'focus-hidden')).toBe(false);
     expect(screen.getByText('Save Workout Session')).toBeTruthy();
+    expect(screen.getByText('📝 Log Sets')).toBeTruthy();
 
     // Ticking the next exercise focuses that one.
     fireEvent.click(rowOf('Barbell Squat').querySelector('.btn-hevy-check'));

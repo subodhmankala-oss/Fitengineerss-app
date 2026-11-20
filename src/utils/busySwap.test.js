@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { busyAlternatives, isStationExercise, nextBusyOption } from './busySwap';
+import { busyAlternatives, busyPrompt, isStationExercise, nextBusyOption } from './busySwap';
 
 const ID = (n) => `00000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`;
 const catalog = [
@@ -76,5 +76,29 @@ describe('Busy? swap chain', () => {
   it('no Busy? on a card swapped from the menu, or once a set is ticked', () => {
     expect(nextBusyOption(card('Dumbbell Row', { swappedFrom: 'Lat Pull Down' }), catalog)).toBeNull();
     expect(nextBusyOption({ name: 'Lat Pull Down', sets: [{ isCompleted: true }] }, catalog)).toBeNull();
+  });
+});
+
+describe('Busy? prompt names what the exercise needs', () => {
+  it.each([
+    ['Lat Pull Down', 'Machine busy?'],
+    ['Cable Row', 'Cable busy?'],
+    ['Chest Press (Machine)', 'Machine busy?'],
+    ['Bench Press (Dumbbell)', 'Dumbbells taken?'],
+    ['Decline Bench Press', 'Bench taken?'],
+    ['Incline Bench Press', 'Bench taken?'],
+    ['Back Squat', 'Rack taken?'],
+    ['Pull-up', 'Bar taken?'],
+    ['Bird dog', 'Mat taken?'],
+    ['Plank', 'Mat taken?'],
+    ['Triceps Pushdown', 'Cable busy?'],
+    ['Face Pull', 'Cable busy?'],
+    ['Farmer Walk', 'Dumbbells taken?'],
+    ['Lateral Raise', 'Dumbbells taken?'],
+    ['Cycling', 'Bike busy?'],
+    ['Sit Up', 'Mat taken?'],
+    ['Jumping Jack', 'Spot taken?']
+  ])('%s → %s', (name, want) => {
+    expect(busyPrompt(name)).toBe(want);
   });
 });

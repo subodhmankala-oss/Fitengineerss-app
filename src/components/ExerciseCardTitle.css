@@ -36,65 +36,80 @@
   justify-content: center;
 }
 .ect-text { min-width: 0; flex: 1; }
-.ect-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.ect-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .ect .ect-name {
   margin: 0;
   font-weight: 800;
   font-size: 1.05rem;
   color: var(--text-main);
   line-height: 1.25;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* The one muscle it mainly trains — plain text beside the name. */
+/* The body part it mainly trains, in everyday words — beside the name and
+   never cut: a long name gets "…" instead. */
 .ect-muscle {
+  flex-shrink: 0;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-muted, #94a3b8);
   white-space: nowrap;
 }
 
-/* The coach's one-line note for this exercise (set in the plan editor). */
-.ect-note {
+
+/* "Cable busy?  [⇄ Dumbbell Row 82%]" — one line under the name. The chip
+   is the swap: soft teal tint + hairline ring, never a solid fill. */
+.ect-busy {
   margin-top: 5px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: var(--text-main);
+  min-width: 0;
+  font-size: 0.76rem;
+  white-space: nowrap;
 }
-.ect-note b {
+.ect-busy-q {
   flex-shrink: 0;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 4px;
-  color: var(--accent-text, #a5b4fc);
-  background: rgba(var(--accent-rgb), 0.14);
-}
-
-/* "Busy?" — machine/cable taken: closest free-weight stand-in, one tap. */
-.ect-busy b {
   color: var(--text-muted, #94a3b8);
-  background: transparent;
-  border: 1px solid rgba(var(--fg-rgb), 0.22);
+  font-weight: 500;
 }
-.ect-dim { color: var(--text-muted, #94a3b8); }
-.ect-busy-swap {
-  margin-left: 6px;
-  padding: 0;
+.ect-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 2px 9px 2px 7px;
   border: none;
-  background: none;
+  border-radius: 999px;
   font: inherit;
-  font-weight: 700;
-  color: var(--accent-text, #a5b4fc);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  font-weight: 600;
+  color: #5eead4;
+  background: rgba(20, 184, 166, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.45);
   cursor: pointer;
 }
+.ect-chip:active { transform: scale(0.97); }
+.ect-chip svg { flex-shrink: 0; }
+.ect-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ect-chip-pct { flex-shrink: 0; font-weight: 500; opacity: 0.8; }
+[data-theme="light"] .ect-chip { color: #0f766e; background: rgba(20, 184, 166, 0.1); }
+/* Undo after a Busy? swap: a quiet grey pill (arrow + word), so the teal
+   chip stays the only colour on the line. */
 .ect-busy-undo {
-  margin-left: 10px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px 2px 7px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
   color: var(--text-muted, #94a3b8);
+  background: rgba(var(--fg-rgb), 0.06);
+  box-shadow: inset 0 0 0 1px rgba(var(--fg-rgb), 0.18);
+  cursor: pointer;
 }
-.ect-busy span > .ect-busy-undo:first-child { margin-left: 0; }
+.ect-busy-undo:active { transform: scale(0.97); }

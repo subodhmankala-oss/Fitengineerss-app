@@ -22,6 +22,37 @@ const needOf = (name) => {
   return equip === 'Dumbbell' || equip === 'Barbell' || equip === 'Kettlebell' || equip === 'Band' ? equip : null;
 };
 
+// The few words before the chip: what this exercise needs that someone else
+// may be using. The name's equipment word first ("Cable busy?", "Dumbbells
+// taken?"); names without one ("Decline Bench Press", "Back Squat") by the
+// station they're done at; floor work → "Mat taken?"; anything else "Spot".
+const PROMPT = {
+  Cable: 'Cable busy?', Machine: 'Machine busy?', Barbell: 'Barbell busy?',
+  Dumbbell: 'Dumbbells taken?', Kettlebell: 'Kettlebell taken?', Band: 'Band taken?'
+};
+const BY_STATION = [
+  [/\b(push-?down|rope|face pull|cross-?over|wood-?chop|pull-?through|straight[- ]arm|pallof)/i, 'Cable busy?'],
+  [/\b(cycling|bike)\b/i, 'Bike busy?'],
+  [/\b(running|jogging|walking|incline walk|treadmill)\b/i, 'Treadmill busy?'],
+  [/\b(cross trainer|steppers?|elliptical|rower|calf raise|tib bar)/i, 'Machine busy?'],
+  [/\b(pull-?ups?|chin-?ups?|dips?|hanging|muscle-?ups?|inverted row)\b/i, 'Bar taken?'],
+  [/\b(box jump|step-?ups?)\b/i, 'Box taken?'],
+  [/\bball\b/i, 'Ball taken?'],
+  [/\bbench\b|\b(incline|decline) press\b|hip thrust|preacher|hyperextension|back extension|nordic/i, 'Bench taken?'],
+  [/\b(pendlay|t-bar|landmine|push press|straight bar|behind neck|reverse curl)/i, 'Barbell busy?'],
+  [/\b(squat|deadlift|rack|good morning|overhead press|military press|clean|snatch|lunge)/i, 'Rack taken?'],
+  [/\b(lateral raise|front raise|arnold|curls?\b|kickback|rear delt|reverse fly|shrug|one arm row|triceps extension|skullcrusher|farmer|floor press|around the world|upright row|shoulders? press)/i, 'Dumbbells taken?'],
+  [/\b(plank|crunch|bird ?dog|dead ?bug|bridge|sit[- ]?up|leg raise|push-?up|mountain climber|superman|hollow|flutter|v[- ]?up|russian twist|stretch|yoga|side lying|clamshell|ab wheel|heel taps|windshield|shoulder taps|wall sit|cat camel)/i, 'Mat taken?']
+];
+export function busyPrompt(name) {
+  const n = String(name || '');
+  const equip = equipmentLabel(n);
+  if (PROMPT[equip]) return PROMPT[equip];
+  if (MACHINE_BY_NATURE.test(n)) return 'Machine busy?';
+  const hit = BY_STATION.find(([re]) => re.test(n));
+  return hit ? hit[1] : 'Spot taken?';
+}
+
 // Every exercise card offers swaps.
 export function isBusyEligible(name) {
   return !!String(name || '').trim();

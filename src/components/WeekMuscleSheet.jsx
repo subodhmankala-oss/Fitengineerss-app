@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
+import { OPTIONAL_MUSCLES, getMuscleGroupsForExercise } from '../utils/muscleGroups';
+import { parseLocalDateString } from '../utils/dateUtils';
 import { getWeekMuscleView } from '../utils/weekMuscleView';
 import { getRegionBreakdownForMuscle, hasRegions, getNextParts, getTopUpSets } from '../utils/muscleRegions';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
@@ -35,6 +37,11 @@ import './WeekMuscleSheet.css';
 // (Upper Chest 3/4) becomes a button. It adds that many sets to the exercise
 // that trained it today (`onAddSets(name, count)`), under the same now-or-
 // later rule, so a muscle that has had enough is never pushed further.
+//
+// Header: a pulsing "Training now  Triceps · Shoulders" line names the
+// muscles this workout has worked. Under the workout's cards, every other
+// muscle sits in a quiet stack (worst first, like a wallet): tap to fan it
+// out, tap a card to open its parts and the same now-or-later chips.
 
 const fmt = n => String(Math.round((n || 0) * 10) / 10);
 const EPS = 0.001;
@@ -92,13 +99,26 @@ export default function WeekMuscleSheet({
         const next = getNextParts(c.stat.muscle, allRows, beforeRows, c.stat, c.today);
         return { ...c, parts, next };
       });
-    return { byAll, regionSplit, todaySets, cards };
+    const worked = new Set(cards.map(c => c.stat.muscle));
+    const lastBy = lastTrainedByMuscle(all, logDate);
+    const others = statsAll
+      .filter(s => !worked.has(s.muscle) && (s.totalSets > 0 || !OPTIONAL_MUSCLES.has(s.muscle)))
+      .sort((a, b) => a.completionPercent - b.completionPercent || a.sets - b.sets)
+      .map(stat => {
+        const rows = hasRegions(stat.muscle) ? getRegionBreakdownForMuscle(all, stat.muscle, start, end, { level }) : [];
+        const parts = rows.filter(r => r.band).map(r => ({ id: r.id, sets: r.sets, min: r.band.min }));
+        // Nothing of this muscle was ticked today, so every short part is a
+        // "next part" and the now-or-later rule runs with 0 sets today.
+        const next = rows.length ? getNextParts(stat.muscle, rows, rows, stat, 0) : null;
+        return { stat, parts, next, last: lastSeenText(lastBy[stat.muscle], logDate) };
+      });
+    return { byAll, regionSplit, todaySets, cards, others };
   }, [open, logDate, savedLogs, liveRows, level]);
 
   if (!open || !data) return null;
   // A part whose card has gone (sets unticked) closes its list.
-  const pickOpen = picking && data.cards.some(c => c.stat.muscle === picking.muscle) ? picking : null;
-  const { byAll, regionSplit, todaySets, cards } = data;
+  const { byAll, regionSplit, todaySets, cards, others } = data;
+  const pickOpen = picking && [...cards, ...others].some(c => c.stat.muscle === picking.muscle) ? picking : null;
 
   return createPortal(
     <div className="wms-root" role="dialog" aria-modal="true" aria-label="This week's muscles">
@@ -107,8 +127,15 @@ export default function WeekMuscleSheet({
         <button type="button" className="wms-grab" aria-label="Close" onClick={closeSheet}><span /></button>
         <div className="wms-head">
           <span className="wms-title">This week's muscles</span>
-          <span className="wms-live">live · {todaySets} set{todaySets === 1 ? '' : 's'} today</span>
+          <span className="wms-live">{todaySets} set{todaySets === 1 ? '' : 's'} today</span>
         </div>
+        {cards.length > 0 && (
+          <div className="wms-now">
+            <span className="wms-now-dot" aria-hidden="true" />
+            <span className="wms-now-lbl">Training now</span>
+            <strong>{cards.map(c => c.stat.muscle).join(' · ')}</strong>
+          </div>
+        )}
 
         <div className="wms-bodies">
           {['front', 'back'].map(view => (
@@ -184,6 +211,12 @@ export default function WeekMuscleSheet({
             })}
           </>
         )}
+        {others.length > 0 && (
+          <OtherMuscles others={others} canAct={canAct}
+            workoutNames={workoutNames} laterNames={laterNames}
+            onUnsave={onUnsave} onRemoveExercise={onRemoveExercise}
+            onPick={(muscle, mode, p) => setPicking({ ...p, muscle, mode })} />
+        )}
       </div>
       {canAct && pickOpen && (
         <PartPicker part={pickOpen} workoutNames={workoutNames} laterNames={laterNames}
@@ -193,6 +226,117 @@ export default function WeekMuscleSheet({
       )}
     </div>,
     document.body
+  );
+}
+
+const DAY = 86400000;
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Latest date (up to logDate) each muscle had a counted set.
+function lastTrainedByMuscle(rows, logDate) {
+  const out = {};
+  (rows || []).forEach(r => {
+    if (!r.log_date || r.log_date > logDate || !isCountableSet(r)) return;
+    getMuscleGroupsForExercise(r.exercise_name).forEach(m => {
+      if (!out[m] || r.log_date > out[m]) out[m] = r.log_date;
+    });
+  });
+  return out;
+}
+
+function lastSeenText(date, logDate) {
+  if (!date) return 'Not trained yet';
+  const days = Math.round((parseLocalDateString(logDate) - parseLocalDateString(date)) / DAY);
+  if (days <= 0) return 'Trained today';
+  if (days === 1) return 'Last trained yesterday';
+  if (days < 7) return `Last trained ${WEEKDAYS[parseLocalDateString(date).getDay()]}`;
+  return `Not trained for ${days} days`;
+}
+
+// Muscles this workout hasn't touched: slim cards stacked worst-on-top like
+// a wallet. Tap the stack to fan it out; tap a fanned card to open it.
+function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsave, onRemoveExercise }) {
+  const [fanned, setFanned] = useState(false);
+  const [openMuscle, setOpenMuscle] = useState(null);
+  const n = others.length;
+  const peek = Math.min(n - 1, 2);
+  const toggleFan = () => { setFanned(f => !f); setOpenMuscle(null); };
+  const shown = fanned ? others : others.slice(0, 3);
+  const stackProps = fanned ? {} : {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': `Show ${n} more muscle${n === 1 ? '' : 's'}`,
+    onClick: toggleFan,
+    onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFan(); } },
+  };
+  return (
+    <section className="wms-others" aria-label="Other muscles this week">
+      <div className="wms-divider"><span>{n} more muscle{n === 1 ? '' : 's'} this week</span></div>
+      <div className={`wms-stack${fanned ? ' is-fanned' : ''}`}
+        style={fanned ? undefined : { height: 78 + peek * 10 }} {...stackProps}>
+        {shown.map(({ stat, parts, next, last }, i) => {
+          const isOpen = fanned && openMuscle === stat.muscle;
+          const pctOf = v => Math.min(100, Math.max(0, (v / stat.target) * 100));
+          const left = stat.min - stat.sets;
+          return (
+            <div key={stat.muscle}
+              className={`wms-ocard status-${stat.status.color}${isOpen ? ' is-open' : ''}`}
+              style={fanned ? { animationDelay: `${i * 35}ms` } : {
+                top: (peek - i) * 10,
+                transform: `scale(${1 - i * 0.045})`,
+                zIndex: 10 - i,
+              }}>
+              <button type="button" className="wms-ocard-head" tabIndex={fanned ? 0 : -1}
+                aria-expanded={fanned ? isOpen : undefined}
+                onClick={fanned ? () => setOpenMuscle(isOpen ? null : stat.muscle) : undefined}>
+                <span className="wms-othumb">
+                  <MuscleThumbnail muscle={stat.muscle} color={isOpen ? 'var(--status-color)' : 'currentColor'} size={isOpen ? 34 : 26} />
+                </span>
+                <strong>{stat.muscle}</strong>
+                <span className="wms-pill">{stat.status.label}</span>
+                <span className="wms-opct">{stat.completionPercent}<small>%</small></span>
+              </button>
+              <div className="wms-otrack">
+                <span className="wms-fill" style={{ width: `${pctOf(stat.sets)}%` }} />
+                <span className="wms-optimal" style={{ left: `${pctOf(stat.min)}%` }} />
+              </div>
+              <div className="wms-ofoot">
+                <span>{last}</span>
+                <span>{fmt(stat.sets)} / {stat.target} sets</span>
+              </div>
+              {isOpen && (
+                <div className="wms-odetail">
+                  {parts.length > 0 && (
+                    <div className="wms-oparts">
+                      {parts.map(p => (
+                        <span key={p.id} className={`wms-chip${p.sets >= p.min ? ' is-done' : ''}`}>
+                          {p.sets >= p.min ? '✓ ' : ''}{p.id} {fmt(p.sets)}/{p.min}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {canAct && next ? (
+                    <NextPartRow muscle={stat.muscle} next={next} today={0}
+                      workoutNames={workoutNames} laterNames={laterNames}
+                      onUnsave={onUnsave} onRemoveExercise={onRemoveExercise}
+                      onPick={p => onPick(stat.muscle, next.mode, p)} />
+                  ) : (
+                    <p className="wms-ogoal">
+                      {left > EPS ? `${fmt(left)} more set${Math.abs(left - 1) < EPS ? '' : 's'} to Optimal this week`
+                        : stat.sets <= stat.max ? 'Done for the week · let it rest' : 'Past the useful range this week'}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <button type="button" className="wms-fan" onClick={toggleFan} aria-expanded={fanned}>
+        {fanned ? 'Stack them' : 'Tap to fan out'}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={fanned ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'} /></svg>
+      </button>
+    </section>
   );
 }
 

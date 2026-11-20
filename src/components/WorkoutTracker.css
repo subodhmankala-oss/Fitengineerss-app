@@ -2020,7 +2020,8 @@
    the stylesheets load in. */
 div.hevy-stopwatch-banner,
 div.live-timer-bar {
-  border-bottom: 1.5px solid rgba(var(--fg-rgb), 0.14);
+  /* Logo blue, 2px — the card's edge reads at a glance. */
+  border-bottom: 2px solid var(--primary-accent);
   box-shadow: 0 8px 14px -10px rgba(0, 0, 0, 0.28);
 }
 

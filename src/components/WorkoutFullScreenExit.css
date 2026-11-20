@@ -4,40 +4,40 @@ body.workout-full-screen .bottom-nav {
   display: none;
 }
 
-/* Floating down arrow — tint + ring, bottom-right where the navbar was, so
-   it never covers a set row's inputs in the middle of the screen. */
+/* Down arrow + "Menu", centred where the navbar was (that strip is empty
+   now — .main-content keeps its bottom padding). Absolute inside
+   .app-container, same as the rest timer card, so it stays put while the
+   list scrolls and never escapes the phone frame. Tint + ring. */
 .workout-full-screen-exit {
-  position: fixed;
-  right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  z-index: 900;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1.5px solid rgba(var(--accent-rgb), 0.45);
-  background: rgba(var(--accent-rgb), 0.12);
+  position: absolute;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px 0 12px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(var(--accent-rgb), 0.7);
+  background: rgba(var(--bg-app-rgb, 255, 255, 255), 0.92);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  color: var(--primary-accent);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  color: var(--accent-text, var(--primary-accent));
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
   cursor: pointer;
-  animation: workout-full-screen-exit-in 240ms ease-out both;
 }
 
 .workout-full-screen-exit:active {
-  transform: scale(0.94);
+  transform: translateX(-50%) scale(0.95);
 }
 
 .workout-full-screen-exit svg {
   animation: workout-full-screen-nudge 1.8s ease-in-out infinite;
-}
-
-@keyframes workout-full-screen-exit-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
 }
 
 @keyframes workout-full-screen-nudge {
@@ -46,7 +46,6 @@ body.workout-full-screen .bottom-nav {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .workout-full-screen-exit,
   .workout-full-screen-exit svg {
     animation: none;
   }

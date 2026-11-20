@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, cleanup, fireEvent, screen } from '@testing-library/react';
+import { render, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import WeekMuscleSheet from './WeekMuscleSheet';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import { regionBand } from '../utils/muscleRegions';
@@ -24,7 +24,7 @@ describe('WeekMuscleSheet', () => {
     const saved = [bench('2026-11-16'), bench('2026-11-16'), bench('2026-11-09')]; // last week's set doesn't count
     const live = [bench(DATE), bench(DATE), bench(DATE, 0)]; // empty kg doesn't count
     const sheet = show(saved, live);
-    expect(sheet.textContent).toContain('live · 2 sets today');
+    expect(sheet.textContent).toContain('2 sets today');
 
     const home = getWeeklyMuscleStats([...saved, ...live], '2026-11-16', '2026-11-22', { level: 'intermediate' })
       .find(s => s.muscle === 'Chest');
@@ -160,6 +160,38 @@ describe('WeekMuscleSheet', () => {
     it('is not shown without logger actions (read-only)', () => {
       const sheet = show([], times(midMin, bench(DATE)));
       expect(sheet.querySelector('.wms-next')).toBeNull();
+    });
+  });
+  describe('live line and the other muscles', () => {
+    const squat = date => ({ ...bench(date), exercise_name: 'Barbell Squat' });
+
+    it("names the muscles being trained now", () => {
+      const sheet = show([], [bench(DATE)]);
+      const line = sheet.querySelector('.wms-now');
+      expect(line.textContent).toContain('Training now');
+      expect(line.textContent).toContain('Chest');
+      cleanup();
+      expect(show([], []).querySelector('.wms-now')).toBeNull();
+    });
+
+    it('stacks every muscle this workout skipped, worst first, and fans out on tap', async () => {
+      cleanup();
+      const sheet = show([squat('2026-11-16'), squat('2026-11-16')], [bench(DATE)]);
+      const names = () => [...sheet.querySelectorAll('.wms-ocard strong')].map(n => n.textContent);
+      expect(names()).toHaveLength(3); // collapsed: only the top three render
+      expect(names()).not.toContain('Chest');
+      fireEvent.click(screen.getByRole('button', { name: /Show \d+ more muscles/ }));
+      const all = names();
+      expect(all.length).toBeGreaterThan(3);
+      expect(all).toContain('Quads');
+      expect(all.indexOf('Quads')).toBe(all.length - 1); // the only one trained this week sits last
+      const quads = [...sheet.querySelectorAll('.wms-ocard')].find(c => c.querySelector('strong').textContent === 'Quads');
+      expect(quads.textContent).toContain('Last trained Monday');
+      fireEvent.click(quads.querySelector('.wms-ocard-head'));
+      expect(quads.querySelector('.wms-odetail')).not.toBeNull();
+      expect(quads.querySelector('.wms-chip')).not.toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /Stack them/ }));
+      await waitFor(() => expect(names()).toHaveLength(3)); // after the fold animation
     });
   });
 });

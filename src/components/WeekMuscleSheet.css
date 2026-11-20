@@ -310,3 +310,142 @@
   cursor: pointer;
 }
 @keyframes wms-next-in { from { opacity: 0; transform: translateY(-4px); } }
+
+/* Header: which muscles this workout is training, with a live dot. */
+.wms-now {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+.wms-now-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+  animation: wms-pulse 1.4s ease-out infinite;
+}
+.wms-now-lbl { color: rgba(var(--fg-rgb), 0.55); }
+.wms-now strong { font-weight: 700; }
+@keyframes wms-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Other muscles: a wallet stack that fans out. */
+.wms-others { margin-top: 14px; }
+.wms-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: rgba(var(--fg-rgb), 0.45);
+  margin-bottom: 10px;
+}
+.wms-divider::before,
+.wms-divider::after { content: ""; flex: 1; border-top: 1px solid rgba(var(--fg-rgb), 0.1); }
+.wms-stack { position: relative; cursor: pointer; }
+.wms-stack.is-fanned { cursor: default; display: flex; flex-direction: column; gap: 8px; }
+.wms-ocard {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  padding: 9px 12px 8px;
+  border-radius: 14px;
+  background: var(--bg-card, #121a2e);
+  background-image: linear-gradient(rgba(var(--fg-rgb), 0.035), rgba(var(--fg-rgb), 0.035));
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  transform-origin: top center;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wms-stack.is-fanned .wms-ocard {
+  position: relative;
+  animation: wms-fan-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.wms-ocard.is-open { border-color: color-mix(in srgb, var(--status-color) 45%, transparent); }
+.wms-ocard-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: inherit;
+}
+.wms-stack.is-fanned .wms-ocard-head { cursor: pointer; }
+.wms-ocard-head strong { font-size: 0.88rem; }
+.wms-othumb {
+  display: flex;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  color: rgba(var(--fg-rgb), 0.45);
+  background: rgba(var(--fg-rgb), 0.06);
+}
+.wms-ocard.is-open .wms-othumb {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--status-color) 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-color) 45%, transparent);
+}
+.wms-opct {
+  margin-left: auto;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.wms-opct small { font-size: 0.65rem; font-weight: 600; color: rgba(var(--fg-rgb), 0.55); margin-left: 1px; }
+.wms-otrack {
+  position: relative;
+  height: 5px;
+  margin-top: 8px;
+  border-radius: 5px;
+  background: rgba(var(--fg-rgb), 0.1);
+}
+.wms-otrack .wms-optimal { top: -3px; bottom: -3px; }
+.wms-ofoot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: rgba(var(--fg-rgb), 0.55);
+  font-variant-numeric: tabular-nums;
+}
+.wms-odetail {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px dashed rgba(var(--fg-rgb), 0.14);
+  animation: wms-next-in 0.3s ease;
+}
+.wms-oparts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.72rem; }
+.wms-odetail .wms-next { border-top: 0; padding-top: 0; }
+.wms-ogoal { margin: 8px 0 0; font-size: 0.74rem; color: rgba(var(--fg-rgb), 0.6); }
+.wms-fan {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.76rem;
+  color: rgba(var(--fg-rgb), 0.55);
+  cursor: pointer;
+}
+@keyframes wms-fan-in { from { opacity: 0; transform: translateY(-14px) scale(0.97); } }
+.wms-stack.is-folding .wms-ocard { animation-name: wms-fan-out; }
+.wms-stack.is-arriving .wms-ocard { transition: none; animation: wms-stack-in 0.3s ease both; }
+@keyframes wms-fan-out { to { opacity: 0; transform: translateY(-14px) scale(0.97); } }
+@keyframes wms-stack-in { from { opacity: 0; } }

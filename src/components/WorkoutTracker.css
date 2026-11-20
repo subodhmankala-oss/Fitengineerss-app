@@ -2013,6 +2013,40 @@
   flex: 0 0 auto;
 }
 
+/* Both timer bars stay pinned while the set rows scroll under them. Only
+   while pinned (`is-stuck`, from useFullBleed's trackStuck) do they get a
+   2px logo-blue bottom edge and a soft shadow, so the card stands clear of
+   the rows sliding underneath; at rest they keep their normal border.
+   `div.` so it outranks each bar's own border rules whatever order the
+   stylesheets load in. */
+div.hevy-stopwatch-banner,
+div.live-timer-bar {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+div.hevy-stopwatch-banner.is-stuck,
+div.live-timer-bar.is-stuck {
+  /* Drawn as an inset shadow, not a thicker border, so the card's height
+     (and the rows under it) don't jump by a pixel as it pins. */
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -2px 0 var(--primary-accent), 0 8px 14px -10px rgba(0, 0, 0, 0.28);
+}
+
+/* Order in the bar: numbers on the left, every control (heat map,
+   stopwatch, Pause, full-screen arrow) together in one shaded strip on the
+   right behind a divider — client and coach. Corners follow the bar's own
+   (square when full-bleed). */
+div.hevy-stopwatch-banner > .timer-controls,
+div.live-timer-bar > .live-timer-end {
+  align-self: stretch;
+  align-items: center;
+  padding: 0 2px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border-left: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-top-right-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+
 /* Timer bars stretched to the screen edges (useFullBleed): square ends, no
    side borders — client bar and coach Live Log bar. */
 .hevy-stopwatch-banner.is-full-bleed,

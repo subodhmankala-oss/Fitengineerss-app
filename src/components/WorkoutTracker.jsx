@@ -25,7 +25,7 @@ import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, ClockIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useLiveTick } from '../hooks/useLiveTick';
@@ -56,6 +56,8 @@ import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
 import { levelFromHistory } from '../utils/clientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
+import useWorkoutFullScreen from '../hooks/useWorkoutFullScreen';
+import WorkoutFullScreenExit from './WorkoutFullScreenExit';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { buildDailyWarmup, getWarmupWhy, withoutWarmups } from '../utils/dailyWarmup';
 import { findSkippedExercises, updateWorkoutLeftovers, clearWorkoutLeftovers, addWorkoutLeftover, isForLaterSession, leftoversForWorkout } from '../utils/workoutLeftovers';
@@ -1295,7 +1297,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // or discarded, when the saved rows take over.
   const liveTickedRows = useMemo(() => tickedSetRows(logExercises, logDate), [logExercises, logDate]);
   // Timer bar spans the screen edge to edge, past the form's padding.
-  const timerBarRef = useFullBleed();
+  const timerBarRef = useFullBleed({ trackStuck: true });
   useEffect(() => {
     const userId = ownUserId || localStorage.getItem('userId');
     publishLiveRows(userId, isLoggingWorkout ? liveTickedRows : []);
@@ -1423,6 +1425,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     moveByKeyboard: moveLogExerciseByKeyboard,
     getItemKey: getLogItemKey,
   } = useReorderableList(logExercises, handleLogExercisesReordered);
+
+  // Ticking a set hides the tabs + bottom navbar (see useWorkoutFullScreen).
+  const fullScreen = useWorkoutFullScreen(activeView === 'log' && isLoggingWorkout);
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
     // Real click, right here — unlocks audio for the rest timer's alarm,
@@ -2357,15 +2362,25 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // the Save button looked completely unresponsive with zero feedback
     // whenever the name was blank, instead of focusing/flagging the field.
     if (!templateName || !templateName.trim()) {
-      const nameInput = document.getElementById('workoutNameInputTop');
-      if (nameInput) {
-        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        nameInput.focus();
-        nameInput.setCustomValidity('Please enter a workout name before finishing.');
-        nameInput.reportValidity();
-        nameInput.setCustomValidity('');
+      const flagNameInput = () => {
+        const nameInput = document.getElementById('workoutNameInputTop');
+        if (nameInput) {
+          nameInput.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          nameInput.focus();
+          nameInput.setCustomValidity('Please enter a workout name before finishing.');
+          nameInput.reportValidity();
+          nameInput.setCustomValidity('');
+        } else {
+          alert('Please enter a workout name before finishing!');
+        }
+      };
+      // Full-screen folds the name box away (and makes it inert), so bring
+      // the whole screen back first and flag the box once it has unfolded.
+      if (fullScreen.active) {
+        fullScreen.exit();
+        setTimeout(flagNameInput, 380);
       } else {
-        alert('Please enter a workout name before finishing!');
+        flagNameInput();
       }
       return;
     }
@@ -3293,7 +3308,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         </div>
       )}
 
-      {/* Tab Segmented Control */}
+      {/* Tab Segmented Control — folds away while the workout is
+          full-screen (.fs-tuck in WorkoutFullScreenExit.css). */}
+      <div className={`fs-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} aria-hidden={fullScreen.active || undefined} data-testid="tabs-tuck">
+      <div className="fs-tuck-inner">
       <div className="workouts-segmented-tabs">
         <button 
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
@@ -3313,6 +3331,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         >
           🏋️ Library
         </button>
+      </div>
+      </div>
       </div>
 
       {activeView === 'analytics' && (
@@ -4045,6 +4065,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
           <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} onRemoveItem={handleRemoveLeftover} />
+          <div className={`fs-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
           <div className="form-header">
             <div className="form-header-title-row">
               <h3>🏋️ Today's Workout</h3>
@@ -4167,6 +4188,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 </div>
             </div>
           </div>
+          </div></div>
 
           {/* Hevy Stopwatch Header — same idle/running/paused bar as the coach's
               Live Log: stays idle (no clock, no Pause button) until the first
@@ -4178,6 +4200,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               ) : (
                 <div className="timer-stack">
                   <strong className={`stopwatch-time ${workoutTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                    <ClockIcon className="timer-clock-icon" />
                     {formatStopwatchTime(workoutActiveSeconds)}
                   </strong>
                   <span className="live-kcal-badge">
@@ -4217,6 +4240,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   </button>
                 </>
               )}
+              {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
             </div>
           </div>
 
@@ -4823,7 +4847,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                                 <button
                                   type="button"
                                   className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
-                                  onClick={() => (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleCardioSetComplete(exIdx, sIdx) : handleSetStopwatchComplete(exIdx, sIdx)) : handleToggleSetCompleted(exIdx, sIdx)}
+                                  onClick={() => {
+                                    fullScreen.onSetTicked(!set.isCompleted);
+                                    return (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleCardioSetComplete(exIdx, sIdx) : handleSetStopwatchComplete(exIdx, sIdx)) : handleToggleSetCompleted(exIdx, sIdx);
+                                  }}
                                   title={(isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? "Save time and complete" : "Toggle Complete"}
                                 >
                                   {set.isCompleted ? '✓' : ''}

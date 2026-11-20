@@ -1,0 +1,173 @@
+/* Workout full-screen (useWorkoutFullScreen).
+   Going in: the top tabs fold up and away, the app's bottom navbar slides
+   down out of view, and the down arrow pops into the timer bar. Tapping the
+   arrow plays it all back in reverse. */
+
+/* Bottom navbar — slides rather than vanishing. */
+.bottom-nav {
+  transition: transform 340ms cubic-bezier(0.2, 0, 0, 1), opacity 240ms ease;
+}
+
+body.workout-full-screen .bottom-nav {
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* With the navbar gone, the room kept for it (--safe-bottom on both the
+   scroll area and the workout container) would just be empty space under
+   Save — shrink it, and let the rest timer card drop into the navbar's
+   old spot. */
+body.workout-full-screen .main-content {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body.workout-full-screen .workout-tracker-container {
+  padding-bottom: 16px;
+}
+
+body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card--coach) {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Top tabs — wrapped in .fs-tuck, which folds its height to 0 (grid row
+   0fr) while the tabs fade and lift, so the timer bar glides up into the
+   space instead of jumping. */
+.fs-tuck {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 340ms cubic-bezier(0.2, 0, 0, 1),
+    opacity 240ms ease, transform 340ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Clip only up/down: the coach tabs bleed past the sides (useFullBleed),
+   and flow-root keeps the tabs' own bottom margin inside the fold. */
+.fs-tuck-inner {
+  display: flow-root;
+  min-height: 0;
+  overflow-x: visible;
+  overflow-y: clip;
+  overflow-clip-margin: 6px;
+}
+
+.fs-tuck.is-tucked {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+/* The down arrow at the right end of the timer bar, after Pause: springs in with a half
+   turn, pulses three times so people notice it, then stays still (a
+   non-stop pulse was a distraction mid-workout). */
+.workout-full-screen-exit {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0 8px 0 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: fs-exit-pop 460ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.workout-full-screen-exit:active .fs-exit-badge {
+  transform: scale(0.92);
+}
+
+.fs-exit-badge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.3);
+  border: 1.5px solid rgba(var(--accent-rgb), 0.95);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.45);
+  color: var(--accent-text, var(--primary-accent));
+}
+
+.fs-exit-badge::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--accent-rgb), 0.75);
+  animation: fs-exit-halo 1.6s ease-out 500ms 3 both;
+  pointer-events: none;
+}
+
+.fs-exit-badge svg {
+  animation: fs-exit-nudge 1.6s ease-in-out 500ms 3;
+}
+
+@keyframes fs-exit-pop {
+  from { opacity: 0; transform: scale(0.3) rotate(-180deg); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fs-exit-halo {
+  0% { transform: scale(1); opacity: 0.9; }
+  70%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes fs-exit-nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav,
+  .fs-tuck {
+    transition: none;
+  }
+  .workout-full-screen-exit,
+  .fs-exit-badge svg,
+  .fs-exit-badge::after {
+    animation: none;
+  }
+}
+
+/* The coach Live Log bar wraps when it runs out of width; with the arrow
+   on the end, trim its margin and the bar's gap so time, heat map,
+   stopwatch, Pause and the arrow stay on one line on a phone. */
+.live-timer-end > .workout-full-screen-exit {
+  margin: 0 4px 0 0;
+}
+
+.live-timer-bar:has(.workout-full-screen-exit) {
+  gap: 10px;
+}
+
+/* Clock before the running time in both timer bars (client + coach). */
+.stopwatch-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-clock-icon {
+  flex-shrink: 0;
+  color: var(--accent-text, var(--primary-accent));
+}
+
+/* Time a touch smaller, calories a touch bigger and orange — the burn is the number
+   people watch mid-workout. Both timer bars (client + coach). */
+.hevy-stopwatch-banner .stopwatch-time,
+.live-timer-bar .live-timer-value {
+  font-size: 1.02rem;
+}
+
+.hevy-stopwatch-banner .live-kcal-badge,
+.live-timer-bar .live-timer-kcal {
+  font-size: 0.88rem;
+  font-weight: 600;
+  /* Same orange as the flame beside it (#ea7a3c). */
+  color: #ea7a3c;
+}

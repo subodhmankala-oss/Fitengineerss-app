@@ -63,7 +63,7 @@ import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, f
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
 import { nextBusyOption, isBusyEligible } from '../utils/busySwap';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, ClockIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -88,6 +88,8 @@ import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
 import ExerciseCardTitle from './ExerciseCardTitle';
 import WarmupMoveRow from './WarmupMoveRow';
+import useWorkoutFullScreen from '../hooks/useWorkoutFullScreen';
+import WorkoutFullScreenExit from './WorkoutFullScreenExit';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { sameExerciseEntry, findLibraryExercise, libraryExerciseId, exerciseIdField, foldExerciseDashes } from '../utils/exerciseName';
 import SetNumberPad from './SetNumberPad';
@@ -2006,7 +2008,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // client's own logger — see utils/liveSessionStore.js).
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
   // Live Log timer bar spans the screen edge to edge.
-  const liveTimerBarRef = useFullBleed();
+  const liveTimerBarRef = useFullBleed({ trackStuck: true });
   // Phones: the client header runs edge to edge and joins the tabs band
   // below it into one panel (see .client-detail-header.is-full-bleed).
   const clientHeaderRef = useFullBleed();
@@ -3356,6 +3358,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     moveByKeyboard: moveLiveExerciseByKeyboard,
     getItemKey: getLiveItemKey,
   } = useReorderableList(liveExercises, handleLiveExercisesReordered);
+
+  // Ticking a set hides the client tabs — same as the client's logger
+  // (see useWorkoutFullScreen).
+  const liveFullScreen = useWorkoutFullScreen(detailTab === 'livelog');
 
   // Same double-tap guard as the client's Confirm Save (see
   // handleConfirmSaveWorkout in WorkoutTracker): liveSaving only disables the
@@ -8757,7 +8763,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               </div>
 
               <div className="client-detail-main">
-              {/* Tab Navigation — status tabs (CoachDetailTabs) */}
+              {/* Tab Navigation — status tabs (CoachDetailTabs). Folds away
+                  while the Live Log is full-screen (.fs-tuck). */}
+              <div className={`fs-tuck ${liveFullScreen.active ? 'is-tucked' : ''}`} inert={liveFullScreen.active} aria-hidden={liveFullScreen.active || undefined} data-testid="tabs-tuck"><div className="fs-tuck-inner">
               {(() => {
                 const ms = clientMeasurements;
                 const statuses = tabStatuses({
@@ -8786,6 +8794,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   />
                 );
               })()}
+              </div></div>
 
               {/* Coach note composer — send a one-off note to this client
                   (push + stored fallback). Shown above every tab so the coach
@@ -10556,6 +10565,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     </div>
                   ) : (
                   <>
+                  <div className={`fs-tuck ${liveFullScreen.active ? 'is-tucked' : ''}`} inert={liveFullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
                   {/* Session card, top: who this is for and which day. The
                       calendar button is a real date input laid invisibly over
                       the icon, so tapping it opens the phone's date picker. */}
@@ -10622,6 +10632,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           </select>
                         </div>
                     </div>
+                  </div></div>
 
                   {/* Live Timer + Calorie readout — starts automatically the
                       first time a set is marked done, so it reflects real
@@ -10637,6 +10648,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       <>
                         <div className="timer-stack">
                           <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                            <ClockIcon className="timer-clock-icon" />
                             {formatDuration(liveElapsedSeconds)}
                           </span>
                           <span className="live-timer-kcal">
@@ -10668,6 +10680,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           ) : (
                             <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
                           )}
+                          {liveFullScreen.active && <WorkoutFullScreenExit onClick={liveFullScreen.exit} />}
                         </div>
                       </>
                     )}
@@ -11119,7 +11132,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   <button
                                     type="button"
                                     className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
-                                    onClick={() => (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx)) : handleLiveToggleSet(exIdx, setIdx)}
+                                    onClick={() => {
+                                      liveFullScreen.onSetTicked(!set.isCompleted);
+                                      return (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx)) : handleLiveToggleSet(exIdx, setIdx);
+                                    }}
                                     title={(isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? "Save time and complete" : (set.isCompleted ? 'Mark incomplete' : 'Mark complete')}
                                   >
                                     {set.isCompleted ? '✓' : ''}

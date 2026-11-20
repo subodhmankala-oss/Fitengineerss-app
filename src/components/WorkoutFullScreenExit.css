@@ -14,6 +14,22 @@ body.workout-full-screen .bottom-nav {
   pointer-events: none;
 }
 
+/* With the navbar gone, the room kept for it (--safe-bottom on both the
+   scroll area and the workout container) would just be empty space under
+   Save — shrink it, and let the rest timer card drop into the navbar's
+   old spot. */
+body.workout-full-screen .main-content {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body.workout-full-screen .workout-tracker-container {
+  padding-bottom: 16px;
+}
+
+body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card--coach) {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Top tabs — wrapped in .fs-tuck, which folds its height to 0 (grid row
    0fr) while the tabs fade and lift, so the timer bar glides up into the
    space instead of jumping. */
@@ -41,19 +57,34 @@ body.workout-full-screen .bottom-nav {
   pointer-events: none;
 }
 
-/* The down arrow in the timer bar: springs in with a half turn, then stays
-   highlighted — a tinted circle with a brand-blue ring and a soft pulsing
-   halo — so people notice it's how to get the menu back. */
+/* The down arrow at the start of the timer bar: springs in with a half
+   turn, pulses three times so people notice it, then stays still (a
+   non-stop pulse was a distraction mid-workout). */
 .workout-full-screen-exit {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   animation: fs-exit-pop 460ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.workout-full-screen-exit:active .fs-exit-badge {
+  transform: scale(0.92);
 }
 
 .fs-exit-badge {
   position: relative;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgba(var(--accent-rgb), 0.3);
   border: 1.5px solid rgba(var(--accent-rgb), 0.95);
@@ -67,12 +98,12 @@ body.workout-full-screen .bottom-nav {
   inset: -2px;
   border-radius: 50%;
   border: 2px solid rgba(var(--accent-rgb), 0.75);
-  animation: fs-exit-halo 2s ease-out 500ms infinite;
+  animation: fs-exit-halo 1.6s ease-out 500ms 3 both;
   pointer-events: none;
 }
 
 .fs-exit-badge svg {
-  animation: fs-exit-nudge 1.8s ease-in-out 500ms infinite;
+  animation: fs-exit-nudge 1.6s ease-in-out 500ms 3;
 }
 
 @keyframes fs-exit-pop {
@@ -82,7 +113,7 @@ body.workout-full-screen .bottom-nav {
 
 @keyframes fs-exit-halo {
   0% { transform: scale(1); opacity: 0.9; }
-  70%, 100% { transform: scale(1.6); opacity: 0; }
+  70%, 100% { transform: scale(1.5); opacity: 0; }
 }
 
 @keyframes fs-exit-nudge {
@@ -100,4 +131,24 @@ body.workout-full-screen .bottom-nav {
   .fs-exit-badge::after {
     animation: none;
   }
+}
+
+/* Coach Live Log bar wraps when it runs out of width; while the arrow is
+   in it, tighten the spacing so time, heat map, stopwatch and Pause still
+   fit on one line on a phone. */
+.live-timer-bar:has(> .workout-full-screen-exit) {
+  gap: 8px;
+  padding-left: 8px;
+}
+
+/* Clock before the running time in both timer bars (client + coach). */
+.stopwatch-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-clock-icon {
+  flex-shrink: 0;
+  color: var(--accent-text, var(--primary-accent));
 }

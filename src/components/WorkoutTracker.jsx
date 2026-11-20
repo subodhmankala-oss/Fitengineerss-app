@@ -25,7 +25,7 @@ import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, ClockIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useLiveTick } from '../hooks/useLiveTick';
@@ -4055,6 +4055,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
           <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} onRemoveItem={handleRemoveLeftover} />
+          <div className={`fs-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
           <div className="form-header">
             <div className="form-header-title-row">
               <h3>🏋️ Today's Workout</h3>
@@ -4177,17 +4178,20 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 </div>
             </div>
           </div>
+          </div></div>
 
           {/* Hevy Stopwatch Header — same idle/running/paused bar as the coach's
               Live Log: stays idle (no clock, no Pause button) until the first
               set is marked done, then ticks and shows live calories. */}
           <div className="hevy-stopwatch-banner" ref={timerBarRef}>
             <div className="timer-display">
+              {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
               {workoutTimerStatus === 'idle' ? (
                 <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
               ) : (
                 <div className="timer-stack">
                   <strong className={`stopwatch-time ${workoutTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                    <ClockIcon className="timer-clock-icon" />
                     {formatStopwatchTime(workoutActiveSeconds)}
                   </strong>
                   <span className="live-kcal-badge">
@@ -4227,7 +4231,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   </button>
                 </>
               )}
-              {fullScreen.active && <WorkoutFullScreenExit onClick={fullScreen.exit} />}
             </div>
           </div>
 

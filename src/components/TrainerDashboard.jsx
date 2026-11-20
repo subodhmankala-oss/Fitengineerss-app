@@ -63,7 +63,7 @@ import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, f
 import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
 import { nextBusyOption, isBusyEligible } from '../utils/busySwap';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, ClockIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -10565,6 +10565,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     </div>
                   ) : (
                   <>
+                  <div className={`fs-tuck ${liveFullScreen.active ? 'is-tucked' : ''}`} inert={liveFullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
                   {/* Session card, top: who this is for and which day. The
                       calendar button is a real date input laid invisibly over
                       the icon, so tapping it opens the phone's date picker. */}
@@ -10631,6 +10632,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           </select>
                         </div>
                     </div>
+                  </div></div>
 
                   {/* Live Timer + Calorie readout — starts automatically the
                       first time a set is marked done, so it reflects real
@@ -10640,12 +10642,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       never from an incrementing counter, so getting
                       distracted or leaving this tab open never causes drift. */}
                   <div className="live-timer-bar" ref={liveTimerBarRef}>
+                    {liveFullScreen.active && <WorkoutFullScreenExit onClick={liveFullScreen.exit} />}
                     {liveTimerStatus === 'idle' ? (
                       <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
                     ) : (
                       <>
                         <div className="timer-stack">
                           <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                            <ClockIcon className="timer-clock-icon" />
                             {formatDuration(liveElapsedSeconds)}
                           </span>
                           <span className="live-timer-kcal">
@@ -10677,7 +10681,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           ) : (
                             <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
                           )}
-                          {liveFullScreen.active && <WorkoutFullScreenExit onClick={liveFullScreen.exit} />}
                         </div>
                       </>
                     )}

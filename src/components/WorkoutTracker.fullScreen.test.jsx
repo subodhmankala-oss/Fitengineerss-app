@@ -30,7 +30,10 @@ const renderWorkoutTracker = () => render(<WorkoutTracker />);
 // No jest-dom in this project — plain className check instead of toHaveClass.
 const hasClass = (el, cls) => el.className.split(/\s+/).includes(cls);
 
-const tucked = () => hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked');
+const tucked = () => hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked')
+  && hasClass(screen.getByTestId('header-tuck'), 'is-tucked');
+const untucked = () => !hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked')
+  && !hasClass(screen.getByTestId('header-tuck'), 'is-tucked');
 
 const DRAFT_KEY = 'workoutDraft_u1';
 const today = () => {
@@ -72,7 +75,7 @@ describe('WorkoutTracker full-screen after a tick', () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft()));
     renderWorkoutTracker();
     expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
-    expect(tucked()).toBe(false);
+    expect(untucked()).toBe(true);
     expect(screen.queryByTestId('full-screen-exit')).toBeNull();
 
     fireEvent.click(document.querySelectorAll('.btn-hevy-check')[0]);
@@ -85,7 +88,7 @@ describe('WorkoutTracker full-screen after a tick', () => {
     expect(screen.getByText('Save Workout Session')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('full-screen-exit'));
-    expect(tucked()).toBe(false);
+    expect(untucked()).toBe(true);
     expect(hasClass(document.body, 'workout-full-screen')).toBe(false);
     expect(screen.queryByTestId('full-screen-exit')).toBeNull();
 

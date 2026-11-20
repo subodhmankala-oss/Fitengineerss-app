@@ -24,6 +24,27 @@ export function StopwatchIcon({ size = 22, className }) {
   );
 }
 
+// A clock face — sits before the running workout time in both timer bars.
+export function ClockIcon({ size = 16, className }) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
 // The app's one edit icon: a pen with a line under it.
 export function PencilIcon({ size = 20, className }) {
   return (

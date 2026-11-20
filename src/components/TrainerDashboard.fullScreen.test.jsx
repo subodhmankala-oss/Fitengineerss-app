@@ -78,14 +78,17 @@ describe('Coach Live Log full-screen after a tick', { timeout: 30000 }, () => {
   it('ticking a set hides the client tabs until the down arrow is tapped', async () => {
     renderLiveLog();
     expect(await screen.findByRole('button', { name: '40' }, SLOW)).toBeTruthy();
-    const tucked = () => hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked');
-    expect(tucked()).toBe(false);
+    const tucked = () => hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked')
+  && hasClass(screen.getByTestId('header-tuck'), 'is-tucked');
+const untucked = () => !hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked')
+  && !hasClass(screen.getByTestId('header-tuck'), 'is-tucked');
+    expect(untucked()).toBe(true);
     fireEvent.click(document.querySelectorAll('.btn-hevy-check')[0]);
     await waitFor(() => expect(tucked()).toBe(true));
     expect(screen.getByRole('button', { name: '60' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Save Workout Session/ })).toBeTruthy();
     fireEvent.click(screen.getByTestId('full-screen-exit'));
-    expect(tucked()).toBe(false);
+    expect(untucked()).toBe(true);
     expect(hasClass(document.body, 'workout-full-screen')).toBe(false);
   });
 });

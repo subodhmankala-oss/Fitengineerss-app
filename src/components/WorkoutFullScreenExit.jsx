@@ -1,13 +1,13 @@
 import './WorkoutFullScreenExit.css';
 
-// The down arrow at the end of the logger's timer bar, shown while the
+// The down arrow at the start of the logger's timer bar, shown while the
 // workout is full-screen (useWorkoutFullScreen): one tap brings back the
-// tabs and bottom navbar. Same block style as the bar's stopwatch button.
+// tabs and bottom navbar.
 export default function WorkoutFullScreenExit({ onClick }) {
   return (
     <button
       type="button"
-      className="btn-timer-stopwatch workout-full-screen-exit"
+      className="workout-full-screen-exit"
       onClick={onClick}
       aria-label="Show tabs and menu"
       title="Show tabs and menu"

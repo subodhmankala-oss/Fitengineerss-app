@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
@@ -253,6 +253,35 @@ function lastSeenText(date, logDate) {
   return `Not trained for ${days} days`;
 }
 
+const reduceMotion = () => typeof window.matchMedia === 'function'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Smoothly scroll `el` to `to` over `ms`. A touch or wheel on it stops the
+// glide (the person has taken over). Returns a function that stops it.
+function glideScroll(el, to, ms) {
+  const from = el.scrollTop;
+  if (Math.abs(to - from) < 2) return () => {};
+  if (reduceMotion()) { el.scrollTop = to; return () => {}; }
+  const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const opts = { passive: true };
+  let raf = 0;
+  const stop = () => {
+    window.cancelAnimationFrame(raf);
+    el.removeEventListener('wheel', stop, opts);
+    el.removeEventListener('touchstart', stop, opts);
+  };
+  const start = performance.now();
+  const tick = now => {
+    const t = Math.min(1, (now - start) / ms);
+    el.scrollTop = from + (to - from) * ease(t);
+    if (t < 1) raf = window.requestAnimationFrame(tick); else stop();
+  };
+  el.addEventListener('wheel', stop, opts);
+  el.addEventListener('touchstart', stop, opts);
+  raf = window.requestAnimationFrame(tick);
+  return stop;
+}
+
 // Muscles this workout hasn't touched: slim cards stacked worst-on-top like
 // a wallet. Tap the stack to fan it out; tap a fanned card to open it.
 function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsave, onRemoveExercise }) {
@@ -262,67 +291,67 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
   const peek = Math.min(n - 1, 2);
   const stackRef = useRef(null);
   const folding = useRef(false);
-  // Fold back: slide every card up onto its place in the stack (the cards past
-  // the third fade into it), then switch to the stacked layout.
+  const glide = useRef(false);
+  const stopScroll = useRef(null);
+  useEffect(() => () => stopScroll.current?.(), []);
+  const sheetOf = () => stackRef.current?.closest('.wms-sheet') || null;
+
+  // Fold back, in two moves. 1) From the top down, each card slides down onto
+  // the last one, forming the stack where the eye already is. 2) The sheet
+  // glides back to the top while the stack settles into its place under the
+  // workout's cards.
   const fold = () => {
     const box = stackRef.current;
-    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!box || reduce) { setFanned(false); setOpenMuscle(null); return; }
+    if (!box || reduceMotion()) { setFanned(false); setOpenMuscle(null); return; }
     if (folding.current) return;
     folding.current = true;
+    stopScroll.current?.();
     const cards = [...box.children];
+    const pileTop = cards[cards.length - 1].offsetTop;
+    const step = 45;
+    const steps = Math.min(cards.length - 1, 8);
     box.classList.add('is-folding');
     cards.forEach((el, i) => {
       const k = Math.min(i, 2);
-      const dy = (peek - k) * 10 - el.offsetTop;
-      const delay = Math.min(i, 6) * 25; // top card first, then down the list
-      el.style.zIndex = String(10 - i);
-      el.style.transition = `transform 0.38s cubic-bezier(0.4, 0, 0.2, 1) ${delay}ms, opacity 0.3s ease ${delay}ms`;
-      el.style.transform = `translateY(${dy}px) scale(${1 - k * 0.045})`;
+      const delay = Math.min(i, 8) * step; // top card first, then down the list
+      el.style.zIndex = String(100 - i);
+      el.style.transition = `transform 0.42s cubic-bezier(0.4, 0, 0.2, 1) ${delay}ms, opacity 0.3s ease ${delay + 120}ms`;
+      el.style.transform = `translateY(${pileTop - k * 10 - el.offsetTop}px) scale(${1 - k * 0.045})`;
       if (i > 2) el.style.opacity = '0';
     });
     window.setTimeout(() => {
+      const sheet = sheetOf();
+      const pileAt = cards[0].getBoundingClientRect().top;
       cards.forEach(el => { el.style.transition = 'none'; });
       box.classList.remove('is-folding');
+      flushSync(() => { setFanned(false); setOpenMuscle(null); });
+      cards.forEach(el => { el.style.transition = ''; el.style.opacity = ''; });
       folding.current = false;
-      setFanned(false);
-      setOpenMuscle(null);
-      window.requestAnimationFrame(() => cards.forEach(el => { el.style.transition = ''; el.style.opacity = ''; }));
-    }, 380 + Math.min(cards.length - 1, 6) * 25);
+      // The stack now sits in its real place; start it where the pile was and
+      // let it ride up with the scroll.
+      const front = box.children[0];
+      const shift = front ? pileAt - front.getBoundingClientRect().top : 0;
+      const ms = 520;
+      box.style.transition = 'none';
+      box.style.transform = `translateY(${shift}px)`;
+      void box.offsetHeight;
+      box.style.transition = `transform ${ms}ms cubic-bezier(0.65, 0, 0.35, 1)`;
+      box.style.transform = '';
+      window.setTimeout(() => { box.style.transition = ''; }, ms + 50);
+      if (sheet) stopScroll.current = glideScroll(sheet, 0, ms);
+    }, 420 + steps * step);
   };
-  const glide = useRef(false);
+
   const toggleFan = () => { if (fanned) fold(); else { glide.current = true; setFanned(true); setOpenMuscle(null); } };
   // Fanning out: the sheet scrolls down with the cards as they drop in, ending
-  // on the last card and "Stack them". A touch or wheel stops the glide.
+  // on the last card and "Stack them".
   useEffect(() => {
-    if (!fanned || !glide.current) return undefined;
+    if (!fanned || !glide.current) return;
     glide.current = false;
-    const sheet = stackRef.current?.closest('.wms-sheet');
-    if (!sheet) return undefined;
-    const from = sheet.scrollTop;
-    const to = sheet.scrollHeight - sheet.clientHeight;
-    if (to - from < 2) return undefined;
-    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) { sheet.scrollTop = to; return undefined; }
-    const ms = 420 + Math.min(n, 10) * 35;
-    const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-    let raf = 0;
-    const start = performance.now();
-    const stop = () => { window.cancelAnimationFrame(raf); raf = 0; };
-    const step = now => {
-      const t = Math.min(1, (now - start) / ms);
-      sheet.scrollTop = from + (to - from) * ease(t);
-      raf = t < 1 ? window.requestAnimationFrame(step) : 0;
-    };
-    raf = window.requestAnimationFrame(step);
-    const opts = { passive: true };
-    sheet.addEventListener('wheel', stop, opts);
-    sheet.addEventListener('touchstart', stop, opts);
-    return () => {
-      stop();
-      sheet.removeEventListener('wheel', stop, opts);
-      sheet.removeEventListener('touchstart', stop, opts);
-    };
+    const sheet = sheetOf();
+    if (!sheet) return;
+    stopScroll.current?.();
+    stopScroll.current = glideScroll(sheet, sheet.scrollHeight - sheet.clientHeight, 420 + Math.min(n, 10) * 35);
   }, [fanned, n]);
   const shown = fanned ? others : others.slice(0, 3);
   const stackProps = fanned ? {} : {

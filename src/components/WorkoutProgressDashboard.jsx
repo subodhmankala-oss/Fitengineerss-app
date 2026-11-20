@@ -1010,7 +1010,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                   : activeDraft.coachId ? 'Your coach sent you the rest of this workout' : 'Workout in progress'}
               </div>
               {/* Live duration + calories, recomputed from the draft's timer
-                  timestamps (idle = timer not started yet, so no clock shown). */}
+                  timestamps (idle = timer not started yet, so no clock shown). Same body
+                  weight as the logger, or this card disagrees with it. */}
               {activeDraft.timerStatus !== 'idle' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '3px 0 2px' }}>
                   <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--tint-amber)', fontFamily: "'Courier New', monospace" }}>
@@ -1018,7 +1019,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                     {activeDraft.timerStatus === 'paused' && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '5px' }}>PAUSED</span>}
                   </span>
                   <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--tint-amber)', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 7px', borderRadius: '20px' }}>
-                    🔥 {computeLiveCalories(activeDraft.exercises || [], activeDraft.timerStartedAt, activeDraft.pauseIntervals || []).totalKcal} kcal
+                    🔥 {computeLiveCalories(activeDraft.exercises || [], activeDraft.timerStartedAt, activeDraft.pauseIntervals || [], parseFloat(localStorage.getItem('userWeight')) || undefined).totalKcal} kcal
                   </span>
                 </div>
               )}

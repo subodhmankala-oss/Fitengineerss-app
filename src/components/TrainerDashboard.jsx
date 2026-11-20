@@ -8763,9 +8763,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               </div>
 
               <div className="client-detail-main">
-              {/* Tab Navigation — status tabs (CoachDetailTabs). Hidden while
-                  the Live Log is full-screen. */}
-              {!liveFullScreen.active && (() => {
+              {/* Tab Navigation — status tabs (CoachDetailTabs). Folds away
+                  while the Live Log is full-screen (.fs-tuck). */}
+              <div className={`fs-tuck ${liveFullScreen.active ? 'is-tucked' : ''}`} inert={liveFullScreen.active} aria-hidden={liveFullScreen.active || undefined} data-testid="tabs-tuck"><div className="fs-tuck-inner">
+              {(() => {
                 const ms = clientMeasurements;
                 const statuses = tabStatuses({
                   coachPlanCount: clientPlans.filter(p => p.createdBy === 'coach').length,
@@ -8793,6 +8794,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   />
                 );
               })()}
+              </div></div>
 
               {/* Coach note composer — send a one-off note to this client
                   (push + stored fallback). Shown above every tab so the coach

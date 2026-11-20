@@ -3298,8 +3298,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         </div>
       )}
 
-      {/* Tab Segmented Control — hidden while the workout is full-screen. */}
-      {!fullScreen.active && (
+      {/* Tab Segmented Control — folds away while the workout is
+          full-screen (.fs-tuck in WorkoutFullScreenExit.css). */}
+      <div className={`fs-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} aria-hidden={fullScreen.active || undefined} data-testid="tabs-tuck">
+      <div className="fs-tuck-inner">
       <div className="workouts-segmented-tabs">
         <button 
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
@@ -3320,7 +3322,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           🏋️ Library
         </button>
       </div>
-      )}
+      </div>
+      </div>
 
       {activeView === 'analytics' && (
         <div className="analytics-view-wrapper">

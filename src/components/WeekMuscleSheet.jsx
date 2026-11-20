@@ -275,7 +275,7 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
     cards.forEach((el, i) => {
       const k = Math.min(i, 2);
       const dy = (peek - k) * 10 - el.offsetTop;
-      const delay = Math.min(cards.length - 1 - i, 6) * 25;
+      const delay = Math.min(i, 6) * 25; // top card first, then down the list
       el.style.zIndex = String(10 - i);
       el.style.transition = `transform 0.38s cubic-bezier(0.4, 0, 0.2, 1) ${delay}ms, opacity 0.3s ease ${delay}ms`;
       el.style.transform = `translateY(${dy}px) scale(${1 - k * 0.045})`;

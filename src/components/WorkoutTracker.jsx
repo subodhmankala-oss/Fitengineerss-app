@@ -2362,15 +2362,25 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // the Save button looked completely unresponsive with zero feedback
     // whenever the name was blank, instead of focusing/flagging the field.
     if (!templateName || !templateName.trim()) {
-      const nameInput = document.getElementById('workoutNameInputTop');
-      if (nameInput) {
-        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        nameInput.focus();
-        nameInput.setCustomValidity('Please enter a workout name before finishing.');
-        nameInput.reportValidity();
-        nameInput.setCustomValidity('');
+      const flagNameInput = () => {
+        const nameInput = document.getElementById('workoutNameInputTop');
+        if (nameInput) {
+          nameInput.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          nameInput.focus();
+          nameInput.setCustomValidity('Please enter a workout name before finishing.');
+          nameInput.reportValidity();
+          nameInput.setCustomValidity('');
+        } else {
+          alert('Please enter a workout name before finishing!');
+        }
+      };
+      // Full-screen folds the name box away (and makes it inert), so bring
+      // the whole screen back first and flag the box once it has unfolded.
+      if (fullScreen.active) {
+        fullScreen.exit();
+        setTimeout(flagNameInput, 380);
       } else {
-        alert('Please enter a workout name before finishing!');
+        flagNameInput();
       }
       return;
     }

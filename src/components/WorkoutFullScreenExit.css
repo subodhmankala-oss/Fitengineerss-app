@@ -157,7 +157,7 @@ body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card
   color: var(--accent-text, var(--primary-accent));
 }
 
-/* Time a touch smaller, calories a touch bigger — the burn is the number
+/* Time a touch smaller, calories a touch bigger and orange — the burn is the number
    people watch mid-workout. Both timer bars (client + coach). */
 .hevy-stopwatch-banner .stopwatch-time,
 .live-timer-bar .live-timer-value {
@@ -167,4 +167,7 @@ body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card
 .hevy-stopwatch-banner .live-kcal-badge,
 .live-timer-bar .live-timer-kcal {
   font-size: 0.88rem;
+  font-weight: 600;
+  /* Same orange as the flame beside it (#ea7a3c). */
+  color: #ea7a3c;
 }

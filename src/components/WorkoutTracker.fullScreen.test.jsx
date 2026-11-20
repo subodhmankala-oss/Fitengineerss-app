@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 
 // Same isolated data layer as WorkoutTracker.oneTap.test.jsx.
 vi.mock('../services/databaseService', () => {
@@ -95,5 +95,19 @@ describe('WorkoutTracker full-screen after a tick', () => {
     // The next tick goes full-screen again.
     fireEvent.click(document.querySelectorAll('.btn-hevy-check')[2]);
     expect(tucked()).toBe(true);
+  });
+
+  it('Save with no workout name brings the whole screen back and points at the name box', async () => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft(), templateName: '' }));
+    renderWorkoutTracker();
+    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    document.querySelectorAll('.btn-hevy-check').forEach(b => fireEvent.click(b));
+    expect(tucked()).toBe(true);
+
+    fireEvent.click(screen.getByText('Save Workout Session'));
+
+    expect(untucked()).toBe(true);
+    expect(hasClass(document.body, 'workout-full-screen')).toBe(false);
+    await waitFor(() => expect(document.activeElement?.id).toBe('workoutNameInputTop'), { timeout: 5000 });
   });
 });

@@ -796,8 +796,9 @@ async function handleOwnerGym(req, res) {
     // one whose package finished (disconnected from the coach), is not a member
     // the trainer still has — counting them inflated "Members" and dragged
     // "Still training" down.
+    const active = await recentlyTrained(memberRows.filter((m) => m.role === 'client' && isDisconnected(m, clientOf[m.id])).map((m) => m.id), 'owner-gym recent');
     const members = memberRows
-      .filter((m) => m.role !== 'client' || isCurrentMember(m, clientOf[m.id]))
+      .filter((m) => m.role !== 'client' || isCurrentMember(m, clientOf[m.id], active.has(m.id)))
       .map((m) => ({ ...m, phone: phoneById[m.id] || m.phone || null }));
     const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
     const since = new Date(Date.now() - OWNER_ACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -1206,11 +1207,33 @@ async function gymInProgress(gid, ids) {
 // Still a member? A paused client has stopped, and a client disconnected from
 // their coach keeps users.coach_id but loses clients.coach_id (package finished:
 // checkAndHandleSessionPackageCompletion). Gym members with no trainer have
-// neither, and stay.
-function isCurrentMember(user, client) {
+// neither, and stay. A disconnected client who still trains (a workout in the
+// last MEMBER_ACTIVE_DAYS) carried on at the gym on their own, and stays: a
+// package ending doesn't end the gym membership (2026-11-21: a member with
+// five workouts that week was missing from the board).
+const MEMBER_ACTIVE_DAYS = 30;
+function isCurrentMember(user, client, trainedRecently = false) {
   if (!client) return true;
   if (client.paused_at) return false;
-  return !(user.coach_id && !client.coach_id);
+  if (user.coach_id && !client.coach_id) return !!trainedRecently;
+  return true;
+}
+const isDisconnected = (user, client) => !!(client && !client.paused_at && user.coach_id && !client.coach_id);
+
+// Which of these (disconnected) clients logged a workout in the last
+// MEMBER_ACTIVE_DAYS? Only they are read, so the query stays small.
+async function recentlyTrained(ids, label) {
+  const out = new Set();
+  if (!ids.length) return out;
+  const since = new Date(Date.now() - MEMBER_ACTIVE_DAYS * 86400000).toISOString().slice(0, 10);
+  for (let i = 0; i < ids.length; i += 150) {
+    const rows = await svcSelectAll(
+      `workout_logs?user_id=in.(${ids.slice(i, i + 150).join(',')})&log_date=gte.${since}&select=user_id&order=id.asc`,
+      label
+    );
+    rows.forEach((r) => out.add(r.user_id));
+  }
+  return out;
 }
 
 // The people the board may show, with sex (male | female | null). The clients
@@ -1222,8 +1245,9 @@ async function boardMembers(gid) {
     const rows = await svcSelect(`clients?user_id=in.(${users.slice(i, i + 150).map((u) => u.id).join(',')})&select=user_id,sex,coach_id,paused_at`, 'gym-live clients');
     rows.forEach((c) => { clientOf[c.user_id] = c; });
   }
+  const active = await recentlyTrained(users.filter((u) => isDisconnected(u, clientOf[u.id])).map((u) => u.id), 'gym-live recent');
   return users
-    .filter((u) => isCurrentMember(u, clientOf[u.id]))
+    .filter((u) => isCurrentMember(u, clientOf[u.id], active.has(u.id)))
     .map((u) => {
       const sex = clientOf[u.id]?.sex;
       return { ...u, sex: sex === 'male' || sex === 'female' ? sex : null };

@@ -137,6 +137,9 @@ describe('isCurrentMember', () => {
   it('drops a client disconnected from their coach', () => {
     expect(isCurrentMember({ coach_id: 'c1' }, { coach_id: null, paused_at: null })).toBe(false);
   });
+  it('keeps a disconnected client who still trains', () => {
+    expect(isCurrentMember({ coach_id: 'c1' }, { coach_id: null, paused_at: null }, true)).toBe(true);
+  });
   it('drops a paused client', () => {
     expect(isCurrentMember({ coach_id: 'c1' }, { coach_id: 'c1', paused_at: '2026-10-02T00:00:00Z' })).toBe(false);
   });

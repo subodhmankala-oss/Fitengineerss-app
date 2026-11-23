@@ -9,6 +9,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ROW_SELECT = 'id,user_id,log_date,exercise_name,set_number,reps,weight_kg,distance_km,'
   + 'cardio_duration_seconds,set_type,plan_name,duration_seconds,calories_burned,session_id,session_row,created_at';
 const enc = encodeURIComponent;
+// Base64 JPEG (they all start /9j/).
+const IMAGE_RE = /^\/9j\/[A-Za-z0-9+/]+={0,2}$/;
+const SHARE_SELECT = 'token,user_id,log_date,session_keys,show_name,show_map,show_weights,show_calories,body_sex';
 
 export function makeRest({ supabaseUrl, serviceKey, fetchImpl = (...a) => fetch(...a) }) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
@@ -46,11 +49,12 @@ const toShare = (row) => ({
 });
 
 const listShares = async (rest, userId) => (await rest.get(
-  `workout_shares?user_id=eq.${enc(userId)}&select=token,log_date,show_name,show_map,show_weights,show_calories&order=log_date.desc&limit=1000`
+  `workout_shares?user_id=eq.${enc(userId)}&active=is.true&select=token,log_date,show_name,show_map,show_weights,show_calories&order=log_date.desc&limit=1000`
 )).map(toShare);
 
 // Owner's side. `userId` is the verified caller, never taken from the body.
-// ops: list | save { logDate, token, sessionId?, flags, bodySex } |
+// ops: list | prepare { logDate, token, sessionId?, image, bodySex } (uploads the
+//      message picture; the link stays off) | save { logDate, token, sessionId?, flags, bodySex } |
 //      flags { logDate, flags } (what shows, nothing else) | stop { logDate }
 export async function ownerShareOp(rest, userId, body) {
   const { op, logDate } = body || {};
@@ -72,18 +76,38 @@ export async function ownerShareOp(rest, userId, body) {
   };
 
   if (op === 'flags') {
-    await rest.write(match, 'PATCH', flagCols);
+    await rest.write(`${match}&active=is.true`, 'PATCH', flagCols);
+    return { status: 200, body: { shares: await listShares(rest, userId) } };
+  }
+
+  if (op === 'prepare') {
+    const { token, sessionId, image, bodySex } = body;
+    if (!SHARE_TOKEN_RE.test(token || '')) return { status: 400, body: { error: 'Could not make the link. Try again.' } };
+    if (typeof image !== 'string' || image.length > 400000 || !IMAGE_RE.test(image)) {
+      return { status: 400, body: { error: 'That preview picture is not usable.' } };
+    }
+    const existing = (await rest.get(`${match}&select=token,active`))[0] || null;
+    if (!existing?.active) {
+      const keys = sessionId ? [`sid:${String(sessionId).slice(0, 120)}`] : [...new Set((await dayRows(rest, userId, logDate)).map(sessionKeyOf))];
+      if (keys.length === 0) return { status: 404, body: { error: 'No saved workout on that day.' } };
+      const draft = { token, session_keys: keys, body_sex: bodySex === 'male' || bodySex === 'female' ? bodySex : null };
+      if (existing) await rest.write(`${match}&active=is.false`, 'PATCH', draft);
+      // The link may be sent (saved) at this very moment: then that row stands.
+      else await rest.write('workout_shares?on_conflict=user_id,log_date', 'POST', { ...draft, user_id: userId, log_date: logDate, active: false }, 'resolution=ignore-duplicates,return=minimal');
+    }
+    await rest.write(match, 'PATCH', { preview_image: image });
     return { status: 200, body: { shares: await listShares(rest, userId) } };
   }
 
   if (op === 'save') {
     const { token, sessionId, bodySex } = body;
     if (!SHARE_TOKEN_RE.test(token || '')) return { status: 400, body: { error: 'Could not make the link. Try again.' } };
-    const existing = (await rest.get(`${match}&select=token,session_keys`))[0] || null;
+    const readExisting = async () => (await rest.get(`${match}&select=token,session_keys,active`))[0] || null;
+    let existing = await readExisting();
     const rows = await dayRows(rest, userId, logDate);
     // sessionId: shared from the card shown right after Save — its rows may
     // still be on their way, so the link is tied to the session itself.
-    const keys = new Set(sessionId ? [...(existing?.session_keys || []), `sid:${String(sessionId).slice(0, 120)}`] : rows.map(sessionKeyOf));
+    const keys = new Set(sessionId ? [...(existing?.active ? existing.session_keys || [] : []), `sid:${String(sessionId).slice(0, 120)}`] : rows.map(sessionKeyOf));
     if (keys.size === 0) return { status: 404, body: { error: 'No saved workout on that day.' } };
     const row = {
       session_keys: [...keys],
@@ -92,8 +116,16 @@ export async function ownerShareOp(rest, userId, body) {
     };
     // A link already out there keeps working; only its settings change. The
     // reply carries the token really in use.
-    if (existing) await rest.write(match, 'PATCH', row);
-    else await rest.write('workout_shares', 'POST', { ...row, token, user_id: userId, log_date: logDate });
+    if (!existing) {
+      try {
+        await rest.write('workout_shares', 'POST', { ...row, token, user_id: userId, log_date: logDate });
+      } catch (err) {
+        // The sheet's own "prepare" got there first.
+        existing = await readExisting();
+        if (!existing) throw err;
+      }
+    }
+    if (existing) await rest.write(match, 'PATCH', existing.active ? row : { ...row, token, active: true });
     return { status: 200, body: { shares: await listShares(rest, userId) } };
   }
 
@@ -116,7 +148,7 @@ async function bestsBefore(rest, userId, logDate, names) {
 // (wrong link, sharing stopped, workout deleted).
 export async function readSharedWorkout(rest, token, { withBests = true } = {}) {
   if (!SHARE_TOKEN_RE.test(token || '')) return null;
-  const share = (await rest.get(`workout_shares?token=eq.${enc(token)}&select=*&limit=1`))[0];
+  const share = (await rest.get(`workout_shares?token=eq.${enc(token)}&active=is.true&select=${SHARE_SELECT}&limit=1`))[0];
   if (!share) return null;
   const keys = new Set(share.session_keys || []);
   const rows = (await dayRows(rest, share.user_id, share.log_date)).filter(r => keys.has(sessionKeyOf(r)));
@@ -130,21 +162,33 @@ export async function readSharedWorkout(rest, token, { withBests = true } = {}) 
   return shapeSharedWorkout({ share, rows, fullName: users[0]?.full_name, previousBests });
 }
 
+// The message picture as bytes, or null. It shows the muscle map, so it goes
+// when that is switched off — and when the link or the workout is gone.
+export async function readSharePicture(rest, token) {
+  const workout = await readSharedWorkout(rest, token, { withBests: false });
+  if (!workout?.showMap) return null;
+  const row = (await rest.get(`workout_shares?token=eq.${enc(token)}&active=is.true&select=preview_image&limit=1`))[0];
+  return row?.preview_image ? Buffer.from(row.preview_image, 'base64') : null;
+}
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // What chat apps read to draw the message preview (vercel.json sends only
 // their link bots here; people get the app's own page).
-export function sharePreviewHtml(workout, { origin }) {
+export function sharePreviewHtml(workout, { origin, token }) {
   const title = workout ? (workout.name ? `${workout.name}’s ${workout.title}` : workout.title) : 'Workout not shared anymore';
   const sets = workout ? sharedWorkoutTotals(workout).sets : 0;
   const facts = workout
     ? [`${sets} ${sets === 1 ? 'set' : 'sets'}`, workout.durationSeconds ? `${Math.max(1, Math.round(workout.durationSeconds / 60))} min` : null].filter(Boolean).join(' · ')
     : '';
-  const desc = workout ? `${facts}. Tap to see every set.` : 'Fitengineers';
+  const desc = workout ? `Workout on Fitengineers: ${facts}. Tap to see every set.` : 'Fitengineers';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>`
     + '<meta name="robots" content="noindex">'
     + `<meta property="og:site_name" content="Fitengineers"><meta property="og:type" content="website">`
     + `<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">`
-    + `<meta property="og:image" content="${esc(origin)}/icons/icon-192.png"><meta name="twitter:card" content="summary">`
+    + (workout?.showMap
+      ? `<meta property="og:image" content="${esc(origin)}/w/${esc(token)}/preview.jpg"><meta property="og:image:type" content="image/jpeg">`
+        + '<meta property="og:image:width" content="960"><meta property="og:image:height" content="504"><meta name="twitter:card" content="summary_large_image">'
+      : `<meta property="og:image" content="${esc(origin)}/icons/icon-192.png"><meta name="twitter:card" content="summary">`)
     + `</head><body>${esc(title)}</body></html>`;
 }

@@ -20,7 +20,7 @@ export const shareUrl = (token, origin) => `${origin}/w/${token}`;
 export function shareMessage({ title, sets, durationSeconds, url }) {
   const mins = durationSeconds ? Math.max(1, Math.round(durationSeconds / 60)) : null;
   const facts = [`${sets} ${sets === 1 ? 'set' : 'sets'}`, mins ? `${mins} min` : null].filter(Boolean).join(', ');
-  return `My ${title} workout: ${facts}\n${url}`;
+  return `My ${title} workout on Fitengineers: ${facts}. Tap to see every set.\n${url}`;
 }
 
 // Which save a row belongs to (one INSERT shares one created_at on rows from

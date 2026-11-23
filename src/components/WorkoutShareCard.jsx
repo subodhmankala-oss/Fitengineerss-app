@@ -92,7 +92,7 @@ const WorkoutShareCard = ({ session, onClose }) => {
           <button type="button" className="wsc-done" onClick={onClose}>Done</button>
         </div>
       </div>
-      {linkOpen && <WorkoutShareLinkSheet workout={link} onClose={() => setLinkOpen(false)} />}
+      {linkOpen && <WorkoutShareLinkSheet workout={{ ...link, muscles }} onClose={() => setLinkOpen(false)} />}
     </div>,
     document.body
   );

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import databaseService from '../services/databaseService';
+import { drawSharePreview } from '../utils/sharePreviewImage';
 import { DEFAULT_SHARE_FLAGS, newShareToken, shareMessage, shareUrl } from '../utils/workoutShare';
 import { ShareIcon } from './TimerIcons';
 import './WorkoutShareLinkSheet.css';
@@ -21,12 +22,13 @@ const SWITCHES = [
  * "Share this workout": a read-only link to one saved workout (/w/<token>,
  * see sql/workout_shares.sql). The link only exists once it is sent or
  * copied; the switches then change what it shows, and "Stop sharing" ends it.
- * `workout`: { title, logDate, sets, durationSeconds, sessionId? } — sessionId
+ * `workout`: { title, logDate, sets, durationSeconds, muscles, sessionId? } —
+ * muscles (musclesFromRows) for the message picture; sessionId
  * only right after Save, when the rows may not have reached the server yet.
  * `onChange(shares)` reports the owner's live links after every change.
  */
 export default function WorkoutShareLinkSheet({ workout, onClose, onChange }) {
-  const { title, logDate, sets, durationSeconds, sessionId } = workout;
+  const { title, logDate, sets, durationSeconds, muscles, sessionId } = workout;
   const [share, setShare] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [flags, setFlags] = useState(DEFAULT_SHARE_FLAGS);
@@ -60,6 +62,20 @@ export default function WorkoutShareLinkSheet({ workout, onClose, onChange }) {
     return () => { cancelled = true; };
   }, [logDate]);
 
+  // The message picture is drawn and stored while the sheet is open, so it is
+  // ready before the chat app looks for it. Best effort: without it the
+  // message just has the logo.
+  const pictured = useRef(null);
+  useEffect(() => {
+    if (!loaded || !muscles?.length || pictured.current === token) return;
+    pictured.current = token;
+    let sex = null;
+    try { sex = localStorage.getItem('userSex'); } catch { /* storage blocked */ }
+    drawSharePreview({ title, sets, durationSeconds, muscles, sex })
+      .then(image => image && databaseService.workoutShare('prepare', { logDate, token, sessionId, image, bodySex: sex }))
+      .catch(e => console.warn('share preview:', e?.message || e));
+  }, [loaded, token, muscles, title, sets, durationSeconds, logDate, sessionId]);
+
   const run = async (op, payload, failed) => {
     setBusy(true);
     setError('');
@@ -91,9 +107,9 @@ export default function WorkoutShareLinkSheet({ workout, onClose, onChange }) {
 
   const copy = async () => {
     // Copied in the same tap; a network wait first would lose permission on iPhone.
-    const copied = navigator.clipboard?.writeText(url).then(() => true, () => false);
+    const copied = navigator.clipboard?.writeText(text).then(() => true, () => false);
     const [didCopy, on] = await Promise.all([copied, turnOn()]);
-    if (on) setNote(didCopy ? 'Link copied' : 'Link is on. Press and hold the link to copy it.');
+    if (on) setNote(didCopy ? 'Copied. Paste it in any chat.' : 'Link is on. Press and hold the link to copy it.');
   };
 
   // The phone's own list: Instagram messages, Facebook, Telegram, SMS…

@@ -28,5 +28,13 @@ CREATE TABLE IF NOT EXISTS public.workout_shares (
   CONSTRAINT workout_shares_one_per_day UNIQUE (user_id, log_date)
 );
 
+-- active: false while the Share sheet is open but nothing was sent yet (the
+-- preview picture is uploaded then); visitors only ever see active links.
+-- preview_image: base64 JPEG chat apps show on the message.
+ALTER TABLE public.workout_shares
+  ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS preview_image TEXT
+    CHECK (preview_image IS NULL OR char_length(preview_image) <= 400000);
+
 ALTER TABLE public.workout_shares ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.workout_shares FROM anon, authenticated;

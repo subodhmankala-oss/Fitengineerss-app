@@ -33,6 +33,7 @@ import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../ut
 import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
 import WorkoutShareLinkSheet, { ShareWorkoutButton } from './WorkoutShareLinkSheet';
+import { musclesFromRows } from '../utils/workoutShare';
 import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { readLiveRows, LIVE_ROWS_EVENT } from '../utils/liveSessionStore';
@@ -1831,7 +1832,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
       />
       {shareOpen && (
         <WorkoutShareLinkSheet
-          workout={{ title: dailyPlanLabel, logDate: selectedDateStr, sets: dailyStats.sets, durationSeconds: dailyStats.durationSeconds }}
+          workout={{ title: dailyPlanLabel, logDate: selectedDateStr, sets: dailyStats.sets, durationSeconds: dailyStats.durationSeconds, muscles: musclesFromRows(dayRows, selectedDateStr) }}
           onClose={() => setShareOpen(false)}
           onChange={noteShares}
         />

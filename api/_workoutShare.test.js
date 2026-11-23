@@ -38,7 +38,7 @@ const set = (over) => ({
   avg_heart_rate_bpm: 133, exercise_notes: 'private note', ...over,
 });
 const share = (over) => ({
-  token: TOKEN, user_id: 'owner-1', log_date: '2026-11-23', session_keys: ['sid:s1'],
+  token: TOKEN, user_id: 'owner-1', log_date: '2026-11-23', session_keys: ['sid:s1'], active: true,
   show_name: true, show_map: true, show_weights: true, show_calories: true, body_sex: 'female', ...over,
 });
 
@@ -121,7 +121,33 @@ describe('opening a shared workout', () => {
     expect(res.headers['Content-Type']).toContain('text/html');
     expect(res.body).toContain('Rahul’s &lt;script&gt;');
     expect(res.body).toContain('1 set · 52 min');
+    expect(res.body).toContain(`https://fit.example/w/${TOKEN}/preview.jpg`);
     expect(res.body).not.toContain('<script>');
+  });
+
+  it('serves the message picture only while the map is shown', async () => {
+    const handler = (await import('./data-read.js')).default;
+    const get = async () => {
+      const res = mockRes();
+      await handler({ method: 'GET', query: { resource: 'shared-workout-picture', token: TOKEN }, headers: {} }, res);
+      return res;
+    };
+    rows.workout_shares = [share({ preview_image: '/9j/AAAA' })];
+    const ok = await get();
+    expect(ok.statusCode).toBe(200);
+    expect(ok.headers['Content-Type']).toBe('image/jpeg');
+    expect([...ok.body.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
+    rows.workout_shares = [share({ preview_image: '/9j/AAAA', show_map: false })];
+    expect((await get()).statusCode).toBe(404);
+    rows.workout_shares = [];
+    expect((await get()).statusCode).toBe(404);
+  });
+
+  it('only ever reads links that are on', async () => {
+    await visit();
+    const reads = fetch.mock.calls.map(c => c[0]).filter(u => u.includes('/workout_shares?'));
+    expect(reads.length).toBeGreaterThan(0);
+    reads.forEach(u => expect(u).toContain('active=is.true'));
   });
 
   it('answers no other GET', async () => {
@@ -145,6 +171,28 @@ describe('owner', () => {
     await own({ op: 'save', logDate: '2026-11-23', token: 'B'.repeat(22) });
     expect(writes[0].method).toBe('PATCH');
     expect(writes[0].body.token).toBeUndefined();
+  });
+
+  it('opening the sheet stores the picture but turns nothing on', async () => {
+    rows.workout_shares = [];
+    const res = await own({ op: 'prepare', logDate: '2026-11-23', token: TOKEN, image: '/9j/AAAA' });
+    expect(res.statusCode).toBe(200);
+    expect(writes[0]).toMatchObject({ method: 'POST', body: { user_id: 'owner-1', token: TOKEN, active: false } });
+    expect(writes[1]).toMatchObject({ method: 'PATCH', body: { preview_image: '/9j/AAAA' } });
+    expect(Object.keys(writes[1].body)).toEqual(['preview_image']);
+  });
+
+  it('sending turns the prepared link on with the link that was sent', async () => {
+    rows.workout_shares = [share({ active: false, token: 'C'.repeat(22) })];
+    await own({ op: 'save', logDate: '2026-11-23', token: TOKEN });
+    expect(writes[0]).toMatchObject({ method: 'PATCH', body: { token: TOKEN, active: true } });
+  });
+
+  it('takes nothing but a JPEG as the picture', async () => {
+    for (const image of [undefined, '<svg onload=x>', 'iVBORw0KGgo=', `/9j/${'A'.repeat(400001)}`]) {
+      expect((await own({ op: 'prepare', logDate: '2026-11-23', token: TOKEN, image })).statusCode).toBe(400);
+    }
+    expect(writes).toEqual([]);
   });
 
   it('can share right after Save, before the rows arrive', async () => {

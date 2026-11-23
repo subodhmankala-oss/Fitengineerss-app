@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 
 const { workoutShare } = vi.hoisted(() => ({ workoutShare: vi.fn() }));
 vi.mock('../services/databaseService', () => ({ default: { workoutShare } }));
+const { drawSharePreview } = vi.hoisted(() => ({ drawSharePreview: vi.fn(async () => null) }));
+vi.mock('../utils/sharePreviewImage', () => ({ drawSharePreview }));
 
 import WorkoutShareLinkSheet from './WorkoutShareLinkSheet';
 import SharedWorkoutPage from './SharedWorkoutPage';
@@ -32,7 +34,7 @@ describe('link helpers', () => {
     expect(firstNameOf('rahul@example.com')).toBeNull();
   });
   it('writes the message', () => {
-    expect(shareMessage({ ...WORKOUT, url: 'https://x/w/1' })).toBe('My Push Day workout: 15 sets, 52 min\nhttps://x/w/1');
+    expect(shareMessage({ ...WORKOUT, url: 'https://x/w/1' })).toBe('My Push Day workout on Fitengineers: 15 sets, 52 min. Tap to see every set.\nhttps://x/w/1');
   });
 });
 
@@ -49,6 +51,29 @@ describe('Share sheet', () => {
     fireEvent.click(wa);
     await waitFor(() => expect(workoutShare).toHaveBeenCalledTimes(2));
     expect(workoutShare.mock.calls[1]).toEqual(['save', expect.objectContaining({ token: sent, logDate: '2026-11-23' })]);
+  });
+
+  it('stores the message picture as soon as the sheet opens, link still off', async () => {
+    drawSharePreview.mockResolvedValueOnce('/9j/abc');
+    workoutShare.mockResolvedValue({ shares: [] });
+    const muscles = [{ muscle: 'Chest', sets: 6, main: true }];
+    render(<WorkoutShareLinkSheet workout={{ ...WORKOUT, muscles }} onClose={() => {}} />);
+    await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('prepare', expect.objectContaining({ image: '/9j/abc', logDate: '2026-11-23' })));
+    const sent = decodeURIComponent(screen.getByText('WhatsApp').closest('a').getAttribute('href')).match(/\/w\/(\S+)/)[1];
+    expect(workoutShare.mock.calls.find(c => c[0] === 'prepare')[1].token).toBe(sent);
+    expect(screen.queryByText('Link is on')).toBeNull();
+    expect(drawSharePreview).toHaveBeenCalledTimes(1);
+  });
+
+  it('copies what it is, not just a bare link', async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { ...window.navigator, clipboard: { writeText } });
+    workoutShare.mockResolvedValue({ shares: [LIVE] });
+    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    await screen.findByText('Link is on');
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    expect(writeText.mock.calls[0][0]).toMatch(/^My Push Day workout on Fitengineers: 15 sets, 52 min\..*\n.*\/w\/A{22}$/);
+    expect(await screen.findByText('Copied. Paste it in any chat.')).toBeTruthy();
   });
 
   it('WhatsApp still opens while the link is being saved', async () => {

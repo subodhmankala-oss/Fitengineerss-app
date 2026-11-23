@@ -5608,7 +5608,8 @@ const databaseService = {
 
   // Read-only workout links — every op goes through the server
   // (workout_shares has no RLS policies; see api/_workoutShare.js). Ops:
-  // list | save { logDate, token, sessionId?, flags, bodySex } |
+  // list | prepare { logDate, token, sessionId?, image, bodySex } |
+  // save { logDate, token, sessionId?, flags, bodySex } |
   // flags { logDate, flags } | stop { logDate }.
   // Each returns { shares: [{ token, logDate, showName, … }] }.
   // keepalive: WhatsApp opens at the same tap, which can suspend this page.
@@ -5616,7 +5617,8 @@ const databaseService = {
     if (!isSupabaseConfigured) throw new Error('Sharing needs an internet connection.');
     const { headers } = await serverFallbackAuth();
     const resp = await fetch('/api/save-user-data?action=workout-share', {
-      method: 'POST', headers, keepalive: true, body: JSON.stringify({ op, ...payload })
+      // (A keepalive body is capped at 64 KB, so not the picture.)
+      method: 'POST', headers, keepalive: op !== 'prepare', body: JSON.stringify({ op, ...payload })
     });
     const body = await resp.json().catch(() => null);
     if (!resp.ok || !Array.isArray(body?.shares)) throw new Error(body?.error || 'Could not reach the server. Try again.');

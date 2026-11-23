@@ -15,7 +15,8 @@ import PhoneGate from './components/PhoneGate';
 // onboarding image WebP conversion).
 const ClientOnboardingWizard = lazy(() => import('./components/ClientOnboardingWizard'));
 const ClientProfile = lazy(() => import('./components/ClientProfile'));
-const WorkoutTracker = lazy(() => import('./components/WorkoutTracker'));
+const loadWorkoutTracker = () => import('./components/WorkoutTracker');
+const WorkoutTracker = lazy(loadWorkoutTracker);
 const TrainerDashboard = lazy(() => import('./components/TrainerDashboard'));
 const WorkoutProgressDashboard = lazy(() => import('./components/WorkoutProgressDashboard'));
 const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
@@ -49,6 +50,16 @@ const isOAuthReturnUrl = () => {
 };
 import { isSuperAdmin } from './services/accessControl';
 import './index.css';
+
+// Fetches the logger once Home has settled, so Start opens it without a
+// download (same chunk the lazy() above uses).
+const PreloadLogger = () => {
+  useEffect(() => {
+    const t = setTimeout(() => { loadWorkoutTracker().catch(() => {}); }, 1500);
+    return () => clearTimeout(t);
+  }, []);
+  return null;
+};
 
 // Fallback while a lazy-loaded screen's chunk downloads (see the lazy()
 // imports above) — only ever visible on a slow connection or the very
@@ -1988,6 +1999,7 @@ function App() {
       {/* Clients who signed up before the wizard required a phone must add
           one — their coach can't reach them on WhatsApp otherwise. */}
       <PhoneGate role="client" />
+      <PreloadLogger />
 
       <main className="main-content">
         <Suspense fallback={<LazyScreenFallback />}>{renderContent()}</Suspense>

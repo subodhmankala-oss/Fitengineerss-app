@@ -5,8 +5,8 @@ import PlanCard from './PlanCard';
 
 // Home-screen card for a plan the coach just assigned. Shows each coach plan
 // the client hasn't started yet; tapping Start deep-links into Log Sets with
-// that plan loaded (WorkoutTracker reads the coachPlanId
-// from workoutTrackerAutoStart_<userId>). Once started, the plan drops off
+// that plan loaded (WorkoutTracker reads the plan from
+// workoutTrackerAutoStart_<userId>). Once started, the plan drops off
 // Home and lives only in Log Sets' "Coach Assigned" section.
 export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }) {
   const [plans, setPlans] = useState([]);
@@ -39,7 +39,7 @@ export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }
   const start = (plan) => {
     try {
       localStorage.setItem(`workoutTrackerLastTab_${userId}`, 'log');
-      localStorage.setItem(`workoutTrackerAutoStart_${userId}`, JSON.stringify({ coachPlanId: plan.id }));
+      localStorage.setItem(`workoutTrackerAutoStart_${userId}`, JSON.stringify({ coachPlanId: plan.id, coachPlan: plan }));
     } catch { /* ignore quota/serialization errors */ }
     onNavigateToWorkouts && onNavigateToWorkouts();
   };

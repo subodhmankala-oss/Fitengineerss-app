@@ -23,7 +23,75 @@ body.workout-full-screen .main-content {
 }
 
 body.workout-full-screen .workout-tracker-container {
+  padding-top: 0;
   padding-bottom: 16px;
+}
+
+/* Full-screen means the timer bar sits flush at the top and the first
+   exercise right under it. Everything that used to space the folded parts
+   out (page padding, the card's rounded top, the gaps between them) has
+   nothing left to separate, so it folds too. */
+.workout-tracker-container {
+  transition: padding-top 340ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.hevy-logger-wrapper {
+  transition: padding-top 340ms cubic-bezier(0.2, 0, 0, 1),
+    border-radius 340ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.workout-full-screen .hevy-logger-wrapper {
+  padding-top: 0;
+  border-top-width: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* A folded part still counts as a flex item, so its parent's gap stays —
+   pull the next part up over it (20px / 5px / 8px are those gaps). */
+.workout-tracker-container > .fs-tuck.is-tucked {
+  margin-bottom: -20px;
+}
+
+.hevy-logger-wrapper > .fs-tuck.is-tucked {
+  margin-bottom: -5px;
+}
+
+.exercises-form-section > .fs-tuck.is-tucked {
+  margin-bottom: -8px;
+}
+
+/* Timer bar to first exercise: the bar's own margin + the form's gap + the
+   section's top padding and hairline. */
+.hevy-logger-wrapper > .hevy-stopwatch-banner,
+.hevy-logger-wrapper > .exercises-form-section {
+  transition: margin 340ms cubic-bezier(0.2, 0, 0, 1),
+    padding-top 340ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 160ms ease, box-shadow 160ms ease;
+}
+
+body.workout-full-screen .hevy-logger-wrapper > .hevy-stopwatch-banner {
+  margin-bottom: 0;
+}
+
+body.workout-full-screen .hevy-logger-wrapper > .exercises-form-section {
+  margin-top: -5px;
+  padding-top: 0;
+  border-top-width: 0;
+}
+
+/* Coach Live Log: same, with its 14px gaps. Phones only, where the list runs
+   edge to edge under the bar. */
+@media (max-width: 767px) {
+  .live-logger-container > .fs-tuck.is-tucked,
+  body.workout-full-screen .live-logger-container > .live-timer-bar {
+    margin-bottom: -14px;
+  }
+
+  .live-logger-container > .live-timer-bar {
+    transition: margin-bottom 340ms cubic-bezier(0.2, 0, 0, 1),
+      border-color 160ms ease, box-shadow 160ms ease;
+  }
 }
 
 body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card--coach) {
@@ -37,6 +105,7 @@ body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card
   display: grid;
   grid-template-rows: 1fr;
   transition: grid-template-rows 340ms cubic-bezier(0.2, 0, 0, 1),
+    margin-bottom 340ms cubic-bezier(0.2, 0, 0, 1),
     opacity 240ms ease, transform 340ms cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -124,7 +193,12 @@ body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card
 
 @media (prefers-reduced-motion: reduce) {
   .bottom-nav,
-  .fs-tuck {
+  .fs-tuck,
+  .workout-tracker-container,
+  .hevy-logger-wrapper,
+  .hevy-logger-wrapper > .hevy-stopwatch-banner,
+  .hevy-logger-wrapper > .exercises-form-section,
+  .live-logger-container > .live-timer-bar {
     transition: none;
   }
   .workout-full-screen-exit,

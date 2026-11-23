@@ -30,10 +30,10 @@ const renderWorkoutTracker = () => render(<WorkoutTracker />);
 // No jest-dom in this project — plain className check instead of toHaveClass.
 const hasClass = (el, cls) => el.className.split(/\s+/).includes(cls);
 
-const tucked = () => hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked')
-  && hasClass(screen.getByTestId('header-tuck'), 'is-tucked');
-const untucked = () => !hasClass(screen.getByTestId('tabs-tuck'), 'is-tucked')
-  && !hasClass(screen.getByTestId('header-tuck'), 'is-tucked');
+// Top tabs, workout header and the "enter your reps" tip.
+const tucks = () => ['tabs-tuck', 'header-tuck', 'tip-tuck'].map(id => hasClass(screen.getByTestId(id), 'is-tucked'));
+const tucked = () => tucks().every(Boolean);
+const untucked = () => !tucks().some(Boolean);
 
 const DRAFT_KEY = 'workoutDraft_u1';
 const today = () => {

@@ -32,7 +32,7 @@ describe('WorkoutMuscleHeat', () => {
     render(<WorkoutMuscleHeat rows={rows} logDate={DAY} />);
     fireEvent.click(screen.getByRole('button', { name: /Muscles worked this workout/ }));
     const sheet = screen.getByRole('dialog', { name: "This week's muscles" });
-    expect(sheet.textContent).toContain('2 sets today');
+    expect(sheet.textContent).toContain('2 sets');
     expect(sheet.textContent).toMatch(/Chest[\s\S]*\+2 today/);
   });
 

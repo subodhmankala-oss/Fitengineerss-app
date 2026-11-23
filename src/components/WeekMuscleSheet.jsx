@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
-import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
+import { getWeeklyMuscleStats, isCountableSet, getSetVolumeKg } from '../utils/muscleAnalytics';
 import { OPTIONAL_MUSCLES, getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import { parseLocalDateString } from '../utils/dateUtils';
 import { getWeekMuscleView } from '../utils/weekMuscleView';
@@ -56,6 +56,24 @@ const CalendarIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></svg>
 );
 
+// "16–22 Nov" for a week's yyyy-mm-dd dates; "30 Nov – 6 Dec" across months.
+const weekLabel = (start, end) => {
+  const a = new Date(`${start}T00:00:00`);
+  const b = new Date(`${end}T00:00:00`);
+  const month = d => d.toLocaleDateString('en-GB', { month: 'short' });
+  return a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${month(b)}`
+    : `${a.getDate()} ${month(a)} – ${b.getDate()} ${month(b)}`;
+};
+
+// Heading of one part of the sheet, with a quiet note on the right.
+const SectionHead = ({ title, note }) => (
+  <div className="wms-sec">
+    <h3 className="wms-title">{title}</h3>
+    <span className="wms-sec-note">{note}</span>
+  </div>
+);
+
 export default function WeekMuscleSheet({
   open, onClose, savedLogs, liveRows, logDate, level,
   workoutNames, laterNames, onAddExercise, onSaveForLater, onUnsave, onRemoveExercise, onAddSets,
@@ -81,6 +99,7 @@ export default function WeekMuscleSheet({
       getWeeklyMuscleStats(saved, start, end, { includeUntrained: true, level }).map(s => [s.muscle, s])
     );
     const todaySets = (liveRows || []).filter(r => isCountableSet(r)).length;
+    const todayVolume = Math.round((liveRows || []).reduce((sum, r) => sum + getSetVolumeKg(r), 0));
 
     const cards = statsAll
       .map(s => ({ stat: s, today: s.totalSets - (bySaved[s.muscle]?.totalSets || 0) }))
@@ -112,12 +131,12 @@ export default function WeekMuscleSheet({
         const next = rows.length ? getNextParts(stat.muscle, rows, rows, stat, 0) : null;
         return { stat, parts, next, last: lastSeenText(lastBy[stat.muscle], logDate) };
       });
-    return { byAll, regionSplit, todaySets, cards, others };
+    return { start, end, byAll, regionSplit, todaySets, todayVolume, cards, others };
   }, [open, logDate, savedLogs, liveRows, level]);
 
   if (!open || !data) return null;
   // A part whose card has gone (sets unticked) closes its list.
-  const { byAll, regionSplit, todaySets, cards, others } = data;
+  const { start, end, byAll, regionSplit, todaySets, todayVolume, cards, others } = data;
   const pickOpen = picking && [...cards, ...others].some(c => c.stat.muscle === picking.muscle) ? picking : null;
 
   return createPortal(
@@ -126,8 +145,11 @@ export default function WeekMuscleSheet({
       <div className="wms-sheet">
         <button type="button" className="wms-grab" aria-label="Close" onClick={closeSheet}><span /></button>
         <div className="wms-head">
-          <span className="wms-title">This week's muscles</span>
-          <span className="wms-live">{todaySets} set{todaySets === 1 ? '' : 's'} today</span>
+          <h3 className="wms-title">This workout</h3>
+          <div className={`wms-totals${todaySets === 0 ? ' is-empty' : ''}`}>
+            <span className="wms-total"><b>{todaySets}</b> <small>set{todaySets === 1 ? '' : 's'}</small></span>
+            <span className="wms-total"><b>{todayVolume.toLocaleString('en-IN')}<i> kg</i></b> <small>volume</small></span>
+          </div>
         </div>
         {cards.length > 0 && (
           <div className="wms-now">
@@ -137,6 +159,7 @@ export default function WeekMuscleSheet({
           </div>
         )}
 
+        <SectionHead title="This week's muscles" note={weekLabel(start, end)} />
         <div className="wms-bodies">
           {['front', 'back'].map(view => (
             <div key={view} className="wms-body">
@@ -150,7 +173,7 @@ export default function WeekMuscleSheet({
           <p className="wms-empty">Tick a set and the muscles it works show up here, the same as your home cards.</p>
         ) : (
           <>
-            <p className="wms-caption">Muscles in this workout · same as your home cards</p>
+            <SectionHead title="Muscles in this workout" note="sets this week" />
             {cards.map(({ stat, today, parts, next }) => {
               // Bar on the home card's scale (sets / target): the week before
               // today solid, today's sets striped on top, a green tick where
@@ -212,7 +235,7 @@ export default function WeekMuscleSheet({
           </>
         )}
         {others.length > 0 && (
-          <OtherMuscles others={others} canAct={canAct}
+          <OtherMuscles others={others} all={cards.length === 0} canAct={canAct}
             workoutNames={workoutNames} laterNames={laterNames}
             onUnsave={onUnsave} onRemoveExercise={onRemoveExercise}
             onPick={(muscle, mode, p) => setPicking({ ...p, muscle, mode })} />
@@ -284,7 +307,7 @@ function glideScroll(el, to, ms) {
 
 // Muscles this workout hasn't touched: slim cards stacked worst-on-top like
 // a wallet. Tap the stack to fan it out; tap a fanned card to open it.
-function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsave, onRemoveExercise }) {
+function OtherMuscles({ others, all, canAct, workoutNames, laterNames, onPick, onUnsave, onRemoveExercise }) {
   const [fanned, setFanned] = useState(false);
   const [openMuscle, setOpenMuscle] = useState(null);
   const n = others.length;
@@ -339,7 +362,7 @@ function OtherMuscles({ others, canAct, workoutNames, laterNames, onPick, onUnsa
   };
   return (
     <section className="wms-others" aria-label="Other muscles this week">
-      <div className="wms-divider"><span>{n} more muscle{n === 1 ? '' : 's'} this week</span></div>
+      <SectionHead title={all ? 'All muscles' : 'Other muscles'} note={`${n}${all ? '' : ' more'} this week`} />
       <div ref={stackRef} className={`wms-stack${fanned ? ' is-fanned' : ''}${phase ? ` is-${phase}` : ''}`}
         style={fanned ? undefined : { height: 78 + peek * 10 }} {...stackProps}>
         {shown.map(({ stat, parts, next, last }, i) => {

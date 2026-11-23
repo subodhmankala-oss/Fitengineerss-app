@@ -215,6 +215,7 @@ describe('Shared workout page', () => {
     expect(screen.getByText('New best')).toBeTruthy();
     expect(container.querySelectorAll('input, button, textarea, select, [contenteditable]')).toHaveLength(0);
     expect(screen.getByRole('link', { name: 'Try it' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Back to my app' })).toBeNull();
   });
 
   it('hides weights and the map when they were switched off', async () => {
@@ -230,6 +231,7 @@ describe('Shared workout page', () => {
     serve(200, { workout: PUBLIC });
     const { container } = render(<SharedWorkoutPage token={TOKEN} />);
     expect(await screen.findByRole('link', { name: 'My workouts' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Back to my app' }).getAttribute('href')).toBe('/');
     expect(container.querySelectorAll('input, button')).toHaveLength(0);
   });
 

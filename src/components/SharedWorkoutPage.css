@@ -1,6 +1,7 @@
 /* Read-only shared workout (/w/<token>) — see SharedWorkoutPage.jsx. #root is
    a fixed, non-scrolling frame, so this page scrolls itself. */
 .swp {
+  position: relative;
   width: 100%;
   height: calc(var(--app-vh, 1vh) * 100);
   overflow-y: auto;
@@ -10,6 +11,12 @@
 .swp-inner { width: 100%; max-width: 480px; margin: 0 auto; padding: 0 14px 28px; box-sizing: border-box; }
 
 .swp-head { display: flex; align-items: center; gap: 9px; padding: 16px 2px 0; }
+.swp-back {
+  display: grid; place-items: center; width: 40px; height: 40px; margin: -6px -4px -6px -10px;
+  border-radius: 50%; color: var(--text-main);
+}
+.swp-message .swp-back { position: absolute; left: 12px; top: 12px; margin: 0; }
+.swp-message .swp-back svg { color: inherit; margin: 0; }
 .swp-head img { width: 28px; height: 28px; border-radius: 8px; }
 .swp-head b { font-size: 0.9rem; }
 .swp-only {

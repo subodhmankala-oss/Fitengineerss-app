@@ -86,9 +86,17 @@ export default function SharedWorkoutPage({ token }) {
   let signedIn = false;
   try { signedIn = localStorage.getItem('onboardingComplete') === 'true'; } catch { /* storage blocked */ }
 
+  // Opened inside the installed app (no browser back button there) or by
+  // someone who uses it: a way back to their own screens.
+  const installed = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+  const backToApp = (signedIn || installed) && (
+    <a className="swp-back" href="/" aria-label="Back to my app"><Icon size={22}><path d="M15 6l-6 6 6 6" /></Icon></a>
+  );
+
   if (status !== 'ready') {
     return (
       <main className="swp swp-message">
+        {backToApp}
         {status === 'loading' && <p role="status">Opening workout…</p>}
         {status === 'gone' && (
           <>
@@ -116,6 +124,7 @@ export default function SharedWorkoutPage({ token }) {
     <main className="swp">
       <div className="swp-inner">
         <header className="swp-head">
+          {backToApp}
           <img src="/logo.png" alt="" />
           <b>Fitengineers</b>
           <span className="swp-only"><Icon size={14}><path d="M2 12c2.5-4.7 5.8-7 10-7s7.500 2.300 10 7c-2.500 4.700-5.800 7-10 7s-7.500-2.300-10-7" /><circle cx="12" cy="12" r="3" /></Icon>View only</span>

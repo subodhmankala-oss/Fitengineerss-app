@@ -37,7 +37,7 @@ const TABS = [
 
 /**
  * The client app's bottom tabs: a small floating capsule. Only the open tab
- * shows its name; the ringed pill slides and the tab widens together.
+ * shows its name; the solid blue pill slides and the tab widens together.
  */
 export default function BottomIsland({ activeTab, onSelect, hasDot = () => false }) {
   const activeIndex = TABS.findIndex((t) => t.id === activeTab);

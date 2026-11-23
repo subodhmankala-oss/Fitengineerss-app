@@ -96,6 +96,17 @@ export default function WorkoutShareLinkSheet({ workout, onClose, onChange }) {
     if (on) setNote(didCopy ? 'Link copied' : 'Link is on. Press and hold the link to copy it.');
   };
 
+  // The phone's own list: Instagram messages, Facebook, Telegram, SMS…
+  const canShareMore = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const shareMore = async () => {
+    const wasOn = !!share;
+    const [line] = text.split('\n');
+    const picked = navigator.share({ title, text: line, url }).then(() => true, e => e?.name !== 'AbortError');
+    const [kept, on] = await Promise.all([picked, turnOn()]);
+    // Closed without picking anyone: don't leave a link on that wasn't before.
+    if (on && !kept && !wasOn && await run('stop', {})) setNewToken(newShareToken());
+  };
+
   const stop = async () => {
     if (!(await run('stop', {}))) return;
     // The stopped link must stay dead: sharing again makes a new one.
@@ -125,7 +136,7 @@ export default function WorkoutShareLinkSheet({ workout, onClose, onChange }) {
           </button>
         ))}
 
-        <div className="wsl-ways">
+        <div className={`wsl-ways${canShareMore ? ' three' : ''}`}>
           <a
             className={`wsl-way wa${ready ? '' : ' is-off'}`}
             href={ready ? `https://wa.me/?text=${encodeURIComponent(text)}` : undefined}
@@ -137,6 +148,11 @@ export default function WorkoutShareLinkSheet({ workout, onClose, onChange }) {
           <button type="button" className="wsl-way" onClick={copy} disabled={!ready}>
             <Icon><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></Icon>Copy link
           </button>
+          {canShareMore && (
+            <button type="button" className="wsl-way" onClick={shareMore} disabled={!ready}>
+              <ShareIcon size={19} />More apps
+            </button>
+          )}
         </div>
         {error ? <p className="wsl-note err" role="alert">{error}</p> : note ? <p className="wsl-note" role="status">{note}</p> : null}
       </div>

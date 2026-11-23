@@ -108,15 +108,21 @@ export function sharedWorkoutTotals(workout) {
   };
 }
 
-// Muscles this one workout trained, most sets first. `main` = the ones it was
+// Muscle map colours for one workout: what it was about / what it also hit.
+export const MAIN_MUSCLE_COLOR = '#10b981';
+export const HELPED_MUSCLE_COLOR = '#3b82f6';
+
+// Muscles one workout trained, most sets first. `main` = the ones it was
 // mostly about (at least 60% of the top muscle's sets).
-export function sharedWorkoutMuscles(workout) {
-  const stats = getWeeklyMuscleStats(toRows(workout), workout.date, workout.date)
+export function musclesFromRows(rows, date) {
+  const stats = getWeeklyMuscleStats(rows, date, date)
     .filter(s => s.totalSets > 0)
     .sort((a, b) => b.totalSets - a.totalSets);
   const top = stats[0]?.totalSets || 0;
   return stats.map(s => ({ muscle: s.muscle, sets: s.totalSets, main: s.totalSets >= top * 0.6 }));
 }
+
+export const sharedWorkoutMuscles = (workout) => musclesFromRows(toRows(workout), workout.date);
 
 export const sharedWeightLabel = (name, kg) => (
   isBodyweightExercise(name) && !(Number(kg) > 0) ? 'BW' : `${Number(kg) || 0} kg`

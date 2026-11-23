@@ -6,12 +6,9 @@ import { getSetTypeVisual } from '../utils/setTypes';
 import { formatSecondsToTimeString } from '../utils/liveWorkoutTimer';
 import { formatDurationShort } from '../utils/monthlyProgress';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
-import { sharedWeightLabel, sharedWorkoutMuscles, sharedWorkoutTotals } from '../utils/workoutShare';
+import { HELPED_MUSCLE_COLOR, MAIN_MUSCLE_COLOR, sharedWeightLabel, sharedWorkoutMuscles, sharedWorkoutTotals } from '../utils/workoutShare';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './SharedWorkoutPage.css';
-
-const MAIN_COLOR = '#10b981';
-const HELPED_COLOR = '#3b82f6';
 
 const Icon = ({ size, children }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -112,7 +109,7 @@ export default function SharedWorkoutPage({ token }) {
   }
 
   const dateLabel = new Date(`${workout.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace(',', '');
-  const colors = Object.fromEntries(muscles.map(m => [m.muscle, m.main ? MAIN_COLOR : HELPED_COLOR]));
+  const colors = Object.fromEntries(muscles.map(m => [m.muscle, m.main ? MAIN_MUSCLE_COLOR : HELPED_MUSCLE_COLOR]));
   const colorFor = (m) => colors[m] || null;
 
   return (

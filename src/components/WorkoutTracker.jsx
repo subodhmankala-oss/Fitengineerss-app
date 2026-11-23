@@ -19,9 +19,8 @@ import { applyLiveSwap, buildSwapEntry, canUndoSwap, dropSetTimersForExercise, f
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
 import { notifyEvent } from '../utils/pushNotify';
-import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
+import { MUSCLE_TO_PPLC, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
-import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
@@ -2699,22 +2698,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         });
       }
 
-      const muscleSet = new Set();
-      formattedExercises.forEach(ex => {
-        getMuscleGroupsForExercise(ex.name).forEach(m => muscleSet.add(m));
-      });
-
       setShareCardData({
         workoutName: newSession.planName,
-        clientName: (localStorage.getItem('userName') || '').trim(),
         dateLabel: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
           ' · ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        durationLabel: finalDurationSeconds ? `${Math.round(finalDurationSeconds / 60)} min` : summaryStats?.duration || '—',
         calories: finalCalories != null ? Math.round(finalCalories) : null,
         bestLift,
         totalSets: summaryStats?.totalSets || finalSetsCount,
         volume: summaryStats?.volume ?? '0',
-        muscleGroups: Array.from(muscleSet).slice(0, 4),
+        // This workout's ticked sets, for the card's muscle map.
+        rows: tickedSetRows(activeExercises, logDate),
         // For the card's read-only link.
         link: {
           title: newSession.planName,

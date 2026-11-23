@@ -6,6 +6,7 @@ vi.mock('../services/databaseService', () => ({ default: { workoutShare } }));
 
 import WorkoutShareLinkSheet from './WorkoutShareLinkSheet';
 import SharedWorkoutPage from './SharedWorkoutPage';
+import WorkoutShareCard from './WorkoutShareCard';
 import { SHARE_TOKEN_RE, firstNameOf, newShareToken, sharedWorkoutMuscles, sharedWorkoutTotals, shareMessage, shareTokenFromPath } from '../utils/workoutShare';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
@@ -79,6 +80,91 @@ describe('Share sheet', () => {
     fireEvent.click(copy);
     expect((await screen.findByRole('alert')).textContent).toContain("Couldn't update sharing");
     expect(screen.queryByText('Link copied')).toBeNull();
+  });
+});
+
+describe('More apps', () => {
+  beforeEach(() => { workoutShare.mockReset(); });
+  afterEach(() => { delete navigator.share; });
+  const abort = () => Promise.reject(Object.assign(new Error('closed'), { name: 'AbortError' }));
+
+  it('is offered only where the phone has its own share list', async () => {
+    workoutShare.mockResolvedValue({ shares: [] });
+    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy link' }).disabled).toBe(false));
+    expect(screen.queryByRole('button', { name: 'More apps' })).toBeNull();
+  });
+
+  it('hands over the link and turns it on', async () => {
+    navigator.share = vi.fn(async () => {});
+    workoutShare.mockResolvedValue({ shares: [] });
+    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    const more = screen.getByRole('button', { name: 'More apps' });
+    await waitFor(() => expect(more.disabled).toBe(false));
+    fireEvent.click(more);
+    const { url, text } = navigator.share.mock.calls[0][0];
+    expect(text).not.toContain('http');
+    await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('save', expect.objectContaining({ token: url.split('/w/')[1] })));
+  });
+
+  it('closing the list without choosing leaves no link on', async () => {
+    navigator.share = vi.fn(abort);
+    workoutShare.mockImplementation(async (op) => ({ shares: op === 'save' ? [LIVE] : [] }));
+    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    const more = screen.getByRole('button', { name: 'More apps' });
+    await waitFor(() => expect(more.disabled).toBe(false));
+    fireEvent.click(more);
+    await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('stop', { logDate: '2026-11-23' }));
+  });
+
+  it('but never turns off a link that was already on', async () => {
+    navigator.share = vi.fn(abort);
+    workoutShare.mockResolvedValue({ shares: [LIVE] });
+    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    await screen.findByText('Link is on');
+    fireEvent.click(screen.getByRole('button', { name: 'More apps' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'More apps' }).disabled).toBe(false));
+    expect(workoutShare.mock.calls.map(c => c[0])).not.toContain('stop');
+  });
+});
+
+describe('Finish card', () => {
+  const row = (exercise_name, weight_kg, reps, set_type = 'normal') => ({ log_date: '2026-11-23', exercise_name, weight_kg, reps, set_type });
+  const session = {
+    workoutName: 'Push Day', dateLabel: 'Mon 23 Nov', calories: 320, totalSets: 4, volume: '1,420',
+    bestLift: { exerciseName: 'Bench Press', weight: 70, reps: 6, unit: 'kg', isPR: true },
+    rows: [row('Barbell Bench Press', 60, 10), row('Barbell Bench Press', 65, 8), row('Triceps Pushdown', 25, 12)],
+    link: { ...WORKOUT, sessionId: 'session-1' },
+  };
+  beforeEach(() => { workoutShare.mockReset(); workoutShare.mockResolvedValue({ shares: [] }); });
+
+  it('shows both bodies, the muscles, the numbers and the new best', () => {
+    const { baseElement } = render(<WorkoutShareCard session={session} onClose={() => {}} />);
+    expect(baseElement.querySelectorAll('.wsc-bodies .heat-body')).toHaveLength(2);
+    expect(screen.getByLabelText('Sets per muscle').textContent).toContain('Chest 2');
+    expect(baseElement.querySelector('.wsc-nums').textContent).toBe('52min4sets1,420kg320kcal');
+    expect(screen.getByText('New best')).toBeTruthy();
+  });
+
+  it('leaves out what a workout does not have', () => {
+    const { baseElement } = render(<WorkoutShareCard session={{ ...session, calories: null, volume: '0', bestLift: null, rows: [], link: { ...session.link, durationSeconds: null } }} onClose={() => {}} />);
+    expect(baseElement.querySelector('.wsc-nums').textContent).toBe('4sets');
+    expect(baseElement.querySelector('.wsc-best')).toBeNull();
+  });
+
+  it('says heaviest lift when it is not a new best', () => {
+    render(<WorkoutShareCard session={{ ...session, bestLift: { ...session.bestLift, isPR: false } }} onClose={() => {}} />);
+    expect(screen.getByText('Heaviest lift')).toBeTruthy();
+  });
+
+  it('shares by link only, and Done closes', async () => {
+    const onClose = vi.fn();
+    render(<WorkoutShareCard session={session} onClose={onClose} />);
+    expect(screen.queryByText('Instagram')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Share workout' }));
+    expect(await screen.findByText('Share Push Day')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

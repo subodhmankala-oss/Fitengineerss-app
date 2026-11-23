@@ -4,6 +4,7 @@ import './StatsStrip.css';
 
 // Line icons (Tabler outline paths) for the strip's unit labels.
 const ICONS = {
+  time: 'M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0M12 7v5l3 3',
   volume: 'M2 12h1M6 8H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zM9 12h6M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1zM18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M22 12h-1',
   sets: 'M12 4L4 8l8 4 8-4-8-4M4 12l8 4 8-4M4 16l8 4 8-4',
   workouts: 'M11.5 21H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6M16 3v4M8 3v4M4 11h16M15 19l2 2 4-4',
@@ -15,6 +16,7 @@ const ICONS = {
 
 // The usual hue per stat, so "sets" is the same blue on every tab.
 const STAT_COLORS = {
+  time: 'var(--text-muted)',
   volume: 'var(--tint-violet)',
   sets: 'var(--tint-blue)',
   workouts: 'var(--tint-amber)',

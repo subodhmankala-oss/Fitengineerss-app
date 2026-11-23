@@ -32,6 +32,8 @@ import { PlayIcon, TrashIcon } from './TimerIcons';
 import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
+import WorkoutShareLinkSheet, { ShareWorkoutButton } from './WorkoutShareLinkSheet';
+import { musclesFromRows } from '../utils/workoutShare';
 import { PlusIcon, EditSquareIcon, TrashLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { readLiveRows, LIVE_ROWS_EVENT } from '../utils/liveSessionStore';
@@ -150,6 +152,18 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   const [missedExOpen, setMissedExOpen] = useState(false);
   const [missedExToast, setMissedExToast] = useState('');
   const [editWorkoutOpen, setEditWorkoutOpen] = useState(false);
+  // Days whose read-only link is on (the dot on the Daily card's Share).
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharedDates, setSharedDates] = useState(() => new Set());
+  const noteShares = (shares) => setSharedDates(new Set(shares.map(s => s.logDate)));
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
+    databaseService.workoutShare('list')
+      .then(({ shares }) => { if (!cancelled) setSharedDates(new Set(shares.map(s => s.logDate))); })
+      .catch(() => { /* only the dot is missing; opening Share asks again */ });
+    return () => { cancelled = true; };
+  }, [userId]);
   // Coach-set renewal date (clients.program_started_on). Scopes "sessions
   // completed" below to the CURRENT program period — see getTotalSessionsDone.
   const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
@@ -1475,9 +1489,12 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                       || (groupedLogs[selectedDateStr] ? 'Workout' : isToday(selectedDateStr) ? "Today's Progress" : 'Rest day')}
                     done={!!groupedLogs[selectedDateStr]}
                     durationSeconds={dailyStats.durationSeconds}
-                    actions={dailyStats.exercises.length > 0 && canAddMissedExercise(selectedDateStr) && (
+                    actions={dailyStats.exercises.length > 0 && (dayRowsEditable || canAddMissedExercise(selectedDateStr)) && (
                       <>
                         {dayRowsEditable && (
+                          <ShareWorkoutButton live={sharedDates.has(selectedDateStr)} onClick={() => setShareOpen(true)} />
+                        )}
+                        {canAddMissedExercise(selectedDateStr) && dayRowsEditable && (
                           <>
                             <button type="button" className="missed-ex-entry-btn edit icon-only" onClick={() => setEditWorkoutOpen(true)} aria-label="Edit workout" title="Edit workout">
                               <EditSquareIcon size={14} />
@@ -1487,9 +1504,11 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                             </button>
                           </>
                         )}
-                        <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                          <PlusIcon size={11} /> Add missed workout
-                        </button>
+                        {canAddMissedExercise(selectedDateStr) && (
+                          <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                            <PlusIcon size={11} /> Add missed workout
+                          </button>
+                        )}
                       </>
                     )}
                   />
@@ -1811,6 +1830,13 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         dateLabel={isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         bodyWeightKg={parseFloat(localStorage.getItem('userWeight')) || undefined}
       />
+      {shareOpen && (
+        <WorkoutShareLinkSheet
+          workout={{ title: dailyPlanLabel, logDate: selectedDateStr, sets: dailyStats.sets, durationSeconds: dailyStats.durationSeconds, muscles: musclesFromRows(dayRows, selectedDateStr) }}
+          onClose={() => setShareOpen(false)}
+          onChange={noteShares}
+        />
+      )}
       {missedExToast && <div className="missed-ex-toast" role="status">{missedExToast}</div>}
     </div>
   );

@@ -108,6 +108,29 @@ export function PauseIcon({ size = 20, className }) {
   );
 }
 
+// Share: three joined dots.
+export function ShareIcon({ size = 18, className }) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.600 13.500l6.800 4M15.400 6.500l-6.800 4" />
+    </svg>
+  );
+}
+
 // Drag handle for press-and-hold reordering: a plain three-line grip —
 // the universal "reorder" affordance — used on exercise cards in the Live
 // Log, client logger, and plan editor.

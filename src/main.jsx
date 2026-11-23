@@ -6,20 +6,32 @@ import InstallBanner from './components/InstallBanner.jsx'
 import IOSInstallBanner from './components/IOSInstallBanner.jsx'
 import UpdateBanner from './components/UpdateBanner.jsx'
 import PullToRefresh from './components/PullToRefresh.jsx'
+import SharedWorkoutEntry from './components/SharedWorkoutEntry.jsx'
 import { CoachTourProvider } from './context/CoachTourContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
+import { shareTokenFromPath } from './utils/shareToken.js'
+
+// A /w/<token> link (a workout someone shared) opens its own read-only page
+// instead of the app: no sign-in, none of the app's background work.
+const sharedToken = shareTokenFromPath(window.location.pathname);
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
-      <CoachTourProvider>
-        <App />
-      </CoachTourProvider>
-      <InstallBanner />
-      <IOSInstallBanner />
-      <UpdateBanner />
-      <PullToRefresh />
+      {sharedToken !== null ? (
+        <SharedWorkoutEntry token={sharedToken} />
+      ) : (
+        <>
+          <CoachTourProvider>
+            <App />
+          </CoachTourProvider>
+          <InstallBanner />
+          <IOSInstallBanner />
+          <UpdateBanner />
+          <PullToRefresh />
+        </>
+      )}
     </ThemeProvider>
   </StrictMode>,
 )
@@ -28,7 +40,7 @@ createRoot(document.getElementById('root')).render(
 // safe update flow: new versions download in the background and only take
 // over when the user taps "Refresh" on the UpdateBanner or the app is next
 // backgrounded (see registerPWA.js).
-initPWA();
+if (sharedToken === null) initPWA();
 
 // Viewport/safe-area diagnostic overlay, off unless explicitly switched on
 // with ?diag=1 (sticky thereafter — see the module for why an installed PWA

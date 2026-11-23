@@ -1,0 +1,105 @@
+/* Read-only shared workout (/w/<token>) — see SharedWorkoutPage.jsx. #root is
+   a fixed, non-scrolling frame, so this page scrolls itself. */
+.swp {
+  position: relative;
+  width: 100%;
+  height: calc(var(--app-vh, 1vh) * 100);
+  overflow-y: auto;
+  background: var(--bg-app);
+  color: var(--text-main);
+}
+.swp-inner { width: 100%; max-width: 480px; margin: 0 auto; padding: 0 14px 28px; box-sizing: border-box; }
+
+.swp-head { display: flex; align-items: center; gap: 9px; padding: 16px 2px 0; }
+.swp-back {
+  display: grid; place-items: center; width: 40px; height: 40px; margin: -6px -4px -6px -10px;
+  border-radius: 50%; color: var(--text-main);
+}
+.swp-message .swp-back { position: absolute; left: 12px; top: 12px; margin: 0; }
+.swp-message .swp-back svg { color: inherit; margin: 0; }
+.swp-head img { width: 28px; height: 28px; border-radius: 8px; }
+.swp-head b { font-size: 0.9rem; }
+.swp-only {
+  display: flex; align-items: center; gap: 5px; margin-left: auto;
+  padding: 5px 10px; border-radius: 99px;
+  font-size: 0.75rem; font-weight: 700; color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.1); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.28);
+}
+
+.swp-title { padding: 16px 2px 10px; }
+.swp-title h1 { margin: 0; font-size: 1.375rem; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.swp-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 7px 0 5px; }
+.swp-tag {
+  --c: 167, 139, 250; --t: #c4b5fd;
+  padding: 2px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600;
+  color: var(--t); background: rgba(var(--c), 0.14); box-shadow: inset 0 0 0 1px rgba(var(--c), 0.45);
+}
+.swp-title h1 .swp-tag { display: inline-block; margin-left: 9px; vertical-align: 3px; line-height: 1.5; letter-spacing: 0; white-space: nowrap; }
+.swp-tag.level-beginner { --c: 16, 185, 129; --t: #34d399; }
+.swp-tag.level-intermediate, .swp-tag.level-number { --c: 245, 158, 11; --t: #fbbf24; }
+.swp-tag.level-advanced { --c: 239, 68, 68; --t: #f87171; }
+.swp-tag.week { --c: 59, 130, 246; --t: #60a5fa; }
+[data-theme="light"] .swp-tag { --t: #6d28d9; }
+[data-theme="light"] .swp-tag.level-beginner { --t: #047857; }
+[data-theme="light"] .swp-tag.level-intermediate, [data-theme="light"] .swp-tag.level-number { --t: #b45309; }
+[data-theme="light"] .swp-tag.level-advanced { --t: #b91c1c; }
+[data-theme="light"] .swp-tag.week { --t: #1d4ed8; }
+.swp-title p { margin: 2px 0 0; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); }
+.swp-stats { background: rgba(var(--fg-rgb), 0.035); }
+
+.swp-map {
+  margin-top: 12px; padding: 14px; border-radius: 20px;
+  background: var(--bg-card); border: 1px solid rgba(var(--fg-rgb), 0.06);
+}
+.swp-map h2, .swp-section { margin: 0; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); }
+.swp-bodies { display: flex; justify-content: center; gap: 30px; margin: 10px 0 12px; }
+.swp-bodies .heat-body.muscle-thumb { background: transparent; border: none; border-radius: 0; }
+.swp-map ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: 0; padding: 0; list-style: none; }
+.swp-map li { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.swp-map li i { width: 8px; height: 8px; border-radius: 50%; }
+.swp-map li b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+.swp-map > p { margin: 8px 0 0; text-align: center; font-size: 0.72rem; color: var(--text-muted); }
+
+.swp-section { margin: 18px 2px 8px; }
+.swp-ex {
+  margin-bottom: 10px; padding: 11px 13px; border-radius: 14px;
+  background: var(--bg-card); border: 1px solid rgba(var(--fg-rgb), 0.06);
+}
+.swp-ex h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 5px; font-size: 0.92rem; font-weight: 700; overflow-wrap: anywhere; }
+.swp-ex h2 small { flex-shrink: 0; margin-left: auto; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
+.swp-best {
+  flex-shrink: 0; padding: 2px 7px; border-radius: 99px; white-space: nowrap;
+  font-size: 0.66rem; font-weight: 700; color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.14); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.35);
+}
+[data-theme="light"] .swp-best { color: #047857; }
+.swp-ex ol { margin: 0; padding: 0; list-style: none; }
+.swp-ex li {
+  display: grid; grid-template-columns: 34px 1fr 1fr; align-items: center;
+  padding: 6px 0; border-top: 1px solid rgba(var(--fg-rgb), 0.05);
+  font-size: 0.88rem; font-variant-numeric: tabular-nums;
+}
+.swp-ex li i {
+  display: grid; place-items: center; width: 21px; height: 21px; border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.07); font-style: normal; font-size: 0.72rem; font-weight: 700;
+}
+.swp-ex li span:first-of-type { font-weight: 600; }
+
+.swp-cta {
+  display: flex; align-items: center; gap: 11px; margin-top: 16px; padding: 14px; border-radius: 16px;
+  background: var(--bg-card); border: 1px solid rgba(var(--fg-rgb), 0.07);
+  font-size: 0.8rem; color: var(--text-muted);
+}
+.swp-cta img { width: 36px; height: 36px; border-radius: 10px; }
+.swp-cta span { flex: 1; min-width: 0; }
+.swp-cta b { display: block; font-size: 0.88rem; color: var(--text-main); }
+.swp-btn {
+  flex-shrink: 0; padding: 10px 14px; border: 0; border-radius: 11px; cursor: pointer; text-decoration: none;
+  background: var(--primary-accent); color: var(--text-on-accent); font: inherit; font-size: 0.82rem; font-weight: 600; white-space: nowrap;
+}
+
+.swp-message { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 30px; box-sizing: border-box; text-align: center; }
+.swp-message svg { color: var(--text-subtle); margin-bottom: 6px; }
+.swp-message h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
+.swp-message p { margin: 0; font-size: 0.88rem; color: var(--text-muted); }
+.swp-message .swp-btn { margin-top: 10px; }

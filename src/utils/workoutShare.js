@@ -27,6 +27,51 @@ export function shareMessage({ title, sets, durationSeconds, url }) {
 // before session_id).
 export const sessionKeyOf = (row) => (row.session_id ? `sid:${row.session_id}` : `at:${row.created_at}`);
 
+// A day's rows as separate workouts: [{ key, keys, title, rows }], in saved
+// order. `key` names the workout (its link hangs on it). Rows from before
+// session_id, and exercises added later as their own save, join the workout
+// of the same name.
+export function groupDayWorkouts(rows) {
+  const isOwn = (key) => key.startsWith('sid:') && !key.startsWith('sid:missed-');
+  const groups = [];
+  const title = (r) => (r.plan_name || 'Workout').trim();
+  const add = (key, r) => {
+    const g = { key, keys: [key], title: title(r), rows: [r] };
+    groups.push(g);
+    return g;
+  };
+  const sorted = [...rows].sort((a, b) => Number(isOwn(sessionKeyOf(b))) - Number(isOwn(sessionKeyOf(a))));
+  sorted.forEach(r => {
+    const key = sessionKeyOf(r);
+    const g = groups.find(x => x.keys.includes(key) && (isOwn(key) || x.title === title(r)))
+      || (isOwn(key) ? null : groups.find(x => x.title === title(r)));
+    if (!g) { add(key, r); return; }
+    if (!g.keys.includes(key)) g.keys.push(key);
+    g.rows.push(r);
+  });
+  return groups;
+}
+
+// What the Share sheet needs to know about one workout of a day.
+export function shareableWorkout(group, logDate) {
+  const seen = new Set();
+  let durationSeconds = null;
+  group.rows.forEach(r => {
+    const key = sessionKeyOf(r);
+    if (seen.has(key) || r.duration_seconds == null) return;
+    seen.add(key);
+    durationSeconds = (durationSeconds || 0) + Number(r.duration_seconds);
+  });
+  return {
+    key: group.key,
+    title: group.title,
+    logDate,
+    sets: group.rows.filter(isCountableSet).length,
+    durationSeconds,
+    muscles: musclesFromRows(group.rows, logDate),
+  };
+}
+
 // "Rahul Sharma" → "Rahul". 'Warrior' is the app's no-name placeholder.
 export function firstNameOf(fullName) {
   const first = String(fullName || '').trim().split(/\s+/)[0] || '';

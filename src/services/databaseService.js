@@ -5608,10 +5608,10 @@ const databaseService = {
 
   // Read-only workout links — every op goes through the server
   // (workout_shares has no RLS policies; see api/_workoutShare.js). Ops:
-  // list | prepare { logDate, token, sessionId?, image, bodySex } |
-  // save { logDate, token, sessionId?, flags, bodySex } |
-  // flags { logDate, flags } | stop { logDate }.
-  // Each returns { shares: [{ token, logDate, showName, … }] }.
+  // list | prepare { logDate, key, token, image, … } |
+  // save { logDate, key, token, flags, … } | flags { logDate, key, flags } |
+  // stop { logDate, key }. key = the workout (groupDayWorkouts).
+  // Each returns { shares: [{ token, logDate, key, showName, … }] }.
   // keepalive: WhatsApp opens at the same tap, which can suspend this page.
   async workoutShare(op, payload = {}) {
     if (!isSupabaseConfigured) throw new Error('Sharing needs an internet connection.');

@@ -2714,7 +2714,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           logDate,
           sets: summaryStats?.totalSets || finalSetsCount,
           durationSeconds: finalDurationSeconds,
-          sessionId: newSession.id
+          key: `sid:${newSession.id}`
         }
       });
     } else {

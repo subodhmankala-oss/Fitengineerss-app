@@ -9,13 +9,29 @@ vi.mock('../utils/sharePreviewImage', () => ({ drawSharePreview }));
 import WorkoutShareLinkSheet from './WorkoutShareLinkSheet';
 import SharedWorkoutPage from './SharedWorkoutPage';
 import WorkoutShareCard from './WorkoutShareCard';
-import { SHARE_TOKEN_RE, firstNameOf, newShareToken, sharedWorkoutMuscles, sharedWorkoutTotals, shareMessage, shareTokenFromPath } from '../utils/workoutShare';
+import { SHARE_TOKEN_RE, firstNameOf, groupDayWorkouts, shareableWorkout, newShareToken, sharedWorkoutMuscles, sharedWorkoutTotals, shareMessage, shareTokenFromPath } from '../utils/workoutShare';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 const TOKEN = 'A'.repeat(22);
-const LIVE = { token: TOKEN, logDate: '2026-11-23', showName: true, showMap: true, showWeights: false, showCalories: true };
-const WORKOUT = { title: 'Push Day', logDate: '2026-11-23', sets: 15, durationSeconds: 3120 };
+const LIVE = { token: TOKEN, key: 'sid:s1', logDate: '2026-11-23', showName: true, showMap: true, showWeights: false, showCalories: true };
+const WORKOUT = { key: 'sid:s1', title: 'Push Day', logDate: '2026-11-23', sets: 15, durationSeconds: 3120 };
+
+describe('workouts of a day', () => {
+  const r = (over) => ({ log_date: '2026-11-23', exercise_name: 'Bench Press (Barbell)', reps: 10, weight_kg: 50, set_type: null, plan_name: 'Push Day', session_id: 's1', created_at: 'a', duration_seconds: 600, ...over });
+  it('keeps two saved workouts apart and folds later additions into theirs', () => {
+    const groups = groupDayWorkouts([
+      r(), r(), r({ session_id: 's2', plan_name: 'Beginner Full Body B', duration_seconds: 900 }),
+      r({ session_id: 'missed-1', created_at: 'b' }), r({ session_id: null, created_at: 'c', plan_name: 'Old Plan' }),
+    ]);
+    expect(groups.map(g => [g.key, g.keys, g.title, g.rows.length])).toEqual([
+      ['sid:s1', ['sid:s1', 'sid:missed-1'], 'Push Day', 3],
+      ['sid:s2', ['sid:s2'], 'Beginner Full Body B', 1],
+      ['at:c', ['at:c'], 'Old Plan', 1],
+    ]);
+    expect(shareableWorkout(groups[1], '2026-11-23')).toMatchObject({ key: 'sid:s2', title: 'Beginner Full Body B', sets: 1, durationSeconds: 900 });
+  });
+});
 
 describe('link helpers', () => {
   it('makes unguessable tokens', () => {
@@ -43,7 +59,7 @@ describe('Share sheet', () => {
 
   it('makes no link until it is sent, then saves the same one WhatsApp got', async () => {
     workoutShare.mockResolvedValue({ shares: [] });
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     const wa = screen.getByText('WhatsApp').closest('a');
     await waitFor(() => expect(wa.getAttribute('href')).toBeTruthy());
     expect(workoutShare.mock.calls).toEqual([['list']]);
@@ -57,7 +73,7 @@ describe('Share sheet', () => {
     drawSharePreview.mockResolvedValueOnce('/9j/abc');
     workoutShare.mockResolvedValue({ shares: [] });
     const muscles = [{ muscle: 'Chest', sets: 6, main: true }];
-    render(<WorkoutShareLinkSheet workout={{ ...WORKOUT, muscles }} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[{ ...WORKOUT, muscles }]} onClose={() => {}} />);
     await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('prepare', expect.objectContaining({ image: '/9j/abc', logDate: '2026-11-23' })));
     const sent = decodeURIComponent(screen.getByText('WhatsApp').closest('a').getAttribute('href')).match(/\/w\/(\S+)/)[1];
     expect(workoutShare.mock.calls.find(c => c[0] === 'prepare')[1].token).toBe(sent);
@@ -69,7 +85,7 @@ describe('Share sheet', () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal('navigator', { ...window.navigator, clipboard: { writeText } });
     workoutShare.mockResolvedValue({ shares: [LIVE] });
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     await screen.findByText('Link is on');
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
     expect(writeText.mock.calls[0][0]).toMatch(/^My Push Day workout on Fitengineers: 15 sets, 52 min\..*\n.*\/w\/A{22}$/);
@@ -78,7 +94,7 @@ describe('Share sheet', () => {
 
   it('WhatsApp still opens while the link is being saved', async () => {
     workoutShare.mockImplementation((op) => (op === 'list' ? Promise.resolve({ shares: [] }) : new Promise(() => {})));
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     const wa = screen.getByText('WhatsApp').closest('a');
     await waitFor(() => expect(wa.getAttribute('href')).toBeTruthy());
     const opened = wa.getAttribute('href');
@@ -88,9 +104,34 @@ describe('Share sheet', () => {
     expect(workoutShare.mock.calls.filter(c => c[0] === 'save')).toHaveLength(1);
   });
 
+  it('waits for the picture before anything can be sent', async () => {
+    let stored;
+    drawSharePreview.mockResolvedValueOnce('/9j/abc');
+    workoutShare.mockImplementation((op) => (op === 'prepare' ? new Promise(res => { stored = () => res({ shares: [] }); }) : Promise.resolve({ shares: [] })));
+    render(<WorkoutShareLinkSheet workouts={[{ ...WORKOUT, muscles: [{ muscle: 'Chest', sets: 6, main: true }] }]} onClose={() => {}} />);
+    await screen.findByText('Getting the picture ready…');
+    const wa = screen.getByText('WhatsApp').closest('a');
+    expect(wa.getAttribute('href')).toBeNull();
+    await waitFor(() => expect(stored).toBeTruthy());
+    stored();
+    await waitFor(() => expect(wa.getAttribute('href')).toContain('wa.me'));
+  });
+
+  it('two workouts on one day: each has its own link', async () => {
+    workoutShare.mockResolvedValue({ shares: [LIVE] });
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT, { ...WORKOUT, key: 'sid:s2', title: 'Beginner Full Body B' }]} onClose={() => {}} />);
+    await screen.findByText('Link is on');
+    fireEvent.click(screen.getByRole('radio', { name: 'Beginner Full Body B' }));
+    const wa = screen.getByText('WhatsApp').closest('a');
+    await waitFor(() => expect(wa.getAttribute('href')).toContain('wa.me'));
+    expect(screen.queryByText('Link is on')).toBeNull();
+    expect(wa.getAttribute('href')).not.toContain(TOKEN);
+    expect(decodeURIComponent(wa.getAttribute('href'))).toContain('Beginner Full Body B');
+  });
+
   it('changes what a live link shows', async () => {
     workoutShare.mockResolvedValue({ shares: [LIVE] });
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     await screen.findByText('Link is on');
     expect(screen.getByRole('switch', { name: 'Show weights' }).getAttribute('aria-checked')).toBe('false');
     fireEvent.click(screen.getByRole('switch', { name: 'Show muscle map' }));
@@ -99,7 +140,7 @@ describe('Share sheet', () => {
 
   it('stopping kills the link: sharing again makes a new one', async () => {
     workoutShare.mockImplementation(async (op) => ({ shares: op === 'list' ? [LIVE] : [] }));
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Stop sharing' }));
     await screen.findByText('Sharing stopped');
     expect(screen.queryByText('Link is on')).toBeNull();
@@ -111,7 +152,7 @@ describe('Share sheet', () => {
       if (op === 'list') return { shares: [] };
       throw new Error("Couldn't update sharing. Try again.");
     });
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     const copy = screen.getByRole('button', { name: 'Copy link' });
     await waitFor(() => expect(copy.disabled).toBe(false));
     fireEvent.click(copy);
@@ -125,17 +166,22 @@ describe('More apps', () => {
   afterEach(() => { delete navigator.share; });
   const abort = () => Promise.reject(Object.assign(new Error('closed'), { name: 'AbortError' }));
 
-  it('is offered only where the phone has its own share list', async () => {
+  it('offers apps on a computer that has no share list', async () => {
     workoutShare.mockResolvedValue({ shares: [] });
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy link' }).disabled).toBe(false));
-    expect(screen.queryByRole('button', { name: 'More apps' })).toBeNull();
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
+    const more = screen.getByRole('button', { name: 'More apps' });
+    await waitFor(() => expect(more.disabled).toBe(false));
+    fireEvent.click(more);
+    ['Instagram', 'Facebook', 'Telegram', 'Email'].forEach(n => expect(screen.getByRole('link', { name: n }).getAttribute('href')).toBeTruthy());
+    expect(workoutShare.mock.calls.map(c => c[0])).toEqual(['list']);
+    fireEvent.click(screen.getByRole('link', { name: 'Facebook' }));
+    await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('save', expect.objectContaining({ key: 'sid:s1' })));
   });
 
   it('hands over the link and turns it on', async () => {
     navigator.share = vi.fn(async () => {});
     workoutShare.mockResolvedValue({ shares: [] });
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     const more = screen.getByRole('button', { name: 'More apps' });
     await waitFor(() => expect(more.disabled).toBe(false));
     fireEvent.click(more);
@@ -147,17 +193,17 @@ describe('More apps', () => {
   it('closing the list without choosing leaves no link on', async () => {
     navigator.share = vi.fn(abort);
     workoutShare.mockImplementation(async (op) => ({ shares: op === 'save' ? [LIVE] : [] }));
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     const more = screen.getByRole('button', { name: 'More apps' });
     await waitFor(() => expect(more.disabled).toBe(false));
     fireEvent.click(more);
-    await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('stop', { logDate: '2026-11-23' }));
+    await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('stop', { logDate: '2026-11-23', key: 'sid:s1' }));
   });
 
   it('but never turns off a link that was already on', async () => {
     navigator.share = vi.fn(abort);
     workoutShare.mockResolvedValue({ shares: [LIVE] });
-    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    render(<WorkoutShareLinkSheet workouts={[WORKOUT]} onClose={() => {}} />);
     await screen.findByText('Link is on');
     fireEvent.click(screen.getByRole('button', { name: 'More apps' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'More apps' }).disabled).toBe(false));
@@ -171,7 +217,7 @@ describe('Finish card', () => {
     workoutName: 'Push Day', dateLabel: 'Mon 23 Nov', calories: 320, totalSets: 4, volume: '1,420',
     bestLift: { exerciseName: 'Bench Press', weight: 70, reps: 6, unit: 'kg', isPR: true },
     rows: [row('Barbell Bench Press', 60, 10), row('Barbell Bench Press', 65, 8), row('Triceps Pushdown', 25, 12)],
-    link: { ...WORKOUT, sessionId: 'session-1' },
+    link: WORKOUT,
   };
   beforeEach(() => { workoutShare.mockReset(); workoutShare.mockResolvedValue({ shares: [] }); });
 

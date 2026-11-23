@@ -2,7 +2,7 @@
 // Underscore file: not a Serverless Function of its own (12-function cap).
 import { dropDuplicateSessionBatches } from '../src/utils/workoutLogDedupe.js';
 import {
-  SHARE_TOKEN_RE, sessionKeyOf, shapeSharedWorkout, sharedWorkoutTotals,
+  SHARE_TOKEN_RE, firstNameOf, groupDayWorkouts, sessionKeyOf, shapeSharedWorkout, sharedWorkoutTotals,
 } from '../src/utils/workoutShare.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,6 +42,7 @@ const dayRows = async (rest, userId, logDate) => dropDuplicateSessionBatches(awa
 const toShare = (row) => ({
   token: row.token,
   logDate: row.log_date,
+  key: row.share_key,
   showName: row.show_name,
   showMap: row.show_map,
   showWeights: row.show_weights,
@@ -49,22 +50,34 @@ const toShare = (row) => ({
 });
 
 const listShares = async (rest, userId) => (await rest.get(
-  `workout_shares?user_id=eq.${enc(userId)}&active=is.true&select=token,log_date,show_name,show_map,show_weights,show_calories&order=log_date.desc&limit=1000`
+  `workout_shares?user_id=eq.${enc(userId)}&active=is.true&select=token,log_date,share_key,show_name,show_map,show_weights,show_calories&order=log_date.desc&limit=1000`
 )).map(toShare);
 
+const clip = (v, max) => String(v ?? '').trim().slice(0, max);
+const wholeNumber = (v) => (Number.isFinite(Number(v)) && v != null ? Math.max(0, Math.min(1e6, Math.round(Number(v)))) : null);
+
 // Owner's side. `userId` is the verified caller, never taken from the body.
-// ops: list | prepare { logDate, token, sessionId?, image, bodySex } (uploads the
-//      message picture; the link stays off) | save { logDate, token, sessionId?, flags, bodySex } |
-//      flags { logDate, flags } (what shows, nothing else) | stop { logDate }
+// ops: list
+//      prepare { logDate, key, token, image, bodySex, title, sets, durationSeconds }
+//        — uploads the message picture; the link stays off
+//      save { logDate, key, token, flags, bodySex, title, sets, durationSeconds }
+//      flags { logDate, key, flags } — what shows, nothing else (also on a
+//        prepared link that isn't on yet)
+//      stop { logDate, key }
+// `key` is the workout's main session key (groupDayWorkouts); one link each.
 export async function ownerShareOp(rest, userId, body) {
-  const { op, logDate } = body || {};
-  if (op === 'list') return { status: 200, body: { shares: await listShares(rest, userId) } };
+  const { op, logDate, token, bodySex } = body || {};
+  const done = async () => ({ status: 200, body: { shares: await listShares(rest, userId) } });
+  if (op === 'list') return done();
+  if (!['prepare', 'save', 'flags', 'stop'].includes(op)) return { status: 400, body: { error: `Unknown workout-share op: ${op}` } };
   if (!DATE_RE.test(logDate || '')) return { status: 400, body: { error: 'logDate must be YYYY-MM-DD' } };
-  const match = `workout_shares?user_id=eq.${enc(userId)}&log_date=eq.${enc(logDate)}`;
+  const key = clip(body.key, 140);
+  if (!/^(sid|at):./.test(key)) return { status: 400, body: { error: 'Update the app, then share again.' } };
+  const match = `workout_shares?user_id=eq.${enc(userId)}&share_key=eq.${enc(key)}`;
 
   if (op === 'stop') {
     await rest.write(match, 'DELETE');
-    return { status: 200, body: { shares: await listShares(rest, userId) } };
+    return done();
   }
 
   const flagCols = {
@@ -74,62 +87,57 @@ export async function ownerShareOp(rest, userId, body) {
     show_calories: body.flags?.showCalories !== false,
     updated_at: new Date().toISOString(),
   };
-
   if (op === 'flags') {
-    await rest.write(`${match}&active=is.true`, 'PATCH', flagCols);
-    return { status: 200, body: { shares: await listShares(rest, userId) } };
+    await rest.write(match, 'PATCH', flagCols);
+    return done();
   }
+
+  if (!SHARE_TOKEN_RE.test(token || '')) return { status: 400, body: { error: 'Could not make the link. Try again.' } };
+  const image = body.image;
+  if (op === 'prepare' && (typeof image !== 'string' || image.length > 400000 || !IMAGE_RE.test(image))) {
+    return { status: 400, body: { error: 'That preview picture is not usable.' } };
+  }
+
+  const readExisting = async () => (await rest.get(`${match}&select=token,active`))[0] || null;
+  const [existingRow, rows] = await Promise.all([readExisting(), dayRows(rest, userId, logDate)]);
+  let existing = existingRow;
+  // Right after Save the rows may still be on their way, so a session that
+  // isn't there yet is tied to its own key.
+  const group = groupDayWorkouts(rows).find(g => g.keys.includes(key));
+  if (!group && !key.startsWith('sid:')) return { status: 404, body: { error: 'No saved workout on that day.' } };
+  const facts = {
+    session_keys: group ? group.keys : [key],
+    preview_title: clip(body.title || group?.title, 120) || null,
+    preview_sets: wholeNumber(body.sets),
+    preview_seconds: wholeNumber(body.durationSeconds),
+    body_sex: bodySex === 'male' || bodySex === 'female' ? bodySex : null,
+  };
+  const fresh = { user_id: userId, log_date: logDate, share_key: key, token };
 
   if (op === 'prepare') {
-    const { token, sessionId, image, bodySex } = body;
-    if (!SHARE_TOKEN_RE.test(token || '')) return { status: 400, body: { error: 'Could not make the link. Try again.' } };
-    if (typeof image !== 'string' || image.length > 400000 || !IMAGE_RE.test(image)) {
-      return { status: 400, body: { error: 'That preview picture is not usable.' } };
+    if (existing) await rest.write(match, 'PATCH', { ...facts, preview_image: image, ...(existing.active ? {} : { ...flagCols, token }) });
+    // The link may be sent (saved) at this very moment: then that row stands.
+    else {
+      await rest.write('workout_shares?on_conflict=user_id,share_key', 'POST', { ...fresh, ...facts, ...flagCols, preview_image: image, active: false }, 'resolution=ignore-duplicates,return=minimal');
+      await rest.write(match, 'PATCH', { preview_image: image });
     }
-    const existing = (await rest.get(`${match}&select=token,active`))[0] || null;
-    if (!existing?.active) {
-      const keys = sessionId ? [`sid:${String(sessionId).slice(0, 120)}`] : [...new Set((await dayRows(rest, userId, logDate)).map(sessionKeyOf))];
-      if (keys.length === 0) return { status: 404, body: { error: 'No saved workout on that day.' } };
-      const draft = { token, session_keys: keys, body_sex: bodySex === 'male' || bodySex === 'female' ? bodySex : null };
-      if (existing) await rest.write(`${match}&active=is.false`, 'PATCH', draft);
-      // The link may be sent (saved) at this very moment: then that row stands.
-      else await rest.write('workout_shares?on_conflict=user_id,log_date', 'POST', { ...draft, user_id: userId, log_date: logDate, active: false }, 'resolution=ignore-duplicates,return=minimal');
-    }
-    await rest.write(match, 'PATCH', { preview_image: image });
-    return { status: 200, body: { shares: await listShares(rest, userId) } };
+    return done();
   }
 
-  if (op === 'save') {
-    const { token, sessionId, bodySex } = body;
-    if (!SHARE_TOKEN_RE.test(token || '')) return { status: 400, body: { error: 'Could not make the link. Try again.' } };
-    const readExisting = async () => (await rest.get(`${match}&select=token,session_keys,active`))[0] || null;
-    let existing = await readExisting();
-    const rows = await dayRows(rest, userId, logDate);
-    // sessionId: shared from the card shown right after Save — its rows may
-    // still be on their way, so the link is tied to the session itself.
-    const keys = new Set(sessionId ? [...(existing?.active ? existing.session_keys || [] : []), `sid:${String(sessionId).slice(0, 120)}`] : rows.map(sessionKeyOf));
-    if (keys.size === 0) return { status: 404, body: { error: 'No saved workout on that day.' } };
-    const row = {
-      session_keys: [...keys],
-      ...flagCols,
-      body_sex: bodySex === 'male' || bodySex === 'female' ? bodySex : null,
-    };
-    // A link already out there keeps working; only its settings change. The
-    // reply carries the token really in use.
-    if (!existing) {
-      try {
-        await rest.write('workout_shares', 'POST', { ...row, token, user_id: userId, log_date: logDate });
-      } catch (err) {
-        // The sheet's own "prepare" got there first.
-        existing = await readExisting();
-        if (!existing) throw err;
-      }
+  const row = { ...facts, ...flagCols };
+  if (!existing) {
+    try {
+      await rest.write('workout_shares', 'POST', { ...fresh, ...row });
+    } catch (err) {
+      // The sheet's own "prepare" got there first.
+      existing = await readExisting();
+      if (!existing) throw err;
     }
-    if (existing) await rest.write(match, 'PATCH', existing.active ? row : { ...row, token, active: true });
-    return { status: 200, body: { shares: await listShares(rest, userId) } };
   }
-
-  return { status: 400, body: { error: `Unknown workout-share op: ${op}` } };
+  // A link already out there keeps working; only its settings change. The
+  // reply carries the token really in use.
+  if (existing) await rest.write(match, 'PATCH', existing.active ? row : { ...row, token, active: true });
+  return done();
 }
 
 // Heaviest set of each exercise before that day, for the "New best" tag.
@@ -162,33 +170,72 @@ export async function readSharedWorkout(rest, token, { withBests = true } = {}) 
   return shapeSharedWorkout({ share, rows, fullName: users[0]?.full_name, previousBests });
 }
 
+// A link being sent: chat apps look at it the moment it lands in the message
+// box, often before "save" has gone through, and would show "not shared". So
+// the message preview (never the workout) also answers for a link prepared in
+// the last few minutes. Only the sender knows its token then.
+const DRAFT_MS = 15 * 60 * 1000;
+const previewable = () => `or=(active.is.true,updated_at.gte.${enc(new Date(Date.now() - DRAFT_MS).toISOString())})`;
+
 // The message picture as bytes, or null. It shows the muscle map, so it goes
-// when that is switched off — and when the link or the workout is gone.
+// when that is switched off, and with the link. One read: chat apps give up
+// on slow pictures. (Deleting the workout deletes its link.)
 export async function readSharePicture(rest, token) {
-  const workout = await readSharedWorkout(rest, token, { withBests: false });
-  if (!workout?.showMap) return null;
-  const row = (await rest.get(`workout_shares?token=eq.${enc(token)}&active=is.true&select=preview_image&limit=1`))[0];
+  if (!SHARE_TOKEN_RE.test(token || '')) return null;
+  const row = (await rest.get(`workout_shares?token=eq.${enc(token)}&${previewable()}&show_map=is.true&select=preview_image&limit=1`))[0];
   return row?.preview_image ? Buffer.from(row.preview_image, 'base64') : null;
+}
+
+// What the message preview says, in one read: { title, name, sets,
+// durationSeconds, picture } (picture = its version, null when there is none),
+// or null when the link is off.
+export async function readSharePreview(rest, token) {
+  if (!SHARE_TOKEN_RE.test(token || '')) return null;
+  const row = (await rest.get(
+    `workout_shares?token=eq.${enc(token)}&${previewable()}&limit=1`
+    + '&select=show_name,show_map,has_picture,preview_title,preview_sets,preview_seconds,updated_at,users(full_name)'
+  ))[0];
+  if (!row) return null;
+  if (row.preview_title) {
+    return {
+      title: row.preview_title,
+      name: row.show_name ? firstNameOf(row.users?.full_name) : null,
+      sets: row.preview_sets,
+      durationSeconds: row.preview_seconds,
+      picture: row.show_map && row.has_picture ? String(Date.parse(row.updated_at) || 1) : null,
+    };
+  }
+  // Shared before these were kept with the link.
+  const workout = await readSharedWorkout(rest, token, { withBests: false });
+  return workout && {
+    title: workout.title,
+    name: workout.name,
+    sets: sharedWorkoutTotals(workout).sets,
+    durationSeconds: workout.durationSeconds,
+    picture: row.show_map && row.has_picture ? '1' : null,
+  };
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // What chat apps read to draw the message preview (vercel.json sends only
 // their link bots here; people get the app's own page).
-export function sharePreviewHtml(workout, { origin, token }) {
-  const title = workout ? (workout.name ? `${workout.name}’s ${workout.title}` : workout.title) : 'Workout not shared anymore';
-  const sets = workout ? sharedWorkoutTotals(workout).sets : 0;
-  const facts = workout
-    ? [`${sets} ${sets === 1 ? 'set' : 'sets'}`, workout.durationSeconds ? `${Math.max(1, Math.round(workout.durationSeconds / 60))} min` : null].filter(Boolean).join(' · ')
+export function sharePreviewHtml(preview, { origin, token }) {
+  const title = preview ? (preview.name ? `${preview.name}’s ${preview.title}` : preview.title) : 'Workout not shared anymore';
+  const facts = preview
+    ? [
+      preview.sets ? `${preview.sets} ${preview.sets === 1 ? 'set' : 'sets'}` : null,
+      preview.durationSeconds ? `${Math.max(1, Math.round(preview.durationSeconds / 60))} min` : null,
+    ].filter(Boolean).join(' · ')
     : '';
-  const desc = workout ? `Workout on Fitengineers: ${facts}. Tap to see every set.` : 'Fitengineers';
+  const desc = preview ? `Workout on Fitengineers${facts ? `: ${facts}` : ''}. Tap to see every set.` : 'Fitengineers';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>`
     + '<meta name="robots" content="noindex">'
     + `<meta property="og:site_name" content="Fitengineers"><meta property="og:type" content="website">`
     + `<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">`
-    + (workout?.showMap
-      ? `<meta property="og:image" content="${esc(origin)}/w/${esc(token)}/preview.jpg"><meta property="og:image:type" content="image/jpeg">`
+    + (preview?.picture
+      ? `<meta property="og:image" content="${esc(origin)}/w/${esc(token)}/preview.jpg?v=${esc(preview.picture)}"><meta property="og:image:type" content="image/jpeg">`
         + '<meta property="og:image:width" content="960"><meta property="og:image:height" content="504"><meta name="twitter:card" content="summary_large_image">'
-      : `<meta property="og:image" content="${esc(origin)}/icons/icon-192.png"><meta name="twitter:card" content="summary">`)
+      : `<meta property="og:image" content="${esc(origin)}/icons/icon-512.png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512"><meta name="twitter:card" content="summary">`)
     + `</head><body>${esc(title)}</body></html>`;
 }

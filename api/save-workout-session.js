@@ -130,6 +130,11 @@ export async function editSavedSession({ svcHeaders, userId, edit, fetchImpl = f
     );
     if (!r.ok) return { status: 502, body: { error: "Couldn't delete that workout. Try again." } };
     const gone = await r.json().catch(() => null);
+    // Its read-only links go with it (best effort: without rows they show nothing).
+    await fetchImpl(
+      `${supabaseUrl}/rest/v1/workout_shares?user_id=eq.${encodeURIComponent(userId)}&log_date=eq.${logDate}`,
+      { method: 'DELETE', headers: { ...svcHeaders, Prefer: 'return=minimal' } }
+    ).catch(() => null);
     return { status: 200, body: { success: true, deleted: Array.isArray(gone) ? gone.length : null } };
   }
   const updates = Array.isArray(edit.updates) ? edit.updates : [];

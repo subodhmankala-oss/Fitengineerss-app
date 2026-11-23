@@ -133,6 +133,23 @@ export function fillPendingPrevSets(exercises, lookup) {
   return changed ? next : exercises;
 }
 
+// Exercises queued from Home that opened a workout before the history
+// loaded: an untouched one gets last time's sets, as it would have had the
+// history been there. Anything ticked or edited stays as it is.
+export function fillPendingAddedSets(exercises, lookupSets) {
+  return exercises.map(ex => {
+    if (!ex.sets.some(s => s.prevPending === 'add')) return ex;
+    const sets = ex.sets.map(s => {
+      const rest = { ...s };
+      delete rest.prevPending;
+      return rest;
+    });
+    const [only] = sets;
+    const untouched = sets.length === 1 && !only.isCompleted && Number(only.reps) === 10 && !(Number(only.weight) > 0);
+    return { ...ex, sets: (untouched && setsFromPreviousExercise(ex.name, lookupSets(ex))) || sets };
+  });
+}
+
 // Sets for an exercise added mid-session: a copy of what the client did
 // last time (same number of sets, reps, weight and warm-up/drop/failure
 // tags), so each one is a single tap. Only for rep-based exercises — cardio

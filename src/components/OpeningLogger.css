@@ -1,0 +1,22 @@
+/* Hidden for the first moment: a workout that opens straight away shows no flash. */
+.opening-logger {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  opacity: 0;
+  animation: opening-logger-in 0.2s ease 0.15s forwards;
+}
+.opening-logger-bar,
+.opening-logger-card {
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.06);
+  animation: opening-logger-pulse 1.2s ease-in-out infinite;
+}
+.opening-logger-bar { height: 56px; }
+.opening-logger-card { height: 150px; }
+
+@keyframes opening-logger-in { to { opacity: 1; } }
+@keyframes opening-logger-pulse { 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) {
+  .opening-logger-bar, .opening-logger-card { animation: none; }
+}

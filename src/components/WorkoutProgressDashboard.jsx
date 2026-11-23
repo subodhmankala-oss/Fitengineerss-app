@@ -29,6 +29,7 @@ import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
+import { forgetDiscardedDraft, rememberOpenDraft } from '../utils/openDraftHandoff';
 import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
@@ -415,7 +416,10 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
       // coach's as read-only status.
       const drafts = await databaseService.getWorkoutDrafts(userId);
       const draft = drafts.find(d => d.source === 'self') || drafts.find(d => d.source === 'coach') || null;
-      if (!cancelled) setActiveDraft(draft);
+      if (cancelled) return;
+      setActiveDraft(draft);
+      // Opens the logger on tap, without waiting for its own check.
+      rememberOpenDraft(userId, drafts.find(d => d.source === 'self') || null);
     };
     checkDraft();
     document.addEventListener('visibilitychange', checkDraft);
@@ -1060,6 +1064,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               onClick={async (e) => {
                 e.stopPropagation();
                 if (userId) {
+                  forgetDiscardedDraft(activeDraft.timerStartedAt);
                   await databaseService.deleteWorkoutDraft(userId, 'self');
                   // The Workout tab mirrors its in-progress session into a
                   // localStorage draft (workoutDraft_<userId>) so it survives

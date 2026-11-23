@@ -96,7 +96,7 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     const colors = Object.fromEntries(muscles.map(m => [m.muscle, m.main ? MAIN_MUSCLE_COLOR : HELPED_MUSCLE_COLOR]));
     const [front, back, logo] = await Promise.all([
       drawBody(sex, 'front', colors), drawBody(sex, 'back', colors), loadImage('/logo.png').catch(() => null),
-      ...['700 46px Outfit', '600 24px Outfit', '500 24px Outfit'].map(f => document.fonts?.load(f).catch(() => null)),
+      ...['600 32px Outfit', '700 24px Outfit', '500 24px Outfit'].map(f => document.fonts?.load(f).catch(() => null)),
     ]);
     const canvas = newCanvas(PREVIEW_W, PREVIEW_H);
     const ctx = canvas.getContext('2d');
@@ -118,16 +118,20 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     ctx.fillStyle = '#f8fafc';
     ctx.fillText('Fitengineers', x + (logo ? 56 : 0), 70);
 
-    font(700, 46);
-    const lines = wrapLines(s => ctx.measureText(s).width, title, 390, 2);
-    let y = 160;
-    lines.forEach(l => { text(l, y, '#ffffff'); y += 52; });
-    font(500, 25);
+    // Long plan names step down a size so the whole name shows.
+    const measure = s => ctx.measureText(s).width;
+    font(600, 32);
+    let lines = wrapLines(measure, title, 400, 9);
+    const small = lines.length > 2;
+    if (small) { font(600, 26); lines = wrapLines(measure, title, 400, 3); }
+    let y = small ? 138 : 150;
+    lines.forEach(l => { text(l, y, '#ffffff'); y += small ? 34 : 40; });
+    font(500, 24);
     const mins = durationSeconds ? `${Math.max(1, Math.round(durationSeconds / 60))} min  ·  ` : '';
-    text(`${mins}${sets} ${sets === 1 ? 'set' : 'sets'}`, y - 6, '#aab4c5');
-    y += 48;
+    text(`${mins}${sets} ${sets === 1 ? 'set' : 'sets'}`, y + (small ? 4 : 0), '#aab4c5');
+    y += 54;
 
-    const shown = muscles.slice(0, lines.length > 1 ? 3 : 4);
+    const shown = muscles.slice(0, lines.length === 1 ? 5 : 4);
     shown.forEach(m => {
       ctx.fillStyle = colors[m.muscle];
       ctx.beginPath();

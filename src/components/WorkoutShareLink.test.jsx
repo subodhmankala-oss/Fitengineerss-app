@@ -71,12 +71,14 @@ describe('Share sheet', () => {
 
   it('stores the message picture as soon as the sheet opens, link still off', async () => {
     drawSharePreview.mockResolvedValueOnce('/9j/abc');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })));
     workoutShare.mockResolvedValue({ shares: [] });
     const muscles = [{ muscle: 'Chest', sets: 6, main: true }];
     render(<WorkoutShareLinkSheet workouts={[{ ...WORKOUT, muscles }]} onClose={() => {}} />);
     await waitFor(() => expect(workoutShare).toHaveBeenCalledWith('prepare', expect.objectContaining({ image: '/9j/abc', logDate: '2026-11-23' })));
     const sent = decodeURIComponent(screen.getByText('WhatsApp').closest('a').getAttribute('href')).match(/\/w\/(\S+)/)[1];
     expect(workoutShare.mock.calls.find(c => c[0] === 'prepare')[1].token).toBe(sent);
+    await waitFor(() => expect(fetch.mock.calls[0][0]).toBe(`/w/${sent}/preview.jpg`));
     expect(screen.queryByText('Link is on')).toBeNull();
     expect(drawSharePreview).toHaveBeenCalledTimes(1);
   });

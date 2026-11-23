@@ -31,6 +31,10 @@ const WEB_APPS = [
 // Longest the buttons wait for the message picture to be stored.
 const PICTURE_WAIT_MS = 5000;
 
+// Loads the message picture once, at the very address chat apps use, so it is
+// waiting at the edge for them (2 s from the server, 0.1 s from there).
+const warmPicture = (token) => fetch(`/w/${token}/preview.jpg`, { keepalive: true }).catch(() => {});
+
 const bodySexOf = () => {
   try { return localStorage.getItem('userSex'); } catch { return null; /* storage blocked */ }
 };
@@ -117,7 +121,11 @@ function ShareOneWorkout({ workout, onChange }) {
     const ready = () => setPictured(true);
     const timer = setTimeout(ready, PICTURE_WAIT_MS);
     drawing.current
-      .then(image => image && databaseService.workoutShare('prepare', { logDate, key: workoutKey, token, image, flags: flagsRef.current, bodySex: bodySexOf(), title, sets, durationSeconds }))
+      .then(async (image) => {
+        if (!image) return;
+        await databaseService.workoutShare('prepare', { logDate, key: workoutKey, token, image, flags: flagsRef.current, bodySex: bodySexOf(), title, sets, durationSeconds });
+        await warmPicture(token);
+      })
       .catch(e => console.warn('share preview:', e?.message || e))
       .then(() => { clearTimeout(timer); ready(); });
     return undefined;
@@ -141,8 +149,7 @@ function ShareOneWorkout({ workout, onChange }) {
 
   const turnOn = async () => {
     const on = await run('save', { token, flags, bodySex: bodySexOf(), title, sets, durationSeconds });
-    // Puts the picture at the edge, ready for the chat app's look.
-    if (on && flags.showMap && pictured) fetch(`/w/${token}/preview.jpg`, { keepalive: true }).catch(() => {});
+    if (on && flags.showMap) warmPicture(token);
     return on;
   };
 

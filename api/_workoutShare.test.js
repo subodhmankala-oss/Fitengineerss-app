@@ -128,7 +128,8 @@ describe('opening a shared workout', () => {
     expect(res.headers['Content-Type']).toContain('text/html');
     expect(res.body).toContain('Rahul’s &lt;script&gt;');
     expect(res.body).toContain('13 sets · 52 min');
-    expect(res.body).toContain(`https://fit.example/w/${TOKEN}/preview.jpg?v=`);
+    // Exactly the address the sheet pre-loads.
+    expect(res.body).toContain(`content="https://fit.example/w/${TOKEN}/preview.jpg"`);
     expect(res.body).not.toContain('<script>');
     expect(res.body).not.toContain('Sharma');
   });

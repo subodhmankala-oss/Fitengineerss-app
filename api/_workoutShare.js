@@ -187,13 +187,12 @@ export async function readSharePicture(rest, token) {
 }
 
 // What the message preview says, in one read: { title, name, sets,
-// durationSeconds, picture } (picture = its version, null when there is none),
-// or null when the link is off.
+// durationSeconds, picture (is there one) }, or null when the link is off.
 export async function readSharePreview(rest, token) {
   if (!SHARE_TOKEN_RE.test(token || '')) return null;
   const row = (await rest.get(
     `workout_shares?token=eq.${enc(token)}&${previewable()}&limit=1`
-    + '&select=show_name,show_map,has_picture,preview_title,preview_sets,preview_seconds,updated_at,users(full_name)'
+    + '&select=show_name,show_map,has_picture,preview_title,preview_sets,preview_seconds,users(full_name)'
   ))[0];
   if (!row) return null;
   if (row.preview_title) {
@@ -202,7 +201,7 @@ export async function readSharePreview(rest, token) {
       name: row.show_name ? firstNameOf(row.users?.full_name) : null,
       sets: row.preview_sets,
       durationSeconds: row.preview_seconds,
-      picture: row.show_map && row.has_picture ? String(Date.parse(row.updated_at) || 1) : null,
+      picture: !!(row.show_map && row.has_picture),
     };
   }
   // Shared before these were kept with the link.
@@ -212,7 +211,7 @@ export async function readSharePreview(rest, token) {
     name: workout.name,
     sets: sharedWorkoutTotals(workout).sets,
     durationSeconds: workout.durationSeconds,
-    picture: row.show_map && row.has_picture ? '1' : null,
+    picture: !!(row.show_map && row.has_picture),
   };
 }
 
@@ -234,7 +233,7 @@ export function sharePreviewHtml(preview, { origin, token }) {
     + `<meta property="og:site_name" content="Fitengineers"><meta property="og:type" content="website">`
     + `<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">`
     + (preview?.picture
-      ? `<meta property="og:image" content="${esc(origin)}/w/${esc(token)}/preview.jpg?v=${esc(preview.picture)}"><meta property="og:image:type" content="image/jpeg">`
+      ? `<meta property="og:image" content="${esc(origin)}/w/${esc(token)}/preview.jpg"><meta property="og:image:type" content="image/jpeg">`
         + '<meta property="og:image:width" content="960"><meta property="og:image:height" content="504"><meta name="twitter:card" content="summary_large_image">'
       : `<meta property="og:image" content="${esc(origin)}/icons/icon-512.png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512"><meta name="twitter:card" content="summary">`)
     + `</head><body>${esc(title)}</body></html>`;

@@ -861,8 +861,8 @@ async function handleSharedWorkoutPicture(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(404).json({ error: 'No picture.' });
   }
-  // Two minutes at the edge: the sheet loads it once right after sending, so
-  // the chat app gets it at once instead of timing out. (After Stop sharing it
+  // Two minutes at the edge: the sheet loads it once when it is stored and
+  // again when sent, so the chat app gets it at once instead of giving up. (After Stop sharing it
   // is gone within those two minutes.)
   res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=120');
   res.setHeader('Content-Type', 'image/jpeg');

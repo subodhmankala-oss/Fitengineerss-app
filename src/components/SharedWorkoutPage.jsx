@@ -119,7 +119,9 @@ export default function SharedWorkoutPage({ token }) {
 
   const dateLabel = new Date(`${workout.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace(',', '');
   const nameParts = workoutNameParts(workout.title);
-  const tags = workoutNameTags(nameParts);
+  const allTags = workoutNameTags(nameParts);
+  const level = nameParts.level ? allTags[0] : null;
+  const tags = level ? allTags.slice(1) : allTags;
   const colors = Object.fromEntries(muscles.map(m => [m.muscle, m.main ? MAIN_MUSCLE_COLOR : HELPED_MUSCLE_COLOR]));
   const colorFor = (m) => colors[m] || null;
 
@@ -134,7 +136,7 @@ export default function SharedWorkoutPage({ token }) {
         </header>
 
         <div className="swp-title">
-          <h1>{nameParts.name}</h1>
+          <h1>{nameParts.name}{level && <span className={`swp-tag ${level.kind}`}>{level.text}</span>}</h1>
           {tags.length > 0 && (
             <div className="swp-tags">{tags.map(t => <span key={t.kind} className={`swp-tag ${t.kind}`}>{t.text}</span>)}</div>
           )}

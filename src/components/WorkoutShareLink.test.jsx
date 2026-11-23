@@ -263,7 +263,9 @@ describe('Shared workout page', () => {
   it('shows level, week and session apart from the name', async () => {
     serve(200, { workout: { ...PUBLIC, title: 'Intermediate Push (week-3) Session 2' } });
     const { container } = render(<SharedWorkoutPage token={TOKEN} />);
-    expect(await screen.findByRole('heading', { name: 'Push' })).toBeTruthy();
+    const heading = await screen.findByRole('heading', { level: 1 });
+    expect(heading.textContent).toBe('PushIntermediate');
+    expect(container.querySelector('.swp-tags').textContent).toBe('Week 3Session 2');
     expect([...container.querySelectorAll('.swp-tag')].map(t => [t.className, t.textContent])).toEqual([
       ['swp-tag level-intermediate', 'Intermediate'], ['swp-tag week', 'Week 3'], ['swp-tag session', 'Session 2'],
     ]);

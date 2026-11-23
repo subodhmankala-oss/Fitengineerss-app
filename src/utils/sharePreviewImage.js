@@ -148,25 +148,36 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     const small = lines.length > 2;
     if (small) { font(600, 26); lines = wrapLines(measure, parts.name, 400, 3); }
     let y = small ? 184 : 188;
-    lines.forEach(l => { text(l, y, '#ffffff'); y += small ? 34 : 40; });
+    const lineStep = small ? 34 : 40;
+    lines.forEach(l => { text(l, y, '#ffffff'); y += lineStep; });
+    const lastLineWidth = measure(lines[lines.length - 1] || '');
+    const tagWidth = (tag) => { font(600, 18); return measure(tag.text) + 24; };
+    const drawTag = (tag, tx, ty) => {
+      const w = tagWidth(tag);
+      ctx.beginPath();
+      // (Safari before 16 has no roundRect.)
+      if (ctx.roundRect) ctx.roundRect(tx + 1, ty + 1, w - 2, 28, 14);
+      else ctx.rect(tx + 1, ty + 1, w - 2, 28);
+      ctx.fillStyle = `rgba(${TAG_RGB[tag.kind]},0.16)`;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(${TAG_RGB[tag.kind]},0.55)`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = `rgb(${TAG_RGB[tag.kind]})`;
+      ctx.fillText(tag.text, tx + 12, ty + 21);
+    };
+    // The level sits beside the name when there is room, else with the rest.
+    if (parts.level) {
+      const beside = x + lastLineWidth + 14;
+      if (beside + tagWidth(tags[0]) <= x + 410) drawTag(tags.shift(), beside, y - lineStep - (small ? 22 : 25));
+    }
     if (tags.length) {
-      font(600, 18);
       let tx = x;
       let ty = y - 22;
       tags.forEach(tag => {
-        const w = ctx.measureText(tag.text).width + 24;
+        const w = tagWidth(tag);
         if (tx > x && tx + w > x + 410) { tx = x; ty += 38; }
-        ctx.beginPath();
-        // (Safari before 16 has no roundRect.)
-        if (ctx.roundRect) ctx.roundRect(tx + 1, ty + 1, w - 2, 28, 14);
-        else ctx.rect(tx + 1, ty + 1, w - 2, 28);
-        ctx.fillStyle = `rgba(${TAG_RGB[tag.kind]},0.16)`;
-        ctx.fill();
-        ctx.strokeStyle = `rgba(${TAG_RGB[tag.kind]},0.55)`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.fillStyle = `rgb(${TAG_RGB[tag.kind]})`;
-        ctx.fillText(tag.text, tx + 12, ty + 21);
+        drawTag(tag, tx, ty);
         tx += w + 8;
       });
       y = ty + 64;

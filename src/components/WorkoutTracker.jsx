@@ -4245,9 +4245,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           </div>
 
           <div className="exercises-form-section">
+            {/* The tip folds away with the header in full-screen — by then a
+                set has been ticked, so it has done its job. */}
+            <div className={`fs-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} aria-hidden={fullScreen.active || undefined} data-testid="tip-tuck"><div className="fs-tuck-inner">
             <div className="section-title-row" style={{ position: 'relative' }}>
               <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>
             </div>
+            </div></div>
             <SetLiftOverlay undo={setLiftDrop.undo} onUndo={setLiftDrop.runUndo} />
 
             <div className="exercises-input-list">

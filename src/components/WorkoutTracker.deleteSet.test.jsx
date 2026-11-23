@@ -72,7 +72,7 @@ describe('WorkoutTracker delete set', () => {
   it('deleting the top set removes only that one — the row that takes its place stays fully visible and clickable', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(threeSetDraft()));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     expect(screen.getAllByTitle('Change set type').length).toBe(3);
 
     // The row bin is gone (rows lift and drop now); the set-type menu's
@@ -102,7 +102,7 @@ describe('WorkoutTracker delete set', () => {
   it('holding a set row lifts it; dropping on the bin removes the set and Undo puts it back', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(threeSetDraft()));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     const row = screen.getByRole('button', { name: '40' }).closest('.hevy-set-row');
 
     fireEvent.pointerDown(row, { pointerId: 1, clientX: 10, clientY: 10, button: 0 });
@@ -133,7 +133,7 @@ describe('WorkoutTracker delete set', () => {
     for (let i = 0; i < 6; i += 1) {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(threeSetDraft()));
       renderWorkoutTracker();
-      expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+      expect(await screen.findByTestId('workout-head')).toBeTruthy();
       opens.push(!!screen.queryByText('Hold a set to move or remove it'));
       if (i === 0) {
         const row = screen.getByRole('button', { name: '40' }).closest('.hevy-set-row');
@@ -149,7 +149,7 @@ describe('WorkoutTracker delete set', () => {
   it('a quick tap on a row never lifts it', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(threeSetDraft()));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     const row = screen.getByRole('button', { name: '40' }).closest('.hevy-set-row');
     fireEvent.pointerDown(row, { pointerId: 1, clientX: 10, clientY: 10, button: 0 });
     fireEvent.pointerUp(document, { pointerId: 1, clientX: 10, clientY: 10 });

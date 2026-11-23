@@ -78,7 +78,7 @@ describe('WorkoutTracker one-tap set logging', () => {
     databaseService.getWorkoutLogsForUser.mockReturnValueOnce(new Promise(resolve => { deliverLogs = resolve; }));
 
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     await waitFor(() => expect(deliverLogs).toBeTypeOf('function'));
 
     deliverLogs([
@@ -106,7 +106,7 @@ describe('WorkoutTracker one-tap set logging', () => {
     }];
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
 
     const set1Weight = screen.getByRole('button', { name: '42.5' });
     const set2Weight = screen.getByRole('button', { name: '45' });
@@ -130,7 +130,7 @@ describe('WorkoutTracker one-tap set logging', () => {
     }];
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     expect(hasClass(screen.getByRole('button', { name: '42.5' }), 'set-value-ghost')).toBe(true);
 
     // Open the kg field (desktop: the real on-screen pad never renders, but
@@ -148,7 +148,7 @@ describe('WorkoutTracker one-tap set logging', () => {
   it('saves the draft right away when a set is ticked, instead of after the debounce', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     // Let the mount-time debounced save go out first.
     await waitFor(() => expect(databaseService.saveWorkoutDraft).toHaveBeenCalled(), { timeout: 3000 });
     databaseService.saveWorkoutDraft.mockClear();
@@ -168,7 +168,7 @@ describe('WorkoutTracker one-tap set logging', () => {
   it('starts a rest only from the Start Rest button, and remembers it for a reload', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     expect(screen.queryByText('REST TIMER')).toBeNull();
 
     fireEvent.click(screen.getByText('⏱️ Start Rest'));
@@ -188,7 +188,7 @@ describe('WorkoutTracker one-tap set logging', () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
     localStorage.setItem(REST_KEY, String(Date.now() - 1000));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     expect(screen.queryByText('REST TIMER')).toBeNull();
     expect(localStorage.getItem(REST_KEY)).toBeNull();
   });
@@ -201,7 +201,7 @@ describe('WorkoutTracker one-tap set logging', () => {
     }];
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
 
     const setBtn = () => document.querySelector('.btn-cardio-stopwatch');
     fireEvent.click(setBtn());

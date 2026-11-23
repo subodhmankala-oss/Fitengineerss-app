@@ -30,8 +30,8 @@ const renderWorkoutTracker = () => render(<WorkoutTracker />);
 // No jest-dom in this project — plain className check instead of toHaveClass.
 const hasClass = (el, cls) => el.className.split(/\s+/).includes(cls);
 
-// Top tabs, workout header and the "enter your reps" tip.
-const tucks = () => ['tabs-tuck', 'header-tuck', 'tip-tuck'].map(id => hasClass(screen.getByTestId(id), 'is-tucked'));
+// Top tabs and workout header.
+const tucks = () => ['tabs-tuck', 'header-tuck'].map(id => hasClass(screen.getByTestId(id), 'is-tucked'));
 const tucked = () => tucks().every(Boolean);
 const untucked = () => !tucks().some(Boolean);
 
@@ -74,7 +74,7 @@ describe('WorkoutTracker full-screen after a tick', () => {
   it('ticking a set hides the tabs and navbar, keeps the whole workout, and the down arrow brings them back', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft()));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     expect(untucked()).toBe(true);
     expect(screen.queryByTestId('full-screen-exit')).toBeNull();
 
@@ -97,10 +97,10 @@ describe('WorkoutTracker full-screen after a tick', () => {
     expect(tucked()).toBe(true);
   });
 
-  it('Save with no workout name brings the whole screen back and points at the name box', async () => {
+  it('Save with no workout name brings the whole screen back and opens the name box', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft(), templateName: '' }));
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     document.querySelectorAll('.btn-hevy-check').forEach(b => fireEvent.click(b));
     expect(tucked()).toBe(true);
 

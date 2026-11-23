@@ -3033,7 +3033,7 @@ html.keyboard-open .rest-timer-floating-card {
   border-top: 1px solid rgba(var(--accent-rgb), 0.25);
   border-radius: 0;
   padding: 14px 20px;
-  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(var(--accent-rgb), 0.1);
   display: flex;
   flex-direction: column;
@@ -3043,7 +3043,7 @@ html.keyboard-open .rest-timer-floating-card {
   animation: restTimerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Coach side has no bottom tabs to clear (that 72px of bottom padding is for
+/* Coach side has no bottom tabs to clear (that 78px of bottom padding is for
    the client's), and sits inside a bordered panel rather than
    full-bleed against the screen edge — a small fixed gap + rounded corners
    reads better there than edge-to-edge. */

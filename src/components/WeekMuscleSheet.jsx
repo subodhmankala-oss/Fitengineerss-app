@@ -128,10 +128,10 @@ export default function WeekMuscleSheet({
         <button type="button" className="wms-grab" aria-label="Close" onClick={closeSheet}><span /></button>
         <div className="wms-head">
           <span className="wms-title">This week's muscles</span>
-        </div>
-        <div className="wms-totals" aria-label="Today's totals">
-          <span className="wms-total wms-total--sets"><b>{todaySets}</b> set{todaySets === 1 ? '' : 's'} today</span>
-          <span className="wms-total wms-total--vol"><b>{todayVolume.toLocaleString('en-IN')}</b> kg volume</span>
+          <div className={`wms-totals${todaySets === 0 ? ' is-empty' : ''}`}>
+            <span className="wms-total"><b>{todaySets}</b> <small>set{todaySets === 1 ? '' : 's'} today</small></span>
+            <span className="wms-total"><b>{todayVolume.toLocaleString('en-IN')}<i> kg</i></b> <small>volume today</small></span>
+          </div>
         </div>
         {cards.length > 0 && (
           <div className="wms-now">

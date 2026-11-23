@@ -25,7 +25,7 @@ describe('WeekMuscleSheet', () => {
     const live = [bench(DATE), bench(DATE), bench(DATE, 0)]; // empty kg doesn't count
     const sheet = show(saved, live);
     expect(sheet.textContent).toContain('2 sets today');
-    expect(sheet.textContent).toContain('960 kg volume');
+    expect(sheet.textContent).toContain('960 kg volume today');
 
     const home = getWeeklyMuscleStats([...saved, ...live], '2026-11-16', '2026-11-22', { level: 'intermediate' })
       .find(s => s.muscle === 'Chest');

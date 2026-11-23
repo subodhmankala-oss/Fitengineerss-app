@@ -43,26 +43,28 @@
 .wms-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 .wms-title { font-weight: 700; font-size: 1rem; }
-.wms-totals { display: flex; gap: 8px; margin-top: 8px; }
-.wms-total {
-  flex: 1;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 5px;
-  padding: 9px 8px;
-  border-radius: 12px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  white-space: nowrap;
+/* Today's sets and volume: quiet numbers, right of the title. */
+.wms-totals { display: flex; flex-shrink: 0; }
+.wms-total { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+.wms-total + .wms-total {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(var(--fg-rgb), 0.1);
 }
-.wms-total b { font-size: 1.3rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-.wms-total--sets { background: rgba(99, 102, 241, 0.12); color: #4f46e5; border: 1px solid rgba(99, 102, 241, 0.35); }
-.wms-total--vol { background: rgba(249, 115, 22, 0.12); color: #ea580c; border: 1px solid rgba(249, 115, 22, 0.35); }
+.wms-total b {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.wms-total i { font-style: normal; font-size: 0.72rem; font-weight: 500; letter-spacing: 0; color: rgba(var(--fg-rgb), 0.55); }
+.wms-total small { font-size: 0.68rem; color: rgba(var(--fg-rgb), 0.55); }
+.wms-totals.is-empty b { color: rgba(var(--fg-rgb), 0.4); }
 .wms-bodies {
   display: flex;
   justify-content: center;

@@ -130,7 +130,7 @@ export default function SharedWorkoutPage({ token }) {
         </div>
 
         <StatsStrip className="swp-stats" items={[
-          ...(workout.durationSeconds != null ? [{ icon: 'month', color: 'var(--text-muted)', label: 'time', text: formatDurationShort(workout.durationSeconds) }] : []),
+          ...(workout.durationSeconds != null ? [{ icon: 'time', label: 'time', text: formatDurationShort(workout.durationSeconds) }] : []),
           { icon: 'sets', label: totals.sets === 1 ? 'set' : 'sets', value: totals.sets },
           ...(totals.volume ? [{ icon: 'volume', label: 'kg', value: totals.volume }] : []),
           ...(workout.calories != null ? [{ icon: 'kcal', label: 'kcal', value: workout.calories }] : []),

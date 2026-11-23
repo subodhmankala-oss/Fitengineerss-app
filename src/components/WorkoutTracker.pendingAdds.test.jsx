@@ -41,7 +41,7 @@ describe('Exercises queued from the muscle detail screen', () => {
     expect(queueWorkoutAdd('back extension')).toBe(false); // de-duped
 
     render(<WorkoutTracker />);
-    await screen.findByText("🏋️ Today's Workout");
+    await screen.findByTestId('workout-head');
     await waitFor(() => expect(exerciseNames()).toContain('Back Extension'));
     expect(getPendingWorkoutAdds()).toEqual([]);
   });

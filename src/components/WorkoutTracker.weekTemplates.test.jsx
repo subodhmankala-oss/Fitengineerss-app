@@ -58,12 +58,12 @@ describe('WorkoutTracker routine picker templates', () => {
 
     const pushCard = screen.getByText('Push Day').closest('.wt-plan-card');
     fireEvent.click(pushCard.querySelector('.wt-plan-start-btn'));
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     expect(screen.getAllByText('Bench Press (Barbell)').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Triceps Pushdown').length).toBeGreaterThan(0);
   });
 
-  it('offers Push / Pull / Legs and this week in the Existing Plan dropdown', async () => {
+  it('offers Push / Pull / Legs and this week in the name sheet', async () => {
     databaseService.getWorkoutLogsForUser.mockResolvedValue([
       { log_date: daysAgo(1), plan_name: 'Arms Blast', exercise_name: 'Bicep Curl (Dumbbell)', set_number: 1, reps: 12, weight_kg: 10 },
       { log_date: daysAgo(30), plan_name: 'Leg Day', exercise_name: 'Leg Press', set_number: 1, reps: 10, weight_kg: 80 }
@@ -71,14 +71,14 @@ describe('WorkoutTracker routine picker templates', () => {
     renderWorkoutTracker();
     await screen.findByText('Arms Blast');
     fireEvent.click(screen.getByText('Start Empty Workout'));
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
 
-    const select = document.querySelector('select');
-    const groups = [...select.querySelectorAll('optgroup')].map(g => g.label);
+    fireEvent.click(screen.getByTitle('Name and plans'));
+    const sheet = screen.getByRole('dialog', { name: 'Workout name and plans' });
+    const groups = [...sheet.querySelectorAll('h4')].map(h => h.textContent);
     expect(groups.slice(0, 2)).toEqual(['Push / Pull / Legs', 'This week']);
-    expect([...select.options].map(o => o.textContent)).toContain('Leg Day');
 
-    fireEvent.change(select, { target: { value: 'core:legs' } });
+    fireEvent.click([...sheet.querySelectorAll('.wh-row')].find(b => b.textContent === 'Leg Day'));
     expect((await screen.findAllByText('Leg Press')).length).toBeGreaterThan(0);
     // kg pre-filled from the client's last Leg Press, not left blank.
     expect(screen.getAllByRole('button', { name: '80' }).length).toBeGreaterThan(0);

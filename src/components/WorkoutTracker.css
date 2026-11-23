@@ -14,15 +14,10 @@
 }
 
 /* Tab Segmented Control */
+/* Slim text tabs: no box, just a line under the open one. */
 .workouts-segmented-tabs {
   display: flex;
-  background: rgba(var(--bg-card-rgb), 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(var(--fg-rgb), 0.04);
-  padding: 4px;
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.08);
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -35,21 +30,31 @@
 
 .tab-item-btn {
   flex: 1 0 auto;
-  padding: 12px 14px;
-  font-size: clamp(0.7rem, 3.2vw, 0.85rem);
-  font-weight: 600;
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: clamp(0.78rem, 3.4vw, 0.88rem);
+  font-weight: 500;
   color: var(--text-muted);
-  transition: all var(--transition-smooth);
-  text-align: center;
+  transition: color var(--transition-fast);
   white-space: nowrap;
 }
 
 .tab-item-btn.active {
-  background: rgba(var(--fg-rgb), 0.05);
+  font-weight: 600;
   color: var(--text-main);
-  border: 1px solid rgba(var(--fg-rgb), 0.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 -2px 0 var(--primary-accent);
+}
+
+.tab-item-btn.active .tab-item-icon {
+  color: var(--accent-text, var(--primary-accent));
+}
+
+.tab-item-icon {
+  flex-shrink: 0;
 }
 
 /* Tracker Top Summary Filters */
@@ -626,84 +631,6 @@
   gap: 5px;
 }
 
-.form-header h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.form-header p {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 1px;
-}
-
-/* Instruction line now sits above the whole logging card instead of as a
-   subtitle inside the header — see the "Today's Workout" restructure. */
-.workout-log-instructions {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin: 0 0 8px 2px;
-}
-
-.form-header {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.form-header-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-}
-
-.form-header-title-row h3 {
-  min-width: 0;
-}
-
-/* Compact inline date — sits beside the "Today's Workout" title rather than
-   as its own labeled row. */
-.session-date-tiny {
-  flex-shrink: 0;
-  width: auto;
-  max-width: 128px;
-  padding: 4px 6px;
-  font-size: 0.72rem;
-  background: rgba(var(--fg-rgb), 0.04);
-  border: 1px solid rgba(var(--fg-rgb), 0.1);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  outline: none;
-}
-
-.form-header-namerow {
-  gap: 12px;
-}
-
-.form-double-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.form-double-col .input-group {
-  min-width: 0;
-}
-
-.form-double-col .input-group select,
-.form-double-col .input-group input {
-  width: 100%;
-  min-width: 0;
-  text-overflow: ellipsis;
-  /* Slightly smaller than the app-wide 16px minimum by request — note this
-     reintroduces iOS Safari's auto-zoom-on-focus behavior for these two
-     fields specifically (a deliberate tradeoff, not an oversight). */
-  font-size: 14px;
-}
-
 .input-group {
   display: flex;
   flex-direction: column;
@@ -757,8 +684,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid rgba(var(--fg-rgb), 0.04);
-  padding-top: 8px;
 }
 
 .section-title-row {

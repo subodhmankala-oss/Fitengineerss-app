@@ -118,7 +118,7 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
     fireEvent.change(planSelect, { target: { value: 'core:push' } });
 
     expect(await screen.findByRole('button', { name: '62.5' }, SLOW)).toBeTruthy();
-    expect(screen.getByDisplayValue('Push Day')).toBeTruthy();
+    expect(screen.getByTestId('workout-head').textContent).toContain('Push Day');
   });
 
   it('does not repeat a logged Push Day under Recent workouts', async () => {

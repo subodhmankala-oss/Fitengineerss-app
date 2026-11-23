@@ -60,7 +60,7 @@ describe('Exercise name click (post-reorder scroll-reset regression)', () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
 
     render(<WorkoutTracker />);
-    await screen.findByText("🏋️ Today's Workout");
+    await screen.findByTestId('workout-head');
 
     const nameEl = await waitFor(() => {
       const el = Array.from(document.querySelectorAll('.ex-name-clickable'))
@@ -84,7 +84,7 @@ describe('Exercise name click (post-reorder scroll-reset regression)', () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
 
     render(<WorkoutTracker />);
-    await screen.findByText("🏋️ Today's Workout");
+    await screen.findByTestId('workout-head');
 
     const nameEl = await waitFor(() => {
       const el = Array.from(document.querySelectorAll('.ex-name-clickable'))

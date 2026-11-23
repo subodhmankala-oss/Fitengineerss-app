@@ -46,6 +46,13 @@ ALTER TABLE public.workout_shares
   ADD COLUMN IF NOT EXISTS preview_seconds INTEGER,
   ADD COLUMN IF NOT EXISTS has_picture BOOLEAN
     GENERATED ALWAYS AS (preview_image IS NOT NULL) STORED;
+-- show_photo: off unless the owner turns it on. picture_shows: what of the
+-- person the stored message picture carries (null = nothing), so it can be
+-- dropped the moment that is switched off.
+ALTER TABLE public.workout_shares
+  ADD COLUMN IF NOT EXISTS show_photo BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS picture_shows TEXT
+    CHECK (picture_shows IN ('photo', 'photo-name'));
 ALTER TABLE public.workout_shares DROP CONSTRAINT IF EXISTS workout_shares_one_per_day;
 CREATE UNIQUE INDEX IF NOT EXISTS workout_shares_one_per_workout
   ON public.workout_shares (user_id, share_key);

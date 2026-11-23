@@ -106,6 +106,29 @@ describe('Share sheet', () => {
     expect(workoutShare.mock.calls.filter(c => c[0] === 'save')).toHaveLength(1);
   });
 
+  it('the photo is off until turned on, then the picture is redrawn with it', async () => {
+    localStorage.setItem('userName', 'Rahul Sharma');
+    localStorage.setItem('userAvatarUrl', 'https://lh3.googleusercontent.com/a/abc=s96-c');
+    drawSharePreview.mockClear();
+    drawSharePreview.mockResolvedValue('/9j/abc');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })));
+    workoutShare.mockResolvedValue({ shares: [] });
+    render(<WorkoutShareLinkSheet workouts={[{ ...WORKOUT, muscles: [{ muscle: 'Chest', sets: 6, main: true }] }]} onClose={() => {}} />);
+    const photo = screen.getByRole('switch', { name: 'Show my photo' });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy link' }).disabled).toBe(false));
+    expect(photo.getAttribute('aria-checked')).toBe('false');
+    expect(drawSharePreview.mock.calls[0][0].person).toBeNull();
+    fireEvent.click(photo);
+    await waitFor(() => expect(workoutShare).toHaveBeenLastCalledWith('prepare', expect.objectContaining({ shows: 'photo-name', flags: expect.objectContaining({ showPhoto: true }) })));
+    expect(drawSharePreview.mock.calls[1][0].person).toEqual({ name: 'Rahul', photoUrl: 'https://lh3.googleusercontent.com/a/abc=s192-c' });
+    const ops = workoutShare.mock.calls.map(c => c[0]);
+    expect(ops.indexOf('flags')).toBeLessThan(ops.lastIndexOf('prepare'));
+    fireEvent.click(screen.getByRole('switch', { name: 'Show my first name' }));
+    await waitFor(() => expect(workoutShare).toHaveBeenLastCalledWith('prepare', expect.objectContaining({ shows: 'photo' })));
+    expect(drawSharePreview.mock.calls[2][0].person.name).toBeNull();
+    drawSharePreview.mockResolvedValue(null);
+  });
+
   it('waits for the picture before anything can be sent', async () => {
     let stored;
     drawSharePreview.mockResolvedValueOnce('/9j/abc');
@@ -317,6 +340,24 @@ describe('Shared workout page', () => {
     expect([...container.querySelectorAll('.swp-tag')].map(t => [t.className, t.textContent])).toEqual([
       ['swp-tag level-intermediate', 'Intermediate'], ['swp-tag week', 'Week 3'], ['swp-tag session', 'Session 2'],
     ]);
+  });
+
+  it('shows their photo when they chose to, else their letter, else nothing', async () => {
+    serve(200, { workout: { ...PUBLIC, showPhoto: true, photo: 'https://lh3.googleusercontent.com/a/abc=s192-c' } });
+    const { container, unmount } = render(<SharedWorkoutPage token={TOKEN} />);
+    const img = await screen.findByAltText('Rahul');
+    fireEvent.error(img);
+    expect(container.querySelector('.swp-face').textContent).toBe('R');
+    unmount();
+    serve(200, { workout: { ...PUBLIC, showPhoto: true, photo: null, name: null } });
+    const second = render(<SharedWorkoutPage token={TOKEN} />);
+    await screen.findByRole('heading', { level: 1 });
+    expect(second.container.querySelector('.swp-face')).toBeNull();
+    second.unmount();
+    serve(200, { workout: PUBLIC });
+    const third = render(<SharedWorkoutPage token={TOKEN} />);
+    await screen.findByRole('heading', { level: 1 });
+    expect(third.container.querySelector('.swp-face')).toBeNull();
   });
 
   it('says when the link is off', async () => {

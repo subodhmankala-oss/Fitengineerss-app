@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import databaseService from '../services/databaseService';
 import { drawSharePreview } from '../utils/sharePreviewImage';
-import { DEFAULT_SHARE_FLAGS, newShareToken, shareMessage, shareUrl } from '../utils/workoutShare';
+import { DEFAULT_SHARE_FLAGS, firstNameOf, flagsOf, googlePhotoUrl, newShareToken, pictureShows, shareMessage, shareUrl } from '../utils/workoutShare';
 import { ShareIcon } from './TimerIcons';
 import './WorkoutShareLinkSheet.css';
 
@@ -13,6 +13,7 @@ const EyeIcon = () => <Icon size={14}><path d="M2 12c2.5-4.7 5.8-7 10-7s7.500 2.
 
 const SWITCHES = [
   { key: 'showName', label: 'Show my first name', icon: <><circle cx="12" cy="7" r="4" /><path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" /></> },
+  { key: 'showPhoto', label: 'Show my photo', icon: <><rect x="3" y="5" width="18" height="15" rx="3" /><circle cx="12" cy="12" r="3.500" /><path d="M8 5l1.500-2h5L16 5" /></> },
   { key: 'showMap', label: 'Show muscle map', icon: <><circle cx="12" cy="5" r="2" /><path d="M5 9l4 1h6l4-1M9 10l1 5-2 6M15 10l-1 5 2 6" /></> },
   { key: 'showWeights', label: 'Show weights', icon: <path d="M2 12h4M6 7v10M9 5v14M9 12h6M15 5v14M18 7v10M18 12h4" /> },
   { key: 'showCalories', label: 'Show calories', icon: <path d="M12 12c2-2.960 0-7-1-8 0 3.040-1.770 4.740-3 6-1.230 1.260-2 3.240-2 5a6 6 0 1 0 12 0c0-1.530-1.060-3.940-2-5-1.790 3-2.790 3-4 2z" /> },
@@ -37,6 +38,15 @@ const warmPicture = (token) => fetch(`/w/${token}/preview.jpg`, { keepalive: tru
 
 const bodySexOf = () => {
   try { return localStorage.getItem('userSex'); } catch { return null; /* storage blocked */ }
+};
+
+// The person on the message picture, when their photo is on.
+const personFor = (shows) => {
+  if (!shows) return null;
+  let name = null;
+  let avatar = null;
+  try { name = localStorage.getItem('userName'); avatar = localStorage.getItem('userAvatarUrl'); } catch { /* storage blocked */ }
+  return { name: shows === 'photo-name' ? firstNameOf(name) : null, photoUrl: googlePhotoUrl(avatar) };
 };
 
 /**
@@ -88,7 +98,7 @@ function ShareOneWorkout({ workout, onChange }) {
   const apply = (shares) => {
     const mine = shares.find(s => s.key === workoutKey) || null;
     setShare(mine);
-    if (mine) setFlags({ showName: mine.showName, showMap: mine.showMap, showWeights: mine.showWeights, showCalories: mine.showCalories });
+    if (mine) setFlags(flagsOf(mine));
     onChange?.(shares);
   };
 
@@ -99,7 +109,7 @@ function ShareOneWorkout({ workout, onChange }) {
         if (cancelled) return;
         const mine = shares.find(s => s.key === workoutKey) || null;
         setShare(mine);
-        if (mine) setFlags({ showName: mine.showName, showMap: mine.showMap, showWeights: mine.showWeights, showCalories: mine.showCalories });
+        if (mine) setFlags(flagsOf(mine));
         setLoaded(true);
       })
       .catch(e => { if (!cancelled) setError(e.message || 'Could not reach the server. Try again.'); });
@@ -111,25 +121,31 @@ function ShareOneWorkout({ workout, onChange }) {
   // or the chat app looks before it is there and shows none.
   const flagsRef = useRef(flags);
   useEffect(() => { flagsRef.current = flags; }, [flags]);
-  const drawing = useRef(null);
+  const shows = pictureShows(flags);
+  const drawings = useRef(new Map());
   const storedFor = useRef(null);
+  // A switch change must reach the server before its new picture does.
+  const flagsSaved = useRef(Promise.resolve());
   useEffect(() => {
     if (!muscles?.length) return undefined;
-    if (!drawing.current) drawing.current = drawSharePreview({ title, sets, durationSeconds, muscles, sex: bodySexOf() });
-    if (!loaded || storedFor.current === token) return undefined;
-    storedFor.current = token;
-    const ready = () => setPictured(true);
+    if (!drawings.current.has(shows)) {
+      drawings.current.set(shows, drawSharePreview({ title, sets, durationSeconds, muscles, sex: bodySexOf(), person: personFor(shows) }));
+    }
+    const target = `${token}|${shows}`;
+    if (!loaded || storedFor.current === target) return undefined;
+    storedFor.current = target;
+    const ready = () => { if (storedFor.current === target) setPictured(true); };
     const timer = setTimeout(ready, PICTURE_WAIT_MS);
-    drawing.current
-      .then(async (image) => {
-        if (!image) return;
-        await databaseService.workoutShare('prepare', { logDate, key: workoutKey, token, image, flags: flagsRef.current, bodySex: bodySexOf(), title, sets, durationSeconds });
+    Promise.all([drawings.current.get(shows), flagsSaved.current])
+      .then(async ([image]) => {
+        if (!image || storedFor.current !== target) return;
+        await databaseService.workoutShare('prepare', { logDate, key: workoutKey, token, image, shows, flags: flagsRef.current, bodySex: bodySexOf(), title, sets, durationSeconds });
         await warmPicture(token);
       })
       .catch(e => console.warn('share preview:', e?.message || e))
       .then(() => { clearTimeout(timer); ready(); });
     return undefined;
-  }, [loaded, token, muscles, title, sets, durationSeconds, logDate, workoutKey]);
+  }, [loaded, token, shows, muscles, title, sets, durationSeconds, logDate, workoutKey]);
 
   const run = async (op, payload, failed) => {
     setBusy(true);
@@ -157,10 +173,11 @@ function ShareOneWorkout({ workout, onChange }) {
     const before = flags;
     const next = { ...flags, [key]: !flags[key] };
     setFlags(next);
-    if (share) { run('flags', { flags: next }, () => setFlags(before)); return; }
+    if (muscles?.length && pictureShows(next) !== pictureShows(before)) setPictured(false);
+    if (share) { flagsSaved.current = run('flags', { flags: next }, () => setFlags(before)); return; }
     // Not sent yet: keep the prepared message preview in step (best effort;
     // sending saves these again).
-    databaseService.workoutShare('flags', { logDate, key: workoutKey, flags: next }).catch(() => {});
+    flagsSaved.current = databaseService.workoutShare('flags', { logDate, key: workoutKey, flags: next }).catch(() => {});
   };
 
   const copy = async () => {

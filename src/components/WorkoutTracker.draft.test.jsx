@@ -67,7 +67,7 @@ describe('WorkoutTracker in-progress session persistence', () => {
     renderWorkoutTracker();
 
     // The logging view is shown, not the default analytics view...
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     // ...and the exact exercise the client had entered before leaving is
     // back. The exercise-reorder row legitimately renders its name twice at
     // once (a compact span + the full-view heading, for the drag morph
@@ -80,7 +80,7 @@ describe('WorkoutTracker in-progress session persistence', () => {
     renderWorkoutTracker();
     // Let mount effects settle.
     await waitFor(() => expect(localStorage.getItem('userName')).toBe('TestClient'));
-    expect(screen.queryByText("🏋️ Today's Workout")).toBeNull();
+    expect(screen.queryByTestId('workout-head')).toBeNull();
     // No spurious draft written when not logging.
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
   });
@@ -89,7 +89,7 @@ describe('WorkoutTracker in-progress session persistence', () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ isLoggingWorkout: false, logExercises: [] }));
     renderWorkoutTracker();
     await waitFor(() => expect(localStorage.getItem('userName')).toBe('TestClient'));
-    expect(screen.queryByText("🏋️ Today's Workout")).toBeNull();
+    expect(screen.queryByTestId('workout-head')).toBeNull();
     // The non-active draft is cleared out rather than lingering.
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
   });

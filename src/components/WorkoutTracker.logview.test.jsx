@@ -76,7 +76,7 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
   it('shows the client-friendly header, not the old coach-notebook copy', async () => {
     seedActiveDraft();
     renderWorkoutTracker();
-    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(await screen.findByTestId('workout-head')).toBeTruthy();
     expect(screen.queryByText('📝 Log New Workout Session')).toBeNull();
     expect(screen.queryByText(/directly from client notebooks/i)).toBeNull();
   });

@@ -32,6 +32,7 @@ import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import CoachNoteComposer from './CoachNoteComposer';
 import { buildSessionRecap, noteFirstName, buildQuickReplies } from '../utils/coachNoteRecap';
 import useFullBleed from '../utils/useFullBleed';
+import WorkoutHeadLine from './WorkoutHeadLine';
 import { getSetRingStates } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import StatsStrip from './StatsStrip';
@@ -2009,6 +2010,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
   // Live Log timer bar spans the screen edge to edge.
   const liveTimerBarRef = useFullBleed({ trackStuck: true });
+  const liveHeadLineRef = useFullBleed();
+  // Name + plans sheet of the Live Log's header line: null | 'open'.
+  const [liveNameSheet, setLiveNameSheet] = useState(null);
   // Phones: the client header runs edge to edge and joins the tabs band
   // below it into one panel (see .client-detail-header.is-full-bleed).
   const clientHeaderRef = useFullBleed();
@@ -5717,40 +5721,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     if (plan) loadLivePlan(plan);
     e.target.value = '';
   };
+  // Every plan the coach can load, shared by the start card's dropdown and
+  // the header line's sheet. Plans never logged yet (e.g. an AI draft's days
+  // assigned yesterday) get their own group, since the performance ranking
+  // sorts them last and can cut them off. "Saved plans" is only the latest
+  // week's plans, newest first. See splitNewTemplates.
+  const liveTemplateGroups = [
+    { label: 'Coach assigned', items: liveNewPlans.map(p => ({ id: p.id, name: p.planName })) },
+    { label: 'Push / Pull / Legs', items: CORE_PPL_TEMPLATES.map(p => ({ id: p.id, name: p.planName })) },
+    { label: 'Recent workouts', items: recentWorkoutPlans.map(p => ({ id: p.id, name: p.planName, meta: formatShortLogDate(p.date) })) },
+    { label: 'Saved plans', items: liveSavedPlans.map(p => ({ id: p.id, name: p.planName })) },
+  ];
   const liveTemplateOptions = (
     <>
       <option value="" disabled>Template</option>
-      {/* Plans never logged yet (e.g. an AI draft's days assigned
-          yesterday) — their own group, since the performance ranking
-          below sorts them last and can cut them off. "Saved plans"
-          (bottom group) is only the latest week's plans, newest first.
-          See splitNewTemplates. */}
-      {liveNewPlans.length > 0 && (
-        <optgroup label="Coach assigned">
-          {liveNewPlans.map(p => (
-            <option key={p.id} value={p.id}>{p.planName}</option>
-          ))}
+      {liveTemplateGroups.filter(g => g.items.length > 0).map(g => (
+        <optgroup key={g.label} label={g.label}>
+          {g.items.map(p => <option key={p.id} value={p.id}>{p.meta ? `${p.name} · ${p.meta}` : p.name}</option>)}
         </optgroup>
-      )}
-      <optgroup label="Push / Pull / Legs">
-        {CORE_PPL_TEMPLATES.map(p => (
-          <option key={p.id} value={p.id}>{p.planName}</option>
-        ))}
-      </optgroup>
-      {recentWorkoutPlans.length > 0 && (
-        <optgroup label="Recent workouts">
-          {recentWorkoutPlans.map(p => (
-            <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
-          ))}
-        </optgroup>
-      )}
-      {liveSavedPlans.length > 0 && (
-        <optgroup label="Saved plans">
-          {liveSavedPlans.map(p => (
-            <option key={p.id} value={p.id}>{p.planName}</option>
-          ))}
-        </optgroup>
-      )}
+      ))}
     </>
   );
   const findLivePlan = (id) =>[...CORE_PPL_TEMPLATES, ...clientPlans, ...recentWorkoutPlans].find(p => p.id === id);
@@ -10565,73 +10554,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     </div>
                   ) : (
                   <>
-                  <div className={`fs-tuck ${liveFullScreen.active ? 'is-tucked' : ''}`} inert={liveFullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
-                  {/* Session card, top: who this is for and which day. The
-                      calendar button is a real date input laid invisibly over
-                      the icon, so tapping it opens the phone's date picker. */}
-                  <div className="live-session-who">
-                    <Avatar
-                      email={selectedClient?.email}
-                      name={selectedClient?.userName || 'Client'}
-                      avatarUrl={selectedClient?.avatarUrl}
-                      size={34}
+                  <div className={`fs-tuck wh-tuck ${liveFullScreen.active ? 'is-tucked' : ''}`} inert={liveFullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
+                  <div className="wh-bleed" ref={liveHeadLineRef}>
+                    <WorkoutHeadLine
+                      name={livePlanName} onNameChange={setLivePlanName}
+                      date={liveDate} onDateChange={setLiveDate}
+                      clientName={(selectedClient?.userName || '').split(/[\s.@]+/)[0]}
+                      groups={liveTemplateGroups}
+                      onPick={(id) => { const plan = findLivePlan(id); if (plan) loadLivePlan(plan); }}
+                      hasTicked={liveExercises.some(ex => ex.sets.some(st => st.isCompleted))}
+                      sheet={liveNameSheet} onSheet={setLiveNameSheet}
                     />
-                    <div className="live-session-who-text">
-                      <div className="live-session-who-name">{selectedClient?.userName}</div>
-                      <div className="live-session-who-date">
-                        {liveDate === getLocalDateString() ? 'Today · ' : ''}
-                        {parseLocalDateString(liveDate).toLocaleDateString(undefined, { weekday: liveDate === getLocalDateString() ? undefined : 'short', day: 'numeric', month: 'short' })}
-                      </div>
-                    </div>
-                    <label className="live-session-date-btn" title="Change session date">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <rect x="3.5" y="5" width="17" height="15" rx="2" />
-                        <path d="M3.5 10h17M8 3v4M16 3v4" />
-                      </svg>
-                      <input
-                        type="date"
-                        value={liveDate}
-                        onChange={e => e.target.value && setLiveDate(e.target.value)}
-                        aria-label="Session date"
-                      />
-                    </label>
                   </div>
-
-                  {/* Plan/Routine configuration — always visible, no toggle */}
-                  <div className="live-workout-config-panel">
-                      <div className="live-plan-name-field">
-                        <input
-                          type="text"
-                          aria-label="Plan name"
-                          placeholder="Plan name"
-                          value={livePlanName}
-                          onChange={e => setLivePlanName(e.target.value)}
-                          // BUG FIX 2026-08-18: removed the custom
-                          // handleCoachNoteFocus scroll-correction handler that
-                          // used to sit here — see the comment on that function's
-                          // definition for why. This field now behaves like the
-                          // AI Draft Builder modal's plain inputs (no onFocus
-                          // logic at all), which is the smooth, glitch-free
-                          // reference behavior the coach explicitly compared this
-                          // against.
-                          // Font size must stay >= 16px (iOS focus zoom) — see
-                          // .live-plan-name-field input in TrainerDashboard.css.
-                        />
-                      </div>
-                        <div className="live-template-field">
-                          <svg className="live-template-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <rect x="4" y="4" width="16" height="16" rx="2" />
-                            <path d="M4 10h16M10 10v10" />
-                          </svg>
-                          <select
-                            aria-label="Load a template"
-                            defaultValue=""
-                            onChange={onLiveTemplatePick}
-                          >
-                            {liveTemplateOptions}
-                          </select>
-                        </div>
-                    </div>
                   </div></div>
 
                   {/* Live Timer + Calorie readout — starts automatically the

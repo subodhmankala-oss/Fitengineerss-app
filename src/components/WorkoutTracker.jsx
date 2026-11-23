@@ -46,6 +46,7 @@ import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import useFullBleed from '../utils/useFullBleed';
+import WorkoutHeadLine from './WorkoutHeadLine';
 import { getSetRingStates } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import PlanCard, { TrashIcon } from './PlanCard';
@@ -1298,6 +1299,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const liveTickedRows = useMemo(() => tickedSetRows(logExercises, logDate), [logExercises, logDate]);
   // Timer bar spans the screen edge to edge, past the form's padding.
   const timerBarRef = useFullBleed({ trackStuck: true });
+  const headLineRef = useFullBleed();
+  // Name + plans sheet of the header line: null | 'open' | 'missing'.
+  const [nameSheet, setNameSheet] = useState(null);
   useEffect(() => {
     const userId = ownUserId || localStorage.getItem('userId');
     publishLiveRows(userId, isLoggingWorkout ? liveTickedRows : []);
@@ -2355,33 +2359,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
 
-    // All sets ticked — now validate workout name. Real id is
-    // 'workoutNameInputTop' (see the input further down); this used to look
-    // up the stale 'workoutNameInput' id, which never matched anything, so
-    // nameInput was always null and this whole block silently no-opped —
-    // the Save button looked completely unresponsive with zero feedback
-    // whenever the name was blank, instead of focusing/flagging the field.
+    // All sets ticked — now validate workout name. The name box lives in the
+    // header's sheet: open it, focused and flagged. Full-screen folds the
+    // header away, so bring that back too.
     if (!templateName || !templateName.trim()) {
-      const flagNameInput = () => {
-        const nameInput = document.getElementById('workoutNameInputTop');
-        if (nameInput) {
-          nameInput.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-          nameInput.focus();
-          nameInput.setCustomValidity('Please enter a workout name before finishing.');
-          nameInput.reportValidity();
-          nameInput.setCustomValidity('');
-        } else {
-          alert('Please enter a workout name before finishing!');
-        }
-      };
-      // Full-screen folds the name box away (and makes it inert), so bring
-      // the whole screen back first and flag the box once it has unfolded.
-      if (fullScreen.active) {
-        fullScreen.exit();
-        setTimeout(flagNameInput, 380);
-      } else {
-        flagNameInput();
-      }
+      if (fullScreen.active) fullScreen.exit();
+      setNameSheet('missing');
       return;
     }
 
@@ -3306,6 +3289,69 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase())
   ), [sessions, selectedClient, clientPlans]);
 
+  // Load a plan picked in the header's name sheet into the open workout.
+  const loadPickedPlan = (planId) => {
+    const plan = [...CORE_PPL_TEMPLATES, ...thisWeekPlans, ...clientPlans, ...recentWorkoutPlans]
+      .find(p => p.id === planId);
+    // Same empty/malformed guard as startPlan above — loading
+    // an empty plan here used to wipe the current exercise
+    // list and replace it with nothing.
+    if (plan && !(plan.exercises || []).length) {
+      triggerToast('⚠️ This plan has no exercises saved.');
+      return;
+    }
+    if (plan) {
+      setTemplateName(plan.planName);
+      setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
+      setLoggingLevel(null);
+      setLogExercises(plan.exercises.map(ex => ({
+        name: ex.name,
+        ...exerciseIdField(ex.exerciseId),
+        ...(ex.note ? { note: ex.note } : {}),
+        // See startPlan's identical comment above: `time` is
+        // never carried over from the saved plan — it's a
+        // past session's real duration, not a target, and a
+        // stale non-empty value here silently fed straight
+        // into liveRunningCardioKcal's calorie total before
+        // the client touched anything.
+        // withPrevValues: same kg/reps pre-fill from PREV as
+        // startPlan, so a blank Push/Pull/Legs kg box isn't
+        // left empty when the client has history.
+        sets: ex.sets.map((s, setIdx) => withPrevValues(ex, setIdx, isCardioExercise(ex.name)
+          // targetTime: see startPlan — keeps the coach's
+          // prescribed duration as a hint/countdown target.
+          ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
+          : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
+          ? { time: '', targetTime: s.time || '', weight: String(s.weight ?? '0'), isCompleted: false }
+          : isTimedExercise(ex.name)
+          ? { time: '', targetTime: s.time || '', isCompleted: false }
+          // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
+          // exercise like Farmer Walk saved from a source that didn't fill
+          // both fields) — String(undefined) renders as the literal text
+          // "undefined" in the input box instead of leaving it blank, same
+          // bug the cardio/timed branches above already guard against with
+          // `?? ''`. This branch never got that guard.
+          : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false }))
+      })));
+      // See startPlan's comment above — setTimers is keyed
+      // positionally, not by exercise identity, so switching
+      // plans mid-session leaves a previous plan's timed-set
+      // stopwatch state attached to whatever lands at the
+      // same index in the new one.
+      setSetTimers({});
+      triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
+    }
+  };
+  const headerPlanGroups = [
+    { label: 'Coach assigned', items: dropdownNewPlans.map(p => ({ id: p.id, name: p.planName })) },
+    // Always shown — Push / Pull / Legs are always there.
+    { label: 'Push / Pull / Legs', items: CORE_PPL_TEMPLATES.map(p => ({ id: p.id, name: p.planName })) },
+    { label: 'This week', items: thisWeekPlans.map(p => ({ id: p.id, name: p.planName, meta: formatShortLogDate(p.date) })) },
+    { label: 'Recent workouts', items: recentWorkoutPlans.map(p => ({ id: p.id, name: p.planName, meta: formatShortLogDate(p.date) })) },
+    // Only the latest week's plans, newest first — see splitNewTemplates.
+    { label: 'Saved plans', items: dropdownSavedPlans.map(p => ({ id: p.id, name: p.planName })) },
+  ];
+
   return (
     <>
       <div className="workout-tracker-container animate-slide-up">
@@ -3325,19 +3371,22 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
           onClick={() => selectView('analytics')}
         >
-          📈 Progress
+          <svg className="tab-item-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 19h16M4 15l5-5 4 3 7-8" /></svg>
+          Progress
         </button>
         <button
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
           onClick={() => selectView('log')}
         >
-          📝 Log Sets
+          <svg className="tab-item-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></svg>
+          Log Sets
         </button>
         <button
           className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
           onClick={() => selectView('templates')}
         >
-          🏋️ Library
+          <svg className="tab-item-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 7v10M4 9.5v5M17 7v10M20 9.5v5M7 12h10" /></svg>
+          Library
         </button>
       </div>
       </div>
@@ -4073,129 +4122,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
           <LeftoverExercisesCard items={leftoverItems} onAdd={handleAddLeftovers} onDismiss={handleDismissLeftovers} onRemoveItem={handleRemoveLeftover} />
-          <div className={`fs-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
-          <div className="form-header">
-            <div className="form-header-title-row">
-              <h3>🏋️ Today's Workout</h3>
-              <input
-                type="date"
-                className="session-date-tiny"
-                value={logDate}
-                onChange={(e) => setLogDate(e.target.value)}
-                required
+          <div className={`fs-tuck wh-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} data-testid="header-tuck"><div className="fs-tuck-inner">
+            <div className="wh-bleed" ref={headLineRef}>
+              <WorkoutHeadLine
+                name={templateName} onNameChange={setTemplateName}
+                date={logDate} onDateChange={setLogDate}
+                groups={headerPlanGroups} onPick={loadPickedPlan}
+                hasTicked={logExercises.some(ex => ex.sets.some(st => st.isCompleted))}
+                sheet={nameSheet} onSheet={setNameSheet}
               />
             </div>
-            <div className="form-double-col form-header-namerow">
-              <div className="input-group">
-                <label>Workout Name</label>
-                <input
-                  id="workoutNameInputTop"
-                  type="text"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="e.g. Push Day, Leg Day, Custom Session…"
-                />
-              </div>
-              {/* Always shown — Push / Pull / Legs are always there. */}
-                <div className="input-group">
-                  <label>Existing Plan</label>
-                  <select
-                    defaultValue=""
-                    onChange={(e) => {
-                      const plan = [...CORE_PPL_TEMPLATES, ...thisWeekPlans, ...clientPlans, ...recentWorkoutPlans]
-                        .find(p => p.id === e.target.value);
-                      // Same empty/malformed guard as startPlan above — loading
-                      // an empty plan here used to wipe the current exercise
-                      // list and replace it with nothing.
-                      if (plan && !(plan.exercises || []).length) {
-                        triggerToast('⚠️ This plan has no exercises saved.');
-                        e.target.value = '';
-                        return;
-                      }
-                      if (plan) {
-                        setTemplateName(plan.planName);
-                        setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
-                        setLoggingLevel(null);
-                        setLogExercises(plan.exercises.map(ex => ({
-                          name: ex.name,
-                          ...exerciseIdField(ex.exerciseId),
-                          ...(ex.note ? { note: ex.note } : {}),
-                          // See startPlan's identical comment above: `time` is
-                          // never carried over from the saved plan — it's a
-                          // past session's real duration, not a target, and a
-                          // stale non-empty value here silently fed straight
-                          // into liveRunningCardioKcal's calorie total before
-                          // the client touched anything.
-                          // withPrevValues: same kg/reps pre-fill from PREV as
-                          // startPlan, so a blank Push/Pull/Legs kg box isn't
-                          // left empty when the client has history.
-                          sets: ex.sets.map((s, setIdx) => withPrevValues(ex, setIdx, isCardioExercise(ex.name)
-                            // targetTime: see startPlan — keeps the coach's
-                            // prescribed duration as a hint/countdown target.
-                            ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
-                            : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
-                            ? { time: '', targetTime: s.time || '', weight: String(s.weight ?? '0'), isCompleted: false }
-                            : isTimedExercise(ex.name)
-                            ? { time: '', targetTime: s.time || '', isCompleted: false }
-                            // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
-                // exercise like Farmer Walk saved from a source that didn't fill
-                // both fields) — String(undefined) renders as the literal text
-                // "undefined" in the input box instead of leaving it blank, same
-                // bug the cardio/timed branches above already guard against with
-                // `?? ''`. This branch never got that guard.
-                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false }))
-                        })));
-                        // See startPlan's comment above — setTimers is keyed
-                        // positionally, not by exercise identity, so switching
-                        // plans mid-session leaves a previous plan's timed-set
-                        // stopwatch state attached to whatever lands at the
-                        // same index in the new one.
-                        setSetTimers({});
-                        triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
-                      }
-                      e.target.value = '';
-                    }}
-                  >
-                    <option value="" disabled>Select template</option>
-                    {/* "Saved plans" (bottom group) is only the latest week's
-                        plans, newest first — see splitNewTemplates. */}
-                    {dropdownNewPlans.length > 0 && (
-                      <optgroup label="Coach assigned">
-                        {dropdownNewPlans.map(p => (
-                          <option key={p.id} value={p.id}>{p.planName}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    <optgroup label="Push / Pull / Legs">
-                      {CORE_PPL_TEMPLATES.map(p => (
-                        <option key={p.id} value={p.id}>{p.planName}</option>
-                      ))}
-                    </optgroup>
-                    {thisWeekPlans.length > 0 && (
-                      <optgroup label="This week">
-                        {thisWeekPlans.map(p => (
-                          <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {recentWorkoutPlans.length > 0 && (
-                      <optgroup label="Recent workouts">
-                        {recentWorkoutPlans.map(p => (
-                          <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {dropdownSavedPlans.length > 0 && (
-                      <optgroup label="Saved plans">
-                        {dropdownSavedPlans.map(p => (
-                          <option key={p.id} value={p.id}>{p.planName}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </div>
-            </div>
-          </div>
           </div></div>
 
           {/* Hevy Stopwatch Header — same idle/running/paused bar as the coach's
@@ -4253,13 +4189,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           </div>
 
           <div className="exercises-form-section">
-            {/* The tip folds away with the header in full-screen — by then a
-                set has been ticked, so it has done its job. */}
-            <div className={`fs-tuck ${fullScreen.active ? 'is-tucked' : ''}`} inert={fullScreen.active} aria-hidden={fullScreen.active || undefined} data-testid="tip-tuck"><div className="fs-tuck-inner">
-            <div className="section-title-row" style={{ position: 'relative' }}>
-              <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>
-            </div>
-            </div></div>
             <SetLiftOverlay undo={setLiftDrop.undo} onUndo={setLiftDrop.runUndo} />
 
             <div className="exercises-input-list">

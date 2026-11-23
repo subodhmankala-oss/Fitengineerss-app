@@ -57,15 +57,14 @@ body.workout-full-screen .hevy-logger-wrapper {
   margin-bottom: -5px;
 }
 
-.exercises-form-section > .fs-tuck.is-tucked {
-  margin-bottom: -8px;
-}
-
 /* Timer bar to first exercise: the bar's own margin + the form's gap + the
    section's top padding and hairline. */
 .hevy-logger-wrapper > .hevy-stopwatch-banner,
 .hevy-logger-wrapper > .exercises-form-section {
-  transition: margin 340ms cubic-bezier(0.2, 0, 0, 1),
+  /* Not `margin`: useFullBleed sets the side margins, and those must not
+     slide in when the bar first shows. */
+  transition: margin-top 340ms cubic-bezier(0.2, 0, 0, 1),
+    margin-bottom 340ms cubic-bezier(0.2, 0, 0, 1),
     padding-top 340ms cubic-bezier(0.2, 0, 0, 1),
     border-color 160ms ease, box-shadow 160ms ease;
 }

@@ -156,6 +156,41 @@
   border-top-width: 0;
 }
 
+/* Timer bar straight onto the first exercise, as in full-screen (-5px / -14px
+   cancel the parents' gaps). The bar's bottom line is the only divider. Coach:
+   phones only, where the list runs edge to edge under the bar. */
+.hevy-logger-wrapper > .hevy-stopwatch-banner {
+  margin-bottom: 0;
+}
+
+.hevy-logger-wrapper > .exercises-form-section {
+  margin-top: -5px;
+}
+
+.hevy-logger-wrapper .exercises-input-list > :first-child {
+  border-top-width: 0;
+}
+
+@media (max-width: 767px) {
+  /* Coach tabs straight onto the card too (unless a message or the finished
+     card sits between them). */
+  .fs-tuck:has(+ .live-logger-container > .wh-tuck:first-child) .trainer-tabs.coach-tabs {
+    margin-bottom: 0;
+  }
+
+  .live-logger-container > .wh-tuck:first-child .wh-line {
+    border-top-width: 0;
+  }
+
+  .live-logger-container > .live-timer-bar:has(+ .live-logger-exercise-list) {
+    margin-bottom: -14px;
+  }
+
+  .live-timer-bar + .live-logger-exercise-list > :first-child {
+    border-top-width: 0;
+  }
+}
+
 /* Name + plans sheet. Tall, with the box at the top, so a phone keyboard
    never covers it. */
 .wh-root {

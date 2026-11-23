@@ -137,10 +137,13 @@ export default function WorkoutShareLinkSheet({ workout, onClose, onChange }) {
         ))}
 
         <div className={`wsl-ways${canShareMore ? ' three' : ''}`}>
+          {/* Stays a link while saving: the tap itself starts the save, and
+              React re-renders before the browser follows the link, so taking
+              href away when busy meant WhatsApp never opened. */}
           <a
-            className={`wsl-way wa${ready ? '' : ' is-off'}`}
-            href={ready ? `https://wa.me/?text=${encodeURIComponent(text)}` : undefined}
-            target="_blank" rel="noopener noreferrer" aria-disabled={!ready}
+            className={`wsl-way wa${loaded ? '' : ' is-off'}`}
+            href={loaded ? `https://wa.me/?text=${encodeURIComponent(text)}` : undefined}
+            target="_blank" rel="noopener noreferrer" aria-disabled={!loaded}
             onClick={() => { if (ready) turnOn(); }}
           >
             <Icon><path d="M3 21l1.900-5.700a8.500 8.500 0 1 1 3.800 3.800z" /></Icon>WhatsApp

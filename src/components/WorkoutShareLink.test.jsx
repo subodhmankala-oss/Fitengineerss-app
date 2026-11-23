@@ -51,6 +51,18 @@ describe('Share sheet', () => {
     expect(workoutShare.mock.calls[1]).toEqual(['save', expect.objectContaining({ token: sent, logDate: '2026-11-23' })]);
   });
 
+  it('WhatsApp still opens while the link is being saved', async () => {
+    workoutShare.mockImplementation((op) => (op === 'list' ? Promise.resolve({ shares: [] }) : new Promise(() => {})));
+    render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);
+    const wa = screen.getByText('WhatsApp').closest('a');
+    await waitFor(() => expect(wa.getAttribute('href')).toBeTruthy());
+    const opened = wa.getAttribute('href');
+    expect(fireEvent.click(wa)).toBe(true); // not cancelled
+    expect(wa.getAttribute('href')).toBe(opened);
+    fireEvent.click(wa);
+    expect(workoutShare.mock.calls.filter(c => c[0] === 'save')).toHaveLength(1);
+  });
+
   it('changes what a live link shows', async () => {
     workoutShare.mockResolvedValue({ shares: [LIVE] });
     render(<WorkoutShareLinkSheet workout={WORKOUT} onClose={() => {}} />);

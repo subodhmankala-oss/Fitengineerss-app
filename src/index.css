@@ -399,71 +399,6 @@ html.keyboard-open .trainer-dashboard-container {
   scroll-behavior: auto;
 }
 
-/* Premium Bottom Navigation */
-.bottom-nav {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: calc(64px + env(safe-area-inset-bottom, 0px));
-  background: rgba(var(--bg-card-rgb), 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(var(--fg-rgb), 0.05);
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  z-index: 1000;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  gap: 3px;
-  width: 56px;
-  height: 52px;
-  border-radius: var(--radius-md);
-  transition: all var(--transition-smooth);
-}
-
-.nav-item .icon {
-  font-size: 1.4rem;
-  transition: transform var(--transition-spring);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.nav-item .icon svg {
-  width: 22px;
-  height: 22px;
-  stroke: currentColor;
-  transition: all var(--transition-smooth);
-}
-
-.nav-item.active {
-  color: var(--primary-accent-light);
-}
-
-.nav-item.active .icon {
-  transform: translateY(-2px) scale(1.1);
-}
-
-.nav-item.active .icon svg {
-  filter: drop-shadow(0 2px 6px var(--primary-accent-glow));
-}
-
-.nav-item:active {
-  transform: scale(0.9);
-}
-
 /* Global Animations */
 @keyframes slideUpFadeIn {
   0% { opacity: 0; transform: translateY(20px); }
@@ -541,14 +476,6 @@ html.keyboard-open .trainer-dashboard-container {
   background: #0095f6;
   box-shadow: 0 0 0 2px var(--bg-card);
   pointer-events: none;
-}
-
-/* Top-right corner of a bottom-nav icon, like Instagram's. */
-.nav-item .icon { position: relative; }
-.nav-unread-dot {
-  position: absolute;
-  top: -2px;
-  right: -4px;
 }
 
 /* Home screen next-workout card (NextWorkoutBanner): logo-blue play button

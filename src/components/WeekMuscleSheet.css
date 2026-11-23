@@ -43,11 +43,38 @@
 .wms-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
-.wms-title { font-weight: 700; font-size: 1rem; }
-.wms-live { font-size: 0.78rem; color: rgba(var(--fg-rgb), 0.55); }
+.wms-title { margin: 0; font-weight: 700; font-size: 1.05rem; line-height: 1.25; letter-spacing: -0.01em; color: inherit; }
+.wms-sec {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(var(--fg-rgb), 0.1);
+}
+.wms-sec-note { flex-shrink: 0; font-size: 0.74rem; color: rgba(var(--fg-rgb), 0.55); }
+/* This workout's sets and volume: quiet numbers, right of the heading. */
+.wms-totals { display: flex; flex-shrink: 0; }
+.wms-total { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+.wms-total + .wms-total {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(var(--fg-rgb), 0.1);
+}
+.wms-total b {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.wms-total i { font-style: normal; font-size: 0.72rem; font-weight: 500; letter-spacing: 0; color: rgba(var(--fg-rgb), 0.55); }
+.wms-total small { font-size: 0.68rem; color: rgba(var(--fg-rgb), 0.55); }
+.wms-totals.is-empty b { color: rgba(var(--fg-rgb), 0.4); }
 .wms-bodies {
   display: flex;
   justify-content: center;
@@ -63,7 +90,6 @@
   align-items: center;
 }
 .wms-view { font-size: 0.72rem; color: rgba(var(--fg-rgb), 0.5); margin-top: 2px; }
-.wms-caption { font-size: 0.74rem; color: rgba(var(--fg-rgb), 0.5); margin: 4px 2px 0; }
 .wms-empty { font-size: 0.84rem; color: rgba(var(--fg-rgb), 0.6); text-align: center; margin: 8px 0 4px; }
 .wms-card {
   margin-top: 8px;
@@ -337,17 +363,7 @@
 }
 
 /* Other muscles: a wallet stack that fans out. */
-.wms-others { margin-top: 14px; }
-.wms-divider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
-  color: rgba(var(--fg-rgb), 0.45);
-  margin-bottom: 10px;
-}
-.wms-divider::before,
-.wms-divider::after { content: ""; flex: 1; border-top: 1px solid rgba(var(--fg-rgb), 0.1); }
+.wms-others .wms-sec { margin-bottom: 10px; }
 .wms-stack { position: relative; cursor: pointer; }
 .wms-stack.is-fanned { cursor: default; display: flex; flex-direction: column; gap: 8px; }
 .wms-ocard {

@@ -96,7 +96,7 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     const colors = Object.fromEntries(muscles.map(m => [m.muscle, m.main ? MAIN_MUSCLE_COLOR : HELPED_MUSCLE_COLOR]));
     const [front, back, logo] = await Promise.all([
       drawBody(sex, 'front', colors), drawBody(sex, 'back', colors), loadImage('/logo.png').catch(() => null),
-      ...['600 32px Outfit', '700 24px Outfit', '500 24px Outfit'].map(f => document.fonts?.load(f).catch(() => null)),
+      ...['600 32px Outfit', '600 21px Outfit', '700 24px Outfit', '500 24px Outfit'].map(f => document.fonts?.load(f).catch(() => null)),
     ]);
     const canvas = newCanvas(PREVIEW_W, PREVIEW_H);
     const ctx = canvas.getContext('2d');
@@ -118,18 +118,32 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     ctx.fillStyle = '#f8fafc';
     ctx.fillText('Fitengineers', x + (logo ? 56 : 0), 70);
 
+    // Says what this is to someone who doesn't know the app.
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 2, 138);
+    ctx.lineTo(x + 8, 144);
+    ctx.lineTo(x + 19, 131);
+    ctx.stroke();
+    font(600, 21);
+    ctx.fillStyle = '#34d399';
+    ctx.fillText('Workout completed', x + 30, 145);
+
     // Long plan names step down a size so the whole name shows.
     const measure = s => ctx.measureText(s).width;
     font(600, 32);
     let lines = wrapLines(measure, title, 400, 9);
     const small = lines.length > 2;
     if (small) { font(600, 26); lines = wrapLines(measure, title, 400, 3); }
-    let y = small ? 138 : 150;
+    let y = small ? 184 : 188;
     lines.forEach(l => { text(l, y, '#ffffff'); y += small ? 34 : 40; });
     font(500, 24);
     const mins = durationSeconds ? `${Math.max(1, Math.round(durationSeconds / 60))} min  ·  ` : '';
     text(`${mins}${sets} ${sets === 1 ? 'set' : 'sets'}`, y + (small ? 4 : 0), '#aab4c5');
-    y += 54;
+    y += 48;
 
     const shown = muscles.slice(0, lines.length === 1 ? 5 : 4);
     shown.forEach(m => {
@@ -143,8 +157,8 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
       const w = ctx.measureText(m.muscle).width;
       font(700, 24);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(String(m.sets), x + 38 + w, y);
-      y += 40;
+      ctx.fillText(`${m.sets} ${m.sets === 1 ? 'set' : 'sets'}`, x + 38 + w, y);
+      y += 36;
     });
     const data = canvas.toDataURL('image/jpeg', 0.84);
     return data.startsWith('data:image/jpeg;base64,') ? data.split(',')[1] : null;

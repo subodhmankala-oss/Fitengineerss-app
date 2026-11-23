@@ -47,7 +47,22 @@
   gap: 8px;
 }
 .wms-title { font-weight: 700; font-size: 1rem; }
-.wms-live { font-size: 0.78rem; color: rgba(var(--fg-rgb), 0.55); }
+.wms-totals { display: flex; gap: 8px; margin-top: 8px; }
+.wms-total {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 8px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wms-total b { font-size: 1.3rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.wms-total--sets { background: rgba(99, 102, 241, 0.12); color: #4f46e5; border: 1px solid rgba(99, 102, 241, 0.35); }
+.wms-total--vol { background: rgba(249, 115, 22, 0.12); color: #ea580c; border: 1px solid rgba(249, 115, 22, 0.35); }
 .wms-bodies {
   display: flex;
   justify-content: center;

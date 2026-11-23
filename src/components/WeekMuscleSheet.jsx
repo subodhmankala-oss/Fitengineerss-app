@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
-import { getWeeklyMuscleStats, isCountableSet } from '../utils/muscleAnalytics';
+import { getWeeklyMuscleStats, isCountableSet, getSetVolumeKg } from '../utils/muscleAnalytics';
 import { OPTIONAL_MUSCLES, getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import { parseLocalDateString } from '../utils/dateUtils';
 import { getWeekMuscleView } from '../utils/weekMuscleView';
@@ -81,6 +81,7 @@ export default function WeekMuscleSheet({
       getWeeklyMuscleStats(saved, start, end, { includeUntrained: true, level }).map(s => [s.muscle, s])
     );
     const todaySets = (liveRows || []).filter(r => isCountableSet(r)).length;
+    const todayVolume = Math.round((liveRows || []).reduce((sum, r) => sum + getSetVolumeKg(r), 0));
 
     const cards = statsAll
       .map(s => ({ stat: s, today: s.totalSets - (bySaved[s.muscle]?.totalSets || 0) }))
@@ -112,12 +113,12 @@ export default function WeekMuscleSheet({
         const next = rows.length ? getNextParts(stat.muscle, rows, rows, stat, 0) : null;
         return { stat, parts, next, last: lastSeenText(lastBy[stat.muscle], logDate) };
       });
-    return { byAll, regionSplit, todaySets, cards, others };
+    return { byAll, regionSplit, todaySets, todayVolume, cards, others };
   }, [open, logDate, savedLogs, liveRows, level]);
 
   if (!open || !data) return null;
   // A part whose card has gone (sets unticked) closes its list.
-  const { byAll, regionSplit, todaySets, cards, others } = data;
+  const { byAll, regionSplit, todaySets, todayVolume, cards, others } = data;
   const pickOpen = picking && [...cards, ...others].some(c => c.stat.muscle === picking.muscle) ? picking : null;
 
   return createPortal(
@@ -127,7 +128,10 @@ export default function WeekMuscleSheet({
         <button type="button" className="wms-grab" aria-label="Close" onClick={closeSheet}><span /></button>
         <div className="wms-head">
           <span className="wms-title">This week's muscles</span>
-          <span className="wms-live">{todaySets} set{todaySets === 1 ? '' : 's'} today</span>
+        </div>
+        <div className="wms-totals" aria-label="Today's totals">
+          <span className="wms-total wms-total--sets"><b>{todaySets}</b> set{todaySets === 1 ? '' : 's'} today</span>
+          <span className="wms-total wms-total--vol"><b>{todayVolume.toLocaleString('en-IN')}</b> kg volume</span>
         </div>
         {cards.length > 0 && (
           <div className="wms-now">

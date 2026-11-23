@@ -116,19 +116,44 @@
   border-top-right-radius: 0;
 }
 
-/* Phones: the card runs edge to edge, so the form around it needs no rounded
-   lip or padding above it. (A leftovers card can come first, and keeps it.) */
-@media (max-width: 767px) {
-  .hevy-logger-wrapper:has(> .wh-tuck:first-child) {
-    padding-top: 0;
-    border-top-width: 0;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-  }
+/* Client logger: the card sits straight under the tabs and fills the form
+   from side to side, so the form shows no lip, padding or gap around it.
+   (20px is the gap above and the form's side padding; on phones useFullBleed
+   sets the side margins itself. A leftovers card can come first, and then
+   keeps the padding.) */
+.hevy-logger-wrapper:has(> .wh-tuck:first-child) {
+  padding-top: 0;
+  border-top-width: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
 
-  body:not(.workout-full-screen) .hevy-logger-wrapper:has(> .wh-tuck:first-child) {
-    margin-top: -12px;
-  }
+/* Always closed up, so going full-screen has no gap left to fold: the tabs
+   must not pull the card up a second time (WorkoutFullScreenExit.css). */
+.hevy-logger-wrapper:has(> .wh-tuck:first-child) {
+  margin-top: -20px;
+}
+
+.workout-tracker-container > .fs-tuck.is-tucked:has(+ .hevy-logger-wrapper > .wh-tuck:first-child) {
+  margin-bottom: 0;
+}
+
+.hevy-logger-wrapper .wh-bleed,
+.hevy-logger-wrapper > .hevy-stopwatch-banner {
+  margin-left: -20px;
+  margin-right: -20px;
+}
+
+.hevy-logger-wrapper .wh-line,
+.hevy-logger-wrapper > div.hevy-stopwatch-banner {
+  border-left-width: 0;
+  border-right-width: 0;
+  border-radius: 0;
+}
+
+/* The tabs' own bottom line is the card's top edge. */
+.hevy-logger-wrapper > .wh-tuck:first-child .wh-line {
+  border-top-width: 0;
 }
 
 /* Name + plans sheet. Tall, with the box at the top, so a phone keyboard

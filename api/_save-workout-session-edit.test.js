@@ -55,9 +55,10 @@ describe('editSavedSession', () => {
   it('deleteDay removes only that user\'s rows on that date', async () => {
     const result = await run({ deleteDay: true });
     expect(result.status).toBe(200);
-    expect(writes).toHaveLength(1);
-    expect(writes[0].method).toBe('DELETE');
+    expect(writes.map(w => w.method)).toEqual(['DELETE', 'DELETE']);
     expect(writes[0].url).toContain('workout_logs?user_id=eq.u1&log_date=eq.2026-10-27');
+    // ...and that day's read-only links.
+    expect(writes[1].url).toContain('workout_shares?user_id=eq.u1&log_date=eq.2026-10-27');
   });
 
   it('never takes calories below zero', async () => {

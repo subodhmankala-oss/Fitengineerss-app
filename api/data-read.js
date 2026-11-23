@@ -15,7 +15,7 @@
 import { getAdminNews } from './_adminNews.js';
 import { getNewsArticle } from './_newsArticle.js';
 import { liveSince, liveUserIds } from './_liveClients.js';
-import { makeRest, readSharedWorkout, readSharePicture, sharePreviewHtml } from './_workoutShare.js';
+import { makeRest, readSharedWorkout, readSharePicture, readSharePreview, sharePreviewHtml } from './_workoutShare.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -838,17 +838,15 @@ async function handleSharedWorkout(req, res) {
 
 // Same link, for chat apps' link bots (GET, see vercel.json).
 async function handleSharedWorkoutPreview(req, res) {
-  let workout = null;
+  let preview = null;
   try {
-    if (supabaseUrl && serviceKey) {
-      workout = await readSharedWorkout(makeRest({ supabaseUrl, serviceKey }), req.query?.token, { withBests: false });
-    }
+    if (supabaseUrl && serviceKey) preview = await readSharePreview(makeRest({ supabaseUrl, serviceKey }), req.query?.token);
   } catch (err) {
     console.error('shared-workout-preview error:', err);
   }
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
-  return res.status(200).send(sharePreviewHtml(workout, { origin: `https://${req.headers.host}`, token: req.query?.token }));
+  return res.status(200).send(sharePreviewHtml(preview, { origin: `https://${req.headers.host}`, token: req.query?.token }));
 }
 
 // /w/<token>/preview.jpg — the picture on that message.
@@ -859,8 +857,14 @@ async function handleSharedWorkoutPicture(req, res) {
   } catch (err) {
     console.error('shared-workout-picture error:', err);
   }
-  res.setHeader('Cache-Control', 'no-store');
-  if (!picture) return res.status(404).json({ error: 'No picture.' });
+  if (!picture) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(404).json({ error: 'No picture.' });
+  }
+  // Two minutes at the edge: the sheet loads it once when it is stored and
+  // again when sent, so the chat app gets it at once instead of giving up. (After Stop sharing it
+  // is gone within those two minutes.)
+  res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=120');
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   return res.status(200).send(picture);
@@ -888,8 +892,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method === 'GET' && req.query?.resource === 'shared-workout-preview') return handleSharedWorkoutPreview(req, res);
-  if (req.method === 'GET' && req.query?.resource === 'shared-workout-picture') return handleSharedWorkoutPicture(req, res);
+  const isGet = req.method === 'GET' || req.method === 'HEAD';
+  if (isGet && req.query?.resource === 'shared-workout-preview') return handleSharedWorkoutPreview(req, res);
+  if (isGet && req.query?.resource === 'shared-workout-picture') return handleSharedWorkoutPicture(req, res);
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const resource = req.query?.resource;

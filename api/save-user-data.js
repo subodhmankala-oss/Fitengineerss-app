@@ -17,11 +17,14 @@
 //                               see sql/coach_testimonials.sql)
 //   action=client-break        ("Taking a break" — the only path to
 //                               client_breaks; see sql/client_breaks.sql)
+//   action=workout-share       (read-only workout links, owner's side; see
+//                               api/_workoutShare.js)
 
 import {
   cleanTestimonialInput, shortClientName, monthsTrained, TESTIMONIAL_STATUSES, cleanGoogleReviewUrl,
 } from '../src/utils/testimonials.js';
 import { cleanBreakInput } from '../src/utils/clientBreaks.js';
+import { makeRest, ownerShareOp } from './_workoutShare.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -577,13 +580,30 @@ async function handleClientBreak(req, res) {
   }
 }
 
+// ─── workout-share ───
+// Only ever the caller's own workouts: the owner comes from the session.
+async function handleWorkoutShare(req, res) {
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  try {
+    const callerId = await resolveOwnUserId(verifiedEmail);
+    if (!callerId) return res.status(403).json({ error: 'No matching account for your session.' });
+    const result = await ownerShareOp(makeRest({ supabaseUrl, serviceKey }), callerId, req.body);
+    return res.status(result.status).json(result.body);
+  } catch (err) {
+    console.error('save-user-data workout-share error:', err);
+    return res.status(502).json({ error: "Couldn't update sharing. Try again." });
+  }
+}
+
 const ACTION_HANDLERS = {
   'body-measurement': handleBodyMeasurement,
   'tracker-log': handleTrackerLog,
   'progress-history': handleProgressHistory,
   'chat-message': handleChatMessage,
   'testimonials': handleTestimonials,
-  'client-break': handleClientBreak
+  'client-break': handleClientBreak,
+  'workout-share': handleWorkoutShare
 };
 
 export default async function handler(req, res) {

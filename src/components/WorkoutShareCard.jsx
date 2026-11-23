@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
+import WorkoutShareLinkSheet from './WorkoutShareLinkSheet';
+import { ShareIcon } from './TimerIcons';
 
 const downloadBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob);
@@ -27,6 +29,7 @@ const WorkoutShareCard = ({ session, onClose }) => {
   const cardRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [fallbackMsg, setFallbackMsg] = useState('');
+  const [linkOpen, setLinkOpen] = useState(false);
 
   const {
     workoutName, clientName, dateLabel, durationLabel,
@@ -152,6 +155,13 @@ const WorkoutShareCard = ({ session, onClose }) => {
         </div>
 
         {fallbackMsg && <p className="wsc-fallback-msg">{fallbackMsg}</p>}
+
+        {session.link && (
+          <button type="button" className="wsc-link-btn" onClick={() => setLinkOpen(true)}>
+            <ShareIcon size={17} /> Share link
+          </button>
+        )}
+        {linkOpen && <WorkoutShareLinkSheet workout={session.link} onClose={() => setLinkOpen(false)} />}
 
         <div className="wsc-share-row">
           <button type="button" className="wsc-share-btn" disabled={busy} onClick={() => handleShare('whatsapp')}>

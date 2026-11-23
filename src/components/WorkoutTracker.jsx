@@ -2731,7 +2731,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         bestLift,
         totalSets: summaryStats?.totalSets || finalSetsCount,
         volume: summaryStats?.volume ?? '0',
-        muscleGroups: Array.from(muscleSet).slice(0, 4)
+        muscleGroups: Array.from(muscleSet).slice(0, 4),
+        // For the card's read-only link.
+        link: {
+          title: newSession.planName,
+          logDate,
+          sets: summaryStats?.totalSets || finalSetsCount,
+          durationSeconds: finalDurationSeconds,
+          sessionId: newSession.id
+        }
       });
     } else {
       triggerToast(`🏋️‍♂️ Your Fitengineers Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);

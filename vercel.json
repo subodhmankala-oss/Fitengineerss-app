@@ -30,10 +30,24 @@
     { "source": "/api/verify-recovery-token", "destination": "/api/password?action=verify-token" },
 
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    {
+      "source": "/w/:token",
+      "has": [{ "type": "header", "key": "user-agent", "value": ".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot).*" }],
+      "destination": "/api/data-read?resource=shared-workout-preview&token=:token"
+    },
+    { "source": "/w/(.*)", "destination": "/index.html" },
     { "source": "/reset-password", "destination": "/index.html" },
     { "source": "/auth/confirm", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/w/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    },
     {
       "source": "/videos/(.*)",
       "headers": [

@@ -3,6 +3,7 @@
 // there) and stored with the link, so it goes away when sharing stops. It
 // carries no weights, calories or person's name.
 import { getBodyArt, recolorSvg, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT } from '../components/MuscleAnalytics/muscleBodyShapes';
+import { workoutNameParts, workoutNameTags } from './workoutNameParts';
 import { HELPED_MUSCLE_COLOR, MAIN_MUSCLE_COLOR } from './workoutShare';
 
 export const PREVIEW_W = 960;
@@ -25,6 +26,12 @@ async function loadSvg(svgText) {
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(doc)], { type: 'image/svg+xml' }));
   try { return await loadImage(url); } finally { URL.revokeObjectURL(url); }
 }
+
+// Level, week and session each in their own colour (r,g,b).
+const TAG_RGB = {
+  'level-beginner': '52,211,153', 'level-intermediate': '251,191,36', 'level-advanced': '248,113,113', 'level-number': '251,191,36',
+  week: '96,165,250', session: '196,181,253',
+};
 
 const newCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 
@@ -96,7 +103,7 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     const colors = Object.fromEntries(muscles.map(m => [m.muscle, m.main ? MAIN_MUSCLE_COLOR : HELPED_MUSCLE_COLOR]));
     const [front, back, logo] = await Promise.all([
       drawBody(sex, 'front', colors), drawBody(sex, 'back', colors), loadImage('/logo.png').catch(() => null),
-      ...['600 32px Outfit', '600 21px Outfit', '700 24px Outfit', '500 24px Outfit'].map(f => document.fonts?.load(f).catch(() => null)),
+      ...['600 32px Outfit', '600 18px Outfit', '600 21px Outfit', '700 24px Outfit', '500 24px Outfit'].map(f => document.fonts?.load(f).catch(() => null)),
     ]);
     const canvas = newCanvas(PREVIEW_W, PREVIEW_H);
     const ctx = canvas.getContext('2d');
@@ -132,20 +139,44 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     ctx.fillStyle = '#34d399';
     ctx.fillText('Workout completed', x + 30, 145);
 
-    // Long plan names step down a size so the whole name shows.
+    const parts = workoutNameParts(title);
+    const tags = workoutNameTags(parts);
+    // Long names step down a size so the whole name shows.
     const measure = s => ctx.measureText(s).width;
     font(600, 32);
-    let lines = wrapLines(measure, title, 400, 9);
+    let lines = wrapLines(measure, parts.name, 400, 9);
     const small = lines.length > 2;
-    if (small) { font(600, 26); lines = wrapLines(measure, title, 400, 3); }
+    if (small) { font(600, 26); lines = wrapLines(measure, parts.name, 400, 3); }
     let y = small ? 184 : 188;
     lines.forEach(l => { text(l, y, '#ffffff'); y += small ? 34 : 40; });
+    if (tags.length) {
+      font(600, 18);
+      let tx = x;
+      let ty = y - 22;
+      tags.forEach(tag => {
+        const w = ctx.measureText(tag.text).width + 24;
+        if (tx > x && tx + w > x + 410) { tx = x; ty += 38; }
+        ctx.beginPath();
+        // (Safari before 16 has no roundRect.)
+        if (ctx.roundRect) ctx.roundRect(tx + 1, ty + 1, w - 2, 28, 14);
+        else ctx.rect(tx + 1, ty + 1, w - 2, 28);
+        ctx.fillStyle = `rgba(${TAG_RGB[tag.kind]},0.16)`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(${TAG_RGB[tag.kind]},0.55)`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = `rgb(${TAG_RGB[tag.kind]})`;
+        ctx.fillText(tag.text, tx + 12, ty + 21);
+        tx += w + 8;
+      });
+      y = ty + 64;
+    }
     font(500, 24);
     const mins = durationSeconds ? `${Math.max(1, Math.round(durationSeconds / 60))} min  ·  ` : '';
-    text(`${mins}${sets} ${sets === 1 ? 'set' : 'sets'}`, y + (small ? 4 : 0), '#aab4c5');
+    text(`${mins}${sets} ${sets === 1 ? 'set' : 'sets'}`, y + (small && !tags.length ? 4 : 0), '#aab4c5');
     y += 48;
 
-    const shown = muscles.slice(0, lines.length === 1 ? 5 : 4);
+    const shown = muscles.slice(0, Math.min(5, Math.floor((PREVIEW_H - 24 - y) / 36) + 1));
     shown.forEach(m => {
       ctx.fillStyle = colors[m.muscle];
       ctx.beginPath();

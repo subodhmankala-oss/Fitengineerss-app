@@ -260,6 +260,15 @@ describe('Shared workout page', () => {
     expect(container.querySelectorAll('input, button')).toHaveLength(0);
   });
 
+  it('shows level, week and session apart from the name', async () => {
+    serve(200, { workout: { ...PUBLIC, title: 'Intermediate Push (week-3) Session 2' } });
+    const { container } = render(<SharedWorkoutPage token={TOKEN} />);
+    expect(await screen.findByRole('heading', { name: 'Push' })).toBeTruthy();
+    expect([...container.querySelectorAll('.swp-tag')].map(t => [t.className, t.textContent])).toEqual([
+      ['swp-tag level-intermediate', 'Intermediate'], ['swp-tag week', 'Week 3'], ['swp-tag session', 'Session 2'],
+    ]);
+  });
+
   it('says when the link is off', async () => {
     serve(404, { error: 'gone' });
     render(<SharedWorkoutPage token={TOKEN} />);

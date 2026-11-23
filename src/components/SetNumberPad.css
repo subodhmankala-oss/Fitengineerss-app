@@ -9,7 +9,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  /* Must clear .bottom-nav's z-index: 1000 (src/index.css) — otherwise the
+  /* Must clear .bottom-nav's z-index: 1000 (BottomIsland.css) — otherwise the
      app's Home/Workout/Profile bar sits on top of the pad's own bottom row,
      covering '.', '0', and backspace on the client side. */
   z-index: 1100;
@@ -28,13 +28,15 @@
      the edge. */
   padding: 8px 10px calc(18px + env(safe-area-inset-bottom, 0px));
   transform: translateY(100%);
-  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease;
   pointer-events: none;
 }
 
 .set-number-pad.open {
   transform: translateY(0);
+  /* Only while open: parked just below the screen, the shadow spilled up as a
+     grey smudge around the floating bottom tabs. */
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
   pointer-events: auto;
 }
 

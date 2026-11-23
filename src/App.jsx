@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import Onboarding from './components/Onboarding';
 import CoachTourOverlay from './components/CoachTourOverlay';
+import BottomIsland from './components/BottomIsland';
 import SexRequiredPrompt from './components/SexRequiredPrompt';
 import PhoneGate from './components/PhoneGate';
 // Lazy-loaded: each of these is only ever needed for ONE role/route at a
@@ -1993,41 +1994,7 @@ function App() {
       </main>
       
       {isNavVisible && (
-        <nav className="bottom-nav">
-          <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
-            <span className="icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
-              {hasNavDot('home') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
-            </span>
-            <span>Home</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
-            <span className="icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />
-                <path d="m2.5 21.5 1.4-1.4" />
-                <path d="m20.1 3.9 1.4-1.4" />
-                <path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" />
-                <path d="m9.6 14.4 4.8-4.8" />
-              </svg>
-              {hasNavDot('workouts') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
-            </span>
-            <span>Workout</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-            <span className="icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4"/>
-                <path d="M20 21a8 8 0 1 0-16 0"/>
-              </svg>
-              {hasNavDot('profile') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
-            </span>
-            <span>Profile</span>
-          </button>
-        </nav>
+        <BottomIsland activeTab={activeTab} onSelect={setActiveTab} hasDot={hasNavDot} />
       )}
       {renderResetPasswordModal()}
     </div>

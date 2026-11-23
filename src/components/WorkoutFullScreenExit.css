@@ -94,7 +94,7 @@ body.workout-full-screen .hevy-logger-wrapper > .exercises-form-section {
 }
 
 body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card--coach) {
-  bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Top tabs — wrapped in .fs-tuck, which folds its height to 0 (grid row

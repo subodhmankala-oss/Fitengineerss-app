@@ -255,6 +255,16 @@ describe('NextWorkoutBanner — the week', () => {
     expect(localStorage.getItem('workoutTrackerAutoStart_u1')).toBeNull();
   });
 
+  it('“See workout” says the card opens, and opens it', async () => {
+    mockLibrary({ gym: { beginner: realBeginner } });
+    show({ logs: lastWeek });
+    fireEvent.click(await screen.findByRole('button', { name: 'See workout' }));
+    expect(screen.getByRole('dialog', { name: 'Beginner Lower & Core' })).not.toBeNull();
+    // Under 3 sessions nothing counts as neglected yet, so no later day promises it.
+    fireEvent.click(screen.getByRole('button', { name: /^Saturday/ }));
+    expect(exerciseNames()).not.toContain('Neglected muscle');
+  });
+
   it('another day can be opened and started from the sheet', async () => {
     mockLibrary({ gym: { beginner: realBeginner } });
     const onNavigate = vi.fn();
@@ -413,8 +423,10 @@ describe('NextWorkoutBanner — the week', () => {
     expect(tags()[0]).toMatch(/^New, instead of /);
     expect(tags()[1]).toMatch(/^Added, .+ not trained/);
     // The neglected muscle is only promised for the one to do now.
-    fireEvent.click(screen.getByRole('button', { name: /^Saturday/ }));
-    expect(document.querySelectorAll('.wws-tag.added')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: /^Monday/ }));
+    expect(tags()).toContain('Picked on the day');
+    expect(exerciseNames()).toContain('Neglected muscle');
+    expect(tags().join()).not.toMatch(/not trained/);
   });
 
   it('a client who chose a level but has never trained gets their week, not the picker', async () => {

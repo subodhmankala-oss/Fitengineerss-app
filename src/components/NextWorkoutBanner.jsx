@@ -282,6 +282,7 @@ function ReopenRow({ title, subtitle, onClick }) {
 //          out by screen readers; no swap the first time a program is done
 //          (see countPriorRuns)
 //   warmups / exercises: the same, listed in the sheet the card opens
+//   finisherLater: sets of the neglected muscle a later day will get
 //   exerciseCount / setCount: warm-up + main + finisher
 //   minutes: ~2.5 min per working set (getPlanCardMeta's estimate) + 5 for
 //            the warm-up
@@ -292,7 +293,8 @@ function ReopenRow({ title, subtitle, onClick }) {
 function todaysSession(program, level, category, logs, priorRuns, withFinisher) {
   const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises || [], level, category, priorRuns });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
-  const finisher = withFinisher && pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
+  const pick = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
+  const finisher = withFinisher ? pick : null;
   const working = finisher ? [...exercises, finisher] : exercises;
   const setsOf = (ex) => (Array.isArray(ex.sets) ? ex.sets.length : Number(ex.sets) || 0);
   const workingSets = working.reduce((n, ex) => n + setsOf(ex), 0);
@@ -319,6 +321,7 @@ function todaysSession(program, level, category, logs, priorRuns, withFinisher) 
       tag: exerciseTag(ex),
       added: !!ex.finisherFor
     })),
+    finisherLater: !withFinisher && pick ? pick.sets : 0,
     exerciseCount: warmups.length + working.length,
     setCount: warmups.reduce((n, ex) => n + setsOf(ex), 0) + workingSets,
     minutes: Math.max(15, Math.round((workingSets * 2.5) / 5) * 5 + (warmups.length ? 5 : 0)),

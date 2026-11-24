@@ -17,11 +17,11 @@ const PLUS = 'M12 5v14M5 12h14';
 const dayName = (date) => DAY_NAMES[dayIndexOf(date)];
 const dayNumber = (date) => Number(date.slice(8));
 
-function Row({ number, name, amount, tag, added }) {
+function Row({ mark, name, amount, tag, added }) {
   return (
     <li className="wws-row">
-      {number
-        ? <span className="wws-mark">{number}</span>
+      {mark
+        ? <span className={`wws-mark ${added ? 'added' : ''}`}>{mark}</span>
         : <span className="wws-mark done"><Icon path={TICK} size={13} width={3.2} /></span>}
       <span className="wws-ex">
         <span className="wws-ex-name">{name}</span>
@@ -151,7 +151,10 @@ export default function WeekWorkoutSheet({ entries, initialIndex, levelLabel, no
               <ol className="wws-list">
                 {done
                   ? loggedFor(slot).map(e => <Row key={e.name} name={e.name} amount={e.amount} />)
-                  : session.exercises.map((e, i) => <Row key={i} number={i + 1} name={e.name} amount={e.amount} tag={e.tag} added={e.added} />)}
+                  : session.exercises.map((e, i) => <Row key={i} mark={i + 1} name={e.name} amount={e.amount} tag={e.tag} added={e.added} />)}
+                {!done && session.finisherLater > 0 && (
+                  <Row mark={<Icon path={PLUS} size={13} width={3} />} name="Neglected muscle" amount={`${session.finisherLater} sets`} tag="Picked on the day" added />
+                )}
               </ol>
               <div className="wws-foot">
                 <span>{levelLabel}</span>

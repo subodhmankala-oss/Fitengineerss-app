@@ -215,6 +215,11 @@
   font-weight: 700;
 }
 
+.wws-mark.added {
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--tint-amber);
+}
+
 .wws-mark.done {
   background: rgba(34, 197, 94, 0.16);
   color: var(--wpc-green);

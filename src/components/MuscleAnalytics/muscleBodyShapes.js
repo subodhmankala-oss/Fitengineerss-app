@@ -300,6 +300,21 @@ export function recolorSvg(rawSvg, color, isActive) {
   return svg;
 }
 
+// The `dangerouslySetInnerHTML` value for a layer, always the same object for
+// the same drawing. React compares that prop by identity, so a fresh
+// `{ __html }` per render made it re-insert (and the browser re-parse) every
+// body SVG on every render — the logger has a dozen of them and re-renders on
+// each keystroke and each second of its clock.
+const svgHtmlCache = new Map();
+export function svgHtml(svg) {
+  let html = svgHtmlCache.get(svg);
+  if (!html) {
+    html = { __html: svg };
+    svgHtmlCache.set(svg, html);
+  }
+  return html;
+}
+
 // Crop window (shared 200×369 canvas) used to render
 // each muscle as a small zoomed-in body icon (MuscleThumbnail) instead of a
 // tiny full-body diagram or a plain text badge. Each rect is centered on the

@@ -174,8 +174,9 @@ export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUn
   MUSCLE_GROUPS.forEach(m => { bySets[m] = 0; byVolume[m] = 0; byDays[m] = new Set(); });
 
   logs.forEach(log => {
-    if (!isWorkingSet(log)) return;
+    // Dates first: most of a long history is outside the week.
     if (!inRange(log.log_date, weekStartStr, weekEndStr)) return;
+    if (!isWorkingSet(log)) return;
     const muscles = getMuscleGroupsForExercise(log.exercise_name);
     if (muscles.length === 0) return; // unrecognized exercise name — excluded, not guessed
     const volume = getSetVolumeKg(log);

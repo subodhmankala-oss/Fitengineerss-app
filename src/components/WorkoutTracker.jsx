@@ -46,7 +46,7 @@ import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
 import useFullBleed from '../utils/useFullBleed';
 import WorkoutHeadLine from './WorkoutHeadLine';
-import { getSetRingStates } from '../utils/setMuscleRing';
+import { getSetRingStates, setRingInputs } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
@@ -941,8 +941,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // completed set (see handleToggleSetCompleted), same as the coach.
   useLiveTick(workoutTimerStatus === 'running', 1000);
 
-  // Set timers for timed exercises — re-render every 100ms for smooth UI
-  useLiveTick(Object.values(setTimers).some(t => t.isRunning), 100);
+  // Set timers for timed exercises — re-render 4x a second. They show whole
+  // seconds, and ten full-screen renders a second left no room for taps
+  useLiveTick(Object.values(setTimers).some(t => t.isRunning), 250);
 
   const resetWorkoutTimer = () => {
     setWorkoutTimerStatus('idle');
@@ -1340,7 +1341,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // Ticked sets of the open workout → the Muscles tab's Muscle Balance
   // (see utils/liveSessionStore.js). Cleared once the workout is finished
   // or discarded, when the saved rows take over.
-  const liveTickedRows = useMemo(() => tickedSetRows(logExercises, logDate), [logExercises, logDate]);
+  // Same array until a tick (or a ticked set's numbers) changes, so typing
+  // doesn't recount the week's muscles on every key.
+  const liveTickedJson = JSON.stringify(tickedSetRows(logExercises, logDate));
+  const liveTickedRows = useMemo(() => JSON.parse(liveTickedJson), [liveTickedJson]);
   // Timer bar spans the screen edge to edge, past the form's padding.
   const timerBarRef = useFullBleed({ trackStuck: true });
   const headLineRef = useFullBleed();
@@ -3090,22 +3094,19 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     });
     return rows;
   }, [sessions, loggedInUser]);
-  const muscleGapLogs = useMemo(() => {
-    const rows = [...savedSetRows];
-    if (isLoggingWorkout) {
-      logExercises.forEach(ex => (ex.sets || []).forEach(set => {
-        if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: logDate, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : null });
-      }));
-    }
-    return rows;
-  }, [savedSetRows, logExercises, isLoggingWorkout, logDate]);
+  const liveGapJson = JSON.stringify(isLoggingWorkout
+    ? logExercises.flatMap(ex => (ex.sets || []).filter(set => set.isCompleted)
+      .map(set => ({ exercise_name: ex.name, log_date: logDate, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : null })))
+    : []);
+  const muscleGapLogs = useMemo(() => [...savedSetRows, ...JSON.parse(liveGapJson)], [savedSetRows, liveGapJson]);
   // Saved level, else the one their training time puts them at.
   const trainingLevel = useMemo(() => savedTrainingLevel || levelFromHistory(muscleGapLogs), [savedTrainingLevel, muscleGapLogs]);
   // Ring beside each ticked set: this week's sets for the exercise's main
   // muscle vs its weekly target (see utils/setMuscleRing.js).
+  const ringInputs = setRingInputs(logExercises);
   const setRings = useMemo(
-    () => (isLoggingWorkout ? getSetRingStates(savedSetRows, logExercises, logDate, trainingLevel) : {}),
-    [isLoggingWorkout, savedSetRows, logExercises, logDate, trainingLevel]
+    () => (isLoggingWorkout ? getSetRingStates(savedSetRows, JSON.parse(ringInputs), logDate, trainingLevel) : {}),
+    [isLoggingWorkout, savedSetRows, ringInputs, logDate, trainingLevel]
   );
 
   // New exercises slide in (see hooks/useExerciseEnterAnimation.js).

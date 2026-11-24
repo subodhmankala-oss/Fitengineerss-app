@@ -6,6 +6,8 @@
 // category + primary-muscle inferred for the modal's filter chips and
 // muscle subtitle.
 
+import { memoByName } from '../utils/memoByName.js';
+
 export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio', 'Warm Up', 'Whole Body'];
 
 // Cardio exercises are logged as distance + time instead of weight + reps
@@ -217,11 +219,11 @@ export const PICKER_HIDDEN_NAMES = ['Bench Press', 'Shoulders Press'];
 // the category-only bug above) — it's now correctly tagged Cardio for the
 // picker's filter chip, but it stays on the mm:ss-only isTimedExercise
 // shape below, not KM+TIME, since there's no real distance being tracked.
-export function isCardioExercise(name) {
+export const isCardioExercise = memoByName((name) => {
   if (!name) return false;
   if (/high knees|foot fires?|air rowing|ski ?erg/.test(name.toLowerCase())) return false;
   return inferCategory(name) === 'Cardio';
-}
+});
 
 // Timed exercises (isometric holds like plank, wall sit) are logged with duration only,
 // shown with a stopwatch UI instead of weight + reps fields.
@@ -245,24 +247,24 @@ export function isCardioExercise(name) {
 // being dropped entirely (see the render logic in WorkoutTracker.jsx, which
 // checks isBodyweightExercise(name) && isTimedExercise(name) as its own
 // combined case ahead of the plain timed-only branch).
-export function isTimedExercise(name) {
+export const isTimedExercise = memoByName((name) => {
   if (!name) return false;
   const n = name.toLowerCase();
   // Plank push-ups, up-downs, toe taps and twists are rep-based moves, not holds.
   if (/plank\s*(to\s*)?(push|up[\s-]?down|toe\s*tap|twist)|push[\s-]?up.*plank|toe\s*taps?.*plank|twist.*plank/.test(n)) return false;
   return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|ski ?erg|battle rope|side hops?|foot fires?|\bhundred\b/.test(n);
-}
+});
 
 // Loaded carries (Farmer Walk/Carry, suitcase carry, yoke walk, etc.) are
 // logged as weight (kg) + distance (meters) instead of weight + reps — reps
 // don't mean anything for a walk. Reuses the same {weight, reps} set shape
 // as a normal strength exercise (reps holds the meters number); only the
 // column labels differ, so no schema/data changes are needed.
-export function isLoadedCarryExercise(name) {
+export const isLoadedCarryExercise = memoByName((name) => {
   if (!name) return false;
   const n = name.toLowerCase();
   return /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry|high knees walk|sled (push|pull)|sandbag lunge/.test(n);
-}
+});
 
 // Bodyweight exercises (push-ups, mountain climbers, jumping jacks, burpees,
 // high knees, foot fires, beast walk/bear crawl, leg raises, sit-ups,
@@ -392,12 +394,12 @@ export function isLoadedCarryExercise(name) {
 // it isn't in the library — so it landed on the plain weight+reps shape and
 // asked for a KG number. It now gets the Bodyweight toggle too; its reps are
 // skips, priced by liveWorkoutTimer's own jump-rope branch.
-export function isBodyweightExercise(name) {
+export const isBodyweightExercise = memoByName((name) => {
   if (!name) return false;
   const n = name.toLowerCase();
   if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises', 'standing calf raise', 'calf raise (standing)', 'tibialis raise', 'sissy squat', 'cossack squat', 'bulgarian split squat'].includes(n)) return true;
   return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit|inverted row|nordic|clam ?shell|fire hydrant|band walk|monster walk|hip hike|band abduction|flutter kicks?|heel taps?|windshield wipers?|\bhundred\b/.test(n);
-}
+});
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG
 // field at all (not even the Bodyweight/+Add Weight toggle other bodyweight
@@ -414,8 +416,8 @@ export function isBodyweightExercise(name) {
 // for where they're classified now.
 const ZERO_CONTRIBUTION_WARMUP_NAMES = ['Arm Circle', 'Leg Swing'];
 
-export function isWarmupExercise(name) {
+export const isWarmupExercise = memoByName((name) => {
   if (!name) return false;
   const n = name.toLowerCase();
   return ZERO_CONTRIBUTION_WARMUP_NAMES.some((w) => w.toLowerCase() === n);
-}
+});

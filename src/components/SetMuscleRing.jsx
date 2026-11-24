@@ -17,7 +17,7 @@ const MID = SIZE / 2;
 const R = 15;
 const C = 2 * Math.PI * R;
 
-export default function SetMuscleRing({ ring }) {
+function SetMuscleRing({ ring }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return undefined;
@@ -63,13 +63,16 @@ export default function SetMuscleRing({ ring }) {
   );
 }
 
+// One per set row; `ring` keeps its identity until a tick changes it.
+export default React.memo(SetMuscleRing);
+
 // Header over the ring column: a small drawing of the exercise's main muscle
 // (or just the part the rings count, e.g. Side Delts)
 // (the same heat-map artwork as the Muscle Balance cards), coloured like the
 // rings below it (the Muscle Balance status colours; slate until a set is ticked).
 // It takes the colour of the exercise's last counted set. An empty slot when the
 // exercise maps to no muscle, so "✓ all" stays over the ticks either way.
-export function SetRingHeaderMuscle({ exerciseName, rings, exIdx }) {
+export const SetRingHeaderMuscle = React.memo(function SetRingHeaderMuscle({ exerciseName, rings, exIdx }) {
   const muscle = getMuscleGroupsForExercise(exerciseName)[0];
   if (!muscle) return <span className="set-ring-col-muscle" aria-hidden="true" />;
   const own = Object.entries(rings || {})
@@ -86,4 +89,4 @@ export function SetRingHeaderMuscle({ exerciseName, rings, exIdx }) {
         : <MuscleThumbnail muscle={muscle} color={color} size={30} />}
     </span>
   );
-}
+});

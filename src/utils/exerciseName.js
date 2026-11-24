@@ -10,20 +10,20 @@
 // Guide match already did) and a plural "s" at the end of each word.
 // "ss"/"us"/"is" endings are words, not plurals (Press, Bus, Pelvis).
 
+import { memoByName } from './memoByName.js';
+
 const UNICODE_DASHES = /[‐-―−­]/g;
 
 export const foldExerciseDashes = (name) => String(name || '').replace(UNICODE_DASHES, '-');
 
 const singular = (word) => (word.length >= 3 && /[^sui]s$/.test(word) ? word.slice(0, -1) : word);
 
-export function exerciseNameKey(name) {
-  return foldExerciseDashes(name)
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean)
-    .map(singular)
-    .join('');
-}
+export const exerciseNameKey = memoByName((name) => foldExerciseDashes(name)
+  .toLowerCase()
+  .split(/[^a-z0-9]+/)
+  .filter(Boolean)
+  .map(singular)
+  .join(''));
 
 export const sameExercise = (a, b) => {
   const key = exerciseNameKey(a);

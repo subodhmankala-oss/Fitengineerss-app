@@ -108,7 +108,9 @@ function StatusTabs({ active, onSelect, statuses, liveRunning, hasDot }) {
   const pillRef = useRef(null);
   // The pill only slides once a tab is tapped, not into place on first paint.
   const [slid, setSlid] = useState(false);
-  const statusKey = TABS.map(t => statuses[t.key]).join('|');
+  // Digits are all one width (tabular-nums), so the running clock's status
+  // only needs re-measuring when its length changes, not every second.
+  const statusKey = TABS.map(t => String(statuses[t.key] ?? '').replace(/\d/g, '0')).join('|');
   useLayoutEffect(() => {
     const track = trackRef.current;
     const pill = pillRef.current;

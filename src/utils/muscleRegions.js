@@ -11,9 +11,10 @@
 
 import { EXERCISE_SUBGROUPS } from '../data/exerciseSubgroups';
 import { EXERCISE_LIBRARY, GLUTE_MED_RE } from '../data/exerciseLibrary';
-import { getMuscleWeight } from './muscleGroups';
+import { getMuscleWeight, subscribeCatalogMuscles } from './muscleGroups';
 import { isCountableSet, RECOMMENDED_EXERCISES, getMuscleTargets, classifyStatus, getHeatMapTier, getWeeklyMuscleStats } from './muscleAnalytics';
 import { getLocalDateString, shiftLocalDateString } from './dateUtils';
+import { memoByName } from './memoByName';
 
 // Every heat-map muscle that is really several muscles (or heads), split
 // into its regions. Back/Chest/Shoulders/Biceps/Triceps/Core reuse the Add
@@ -73,6 +74,14 @@ const REGIONS_BY_MUSCLE = {
   },
 };
 
+Object.values(REGIONS_BY_MUSCLE).forEach(cfg => {
+  cfg.hitsFor = memoByName(name => {
+    const n = name.toLowerCase();
+    const hits = cfg.regions.filter(r => r.test(n)).map(r => r.id);
+    return cfg.split ? hits : hits.slice(0, 1);
+  });
+});
+
 // The Log Sets "behind this week" nudge keeps to the upper-body parts it was
 // built for; every other muscle is nudged there as a whole muscle.
 const GAP_REGION_MUSCLES = new Set(['Back', 'Chest', 'Shoulders']);
@@ -128,9 +137,7 @@ export function hasRegions(muscle) {
 function regionsOf(muscle, name) {
   const cfg = REGIONS_BY_MUSCLE[muscle];
   if (!cfg) return [];
-  const n = String(name || '').toLowerCase();
-  const hits = cfg.regions.filter(r => r.test(n)).map(r => r.id);
-  return cfg.split ? hits : hits.slice(0, 1);
+  return [...cfg.hitsFor(String(name || ''))];
 }
 
 /**
@@ -158,6 +165,34 @@ export function regionBand(muscle, level = null) {
   return { min, max, target: Math.round((min + max) / 2) };
 }
 
+// A region's suggested exercises: the muscle's own recommended list first,
+// then the library, keeping only exercises that land in this region AND
+// credit this muscle. Doesn't depend on anyone's history, so it's worked out
+// once per region (again when the admin catalog changes what counts).
+const suggestionCache = new Map();
+subscribeCatalogMuscles(() => suggestionCache.clear());
+
+function suggestionsFor(muscle, id) {
+  const cacheKey = `${muscle}|${id}`;
+  if (!suggestionCache.has(cacheKey)) {
+    const candidates = [...(RECOMMENDED_EXERCISES[muscle] || []), ...EXERCISE_LIBRARY.map(e => e.name)];
+    const out = [];
+    for (const name of candidates) {
+      if (out.length >= 6) break;
+      // "Deadlift" and "Deadlift (Barbell)" are one suggestion, not two.
+      const base = name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
+      if (out.some(o => o.replace(/\s*\(.*\)\s*$/, '').toLowerCase() === base)) continue;
+      if (!regionsOf(muscle, name).includes(id)) continue;
+      // Only suggest moves that really work it (a curl's quarter set of
+      // forearm grip work doesn't make it a forearm exercise).
+      if (getMuscleWeight(name, muscle) < 0.5) continue;
+      out.push(name);
+    }
+    suggestionCache.set(cacheKey, out);
+  }
+  return [...suggestionCache.get(cacheKey)];
+}
+
 /**
  * Splits `muscle`'s working sets in [startStr, endStr] by region.
  * @returns {Array<{id, hint, sets, band, tier, lastTrained: {date, exercise}|null, exercises: Array<{name, sets}>, suggestions: string[]}>}
@@ -175,10 +210,10 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
   // too), so an untrained part can say when it was last worked, not just "0".
   const last = {};
   (logs || []).forEach(log => {
-    if (!isCountableSet(log)) return;
     if (!log.log_date || log.log_date > endStr) return;
     const share = getMuscleWeight(log.exercise_name, muscle);
     if (!share) return;
+    if (!isCountableSet(log)) return;
     const ids = regionsOf(muscle, log.exercise_name);
     if (!ids.length) ids.push('Other');
     ids.forEach(id => {
@@ -190,25 +225,6 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
       row.byExercise[log.exercise_name] = (row.byExercise[log.exercise_name] || 0) + share;
     });
   });
-
-  // Suggestions: the muscle's own recommended list first, then the library,
-  // keeping only exercises that land in this region AND credit this muscle.
-  const candidates = [...(RECOMMENDED_EXERCISES[muscle] || []), ...EXERCISE_LIBRARY.map(e => e.name)];
-  const suggestionsFor = id => {
-    const out = [];
-    for (const name of candidates) {
-      if (out.length >= 6) break;
-      // "Deadlift" and "Deadlift (Barbell)" are one suggestion, not two.
-      const base = name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
-      if (out.some(o => o.replace(/\s*\(.*\)\s*$/, '').toLowerCase() === base)) continue;
-      if (!regionsOf(muscle, name).includes(id)) continue;
-      // Only suggest moves that really work it (a curl's quarter set of
-      // forearm grip work doesn't make it a forearm exercise).
-      if (getMuscleWeight(name, muscle) < 0.5) continue;
-      out.push(name);
-    }
-    return out;
-  };
 
   const band = regionBand(muscle, level);
   // weeks > 1 (month view): judge the weekly average against the weekly band.
@@ -228,7 +244,7 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
     tier: row.id === 'Other' ? null : tierFor(row.sets),
     lastTrained: last[row.id] || null,
     exercises: Object.entries(byExercise).map(([name, sets]) => ({ name, sets: Math.round(sets * 100) / 100 })).sort((a, b) => b.sets - a.sets),
-    suggestions: row.id === 'Other' ? [] : suggestionsFor(row.id),
+    suggestions: row.id === 'Other' ? [] : suggestionsFor(muscle, row.id),
   }));
 }
 
@@ -242,9 +258,11 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
 export function getMuscleGaps(logs, today = getLocalDateString(), level = null) {
   const start = shiftLocalDateString(today, -6);
   const gaps = [];
-  getWeeklyMuscleStats(logs, start, today, { level }).forEach(stat => {
+  // Only these 7 days count, so the rest of the history is dropped up front.
+  const recent = (logs || []).filter(l => l.log_date >= start && l.log_date <= today);
+  getWeeklyMuscleStats(recent, start, today, { level }).forEach(stat => {
     if (GAP_REGION_MUSCLES.has(stat.muscle)) {
-      getRegionBreakdownForMuscle(logs, stat.muscle, start, today, { level }).forEach(r => {
+      getRegionBreakdownForMuscle(recent, stat.muscle, start, today, { level }).forEach(r => {
         if (!r.band || r.sets >= r.band.min || !r.suggestions.length) return;
         gaps.push({ label: r.id, sets: r.sets, min: r.band.min, options: r.suggestions });
       });

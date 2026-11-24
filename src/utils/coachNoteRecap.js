@@ -29,6 +29,21 @@ function bestWeight(sets) {
 
 const fmtKg = (kg) => `${Math.round(kg * 10) / 10} kg`;
 
+// An exercise's heaviest set in one earlier session, kept per session object:
+// the Live Log rebuilds its recap on every render, against the whole history.
+const sessionBests = new WeakMap();
+function sessionBest(sess, ex) {
+  if (!sessionBests.has(sess)) sessionBests.set(sess, new Map());
+  const bests = sessionBests.get(sess);
+  const key = `${ex.exerciseId || ''}|${ex.name}`;
+  if (!bests.has(key)) {
+    bests.set(key, (sess.exercises || []).reduce((best, p) => (
+      sameExerciseEntry(p, ex) ? Math.max(best, bestWeight(countedSets(p.sets, false))) : best
+    ), 0));
+  }
+  return bests.get(key);
+}
+
 /**
  * `exercises` — the session's exercises ({ name, exerciseId?, sets }).
  * `priorSessions` — earlier sessions ({ date, exercises }) for the PR check;
@@ -42,11 +57,7 @@ export function buildSessionRecap(exercises, priorSessions = [], { live = false 
     const working = done.filter(s => !isWarmup(s));
     const top = bestWeight(done);
     let priorBest = 0;
-    (priorSessions || []).forEach(sess => {
-      (sess.exercises || []).forEach(p => {
-        if (sameExerciseEntry(p, ex)) priorBest = Math.max(priorBest, bestWeight(countedSets(p.sets, false)));
-      });
-    });
+    (priorSessions || []).forEach(sess => { priorBest = Math.max(priorBest, sessionBest(sess, ex)); });
     const isPR = top > 0 && priorBest > 0 && top > priorBest;
     const status = done.length > 0 ? 'done' : (live ? 'todo' : 'skipped');
     const topSet = working.find(s => num(s.weight) === top && top > 0) || working[0] || null;

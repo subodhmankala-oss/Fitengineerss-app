@@ -2,7 +2,7 @@ import React from 'react';
 import { MUSCLE_BODY_VIEW, MUSCLE_TO_PPLC } from '../../utils/muscleGroups';
 import {
   getBodyArt, MUSCLE_CROP, FACE_MASK, FACE_MASK_GRADIENT, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
+  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, svgHtml
 } from './muscleBodyShapes';
 import { getRegionShape, regionCrop, clipStyle, REGION_SHAPES } from './regionShapes';
 import { useBodySex } from './bodySex';
@@ -47,7 +47,7 @@ const CANVAS_W = 200, CANVAS_H = 369;
 const BodyBase = ({ art, view, gid }) => (
   <>
     <img src={art.fillUrl} alt="" className="muscle-thumb-layer" style={art.bodyMaskStyle ?? undefined} />
-    <div className="muscle-thumb-layer" style={art.bodyMaskStyle ?? undefined} dangerouslySetInnerHTML={{ __html: art.bodySvg }} />
+    <div className="muscle-thumb-layer" style={art.bodyMaskStyle ?? undefined} dangerouslySetInnerHTML={svgHtml(art.bodySvg)} />
     {view === 'front' ? <FaceMaskLayer gradientId={`face-${gid}`} /> : <ScalpMaskLayer gradientId={`scalp-${gid}`} />}
     {art.underlayUrl && <img src={art.underlayUrl} alt="" className="muscle-thumb-layer" />}
   </>
@@ -96,7 +96,7 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
         <BodyBase art={art} view={view} gid={`thumb-${muscle.replace(/\W+/g, '')}`} />
 
         {rawFiles.map((rawSvg, i) => (
-          <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />
+          <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={svgHtml(recolorSvg(rawSvg, color, false))} />
         ))}
       </div>
     </div>
@@ -133,7 +133,7 @@ export const RegionThumbnail = React.memo(function RegionThumbnail({ region, col
             key={i}
             className="muscle-thumb-layer"
             style={{ clipPath: clipStyle(part.clip) }}
-            dangerouslySetInnerHTML={{ __html: recolorSvg(part.raw, color, false) }}
+            dangerouslySetInnerHTML={svgHtml(recolorSvg(part.raw, color, false))}
           />
         ))}
         {shape.paths && (
@@ -225,7 +225,7 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 
               <div
                 key={`${muscle}-${i}`}
                 className="muscle-thumb-layer"
-                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, colorFor?.(muscle) || FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || 'var(--primary-accent-light)', false) }}
+                dangerouslySetInnerHTML={svgHtml(recolorSvg(rawSvg, colorFor?.(muscle) || FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || 'var(--primary-accent-light)', false))}
               />
             ))
           )}
@@ -269,7 +269,7 @@ export const HeatBodyFigure = ({ view = 'front', height = 48, colorFor, pulseKey
             const covered = new Set(Object.keys(split).flatMap(r => (REGION_SHAPES[r]?.parts || []).map(p => p.raw)));
             const rest = color ? rawFiles.flatMap((rawSvg, i) => (covered.has((isFront ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS)[muscle]?.[i]) ? [] : [(
               <div key={`${muscle}-${i}-${pulse}`} className={cls}
-                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />
+                dangerouslySetInnerHTML={svgHtml(recolorSvg(rawSvg, color, false))} />
             )])) : [];
             const parts = Object.entries(split).flatMap(([region, tier]) => {
               const shape = getRegionShape(region, sex);
@@ -277,7 +277,7 @@ export const HeatBodyFigure = ({ view = 'front', height = 48, colorFor, pulseKey
               return (shape.parts || []).map((part, i) => (
                 <div key={`${muscle}-${region}-${i}-${pulse}`} className={cls}
                   style={part.clip ? { clipPath: clipStyle(part.clip) } : undefined}
-                  dangerouslySetInnerHTML={{ __html: recolorSvg(part.raw, tier.color, false) }} />
+                  dangerouslySetInnerHTML={svgHtml(recolorSvg(part.raw, tier.color, false))} />
               ));
             });
             return rest.concat(parts);
@@ -287,7 +287,7 @@ export const HeatBodyFigure = ({ view = 'front', height = 48, colorFor, pulseKey
             <div
               key={`${muscle}-${i}-${pulse}`}
               className={cls}
-              dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }}
+              dangerouslySetInnerHTML={svgHtml(recolorSvg(rawSvg, color, false))}
             />
           ));
         })}

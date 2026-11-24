@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { parseLocalDateString } from '../utils/dateUtils';
 import './WorkoutHeadLine.css';
@@ -18,7 +18,9 @@ export default function WorkoutHeadLine({
   groups, onPick, hasTicked, sheet, onSheet,
 }) {
   const shown = (name || '').trim();
-  const day = date ? parseLocalDateString(date) : null;
+  const dayLabel = useMemo(() => (date
+    ? parseLocalDateString(date).toLocaleDateString('en-GB', { weekday: clientName ? undefined : 'short', day: 'numeric', month: 'short' }).replace(',', '')
+    : 'Date'), [date, clientName]);
   return (
     <div className="wh-line" data-testid="workout-head">
       <button type="button" className="wh-name" aria-haspopup="dialog" title="Name and plans" onClick={() => onSheet('open')}>
@@ -33,7 +35,7 @@ export default function WorkoutHeadLine({
           <path d="M3.5 10h17M8 3v4M16 3v4" />
         </svg>
         <span className="wh-day">
-          {day ? day.toLocaleDateString('en-GB', { weekday: clientName ? undefined : 'short', day: 'numeric', month: 'short' }).replace(',', '') : 'Date'}
+          {dayLabel}
         </span>
         <input type="date" value={date} required aria-label="Workout date" onChange={e => e.target.value && onDateChange(e.target.value)} />
       </label>

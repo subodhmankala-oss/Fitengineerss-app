@@ -4,7 +4,7 @@ import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import { useBodySex } from './bodySex';
 import { getRegionShape, clipStylePct, clipBox, REGION_SHAPES } from './regionShapes';
 import {
-  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, LAYER_REGIONS,
+  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, svgHtml, LAYER_REGIONS,
   FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS
 } from './muscleBodyShapes';
 
@@ -37,7 +37,7 @@ const layerProps = ({ muscle, region, clip, flash, ariaLabel, onSelect }) => ({
 });
 
 const MuscleLayer = ({ rawSvg, color, isActive, ...rest }) => (
-  <div {...layerProps(rest)} dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, isActive) }} />
+  <div {...layerProps(rest)} dangerouslySetInnerHTML={svgHtml(recolorSvg(rawSvg, color, isActive))} />
 );
 
 const CANVAS_H = 369.03;
@@ -444,7 +444,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           as the SVG layers below it. */}
       <img src={bodyFillUrl} alt="" className="muscle-svg-layer" aria-hidden="true" style={bodyMaskStyle ?? undefined} />
 
-      <div className="muscle-svg-layer" style={bodyMaskStyle ?? undefined} dangerouslySetInnerHTML={{ __html: bodySvg }} />
+      <div className="muscle-svg-layer" style={bodyMaskStyle ?? undefined} dangerouslySetInnerHTML={svgHtml(bodySvg)} />
 
       {/* Featureless-face patch (front view only) — see FACE_MASK in
           muscleBodyShapes.js for why the vendored face is masked instead of
@@ -511,7 +511,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
             const clipPath = seamClipStyle(partClips(MALE_LAYERS[view][muscle][i]));
             return clipPath ? [
               <div key={`${muscle}-seam-${i}`} className="muscle-svg-layer" aria-hidden="true" style={{ clipPath }}
-                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, SEAM_COLOR, false) }} />,
+                dangerouslySetInnerHTML={svgHtml(recolorSvg(rawSvg, SEAM_COLOR, false))} />,
             ] : [];
           })() : [
             <MuscleLayer key={`${muscle}-${i}`} rawSvg={rawSvg} color={tier?.color ?? '#64748b'} isActive={muscle === activeMuscle}
@@ -533,7 +533,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
               <div key={`${region}-glow-${i}`} className="muscle-svg-layer muscle-hidden-glow" aria-hidden="true" data-region={region}
                 style={{ pointerEvents: 'none', ...hiddenGlowMask(part.raw) }}>
                 <div className="muscle-svg-layer" style={{ filter: `drop-shadow(0 0 2px ${c}) drop-shadow(0 0 5px ${c})` }}
-                  dangerouslySetInnerHTML={{ __html: recolorSvg(part.raw, c, false) }} />
+                  dangerouslySetInnerHTML={svgHtml(recolorSvg(part.raw, c, false))} />
               </div>
             ));
           });

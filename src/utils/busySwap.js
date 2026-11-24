@@ -78,6 +78,23 @@ const isHard = (name) => HARD.test(name) && !/assisted/i.test(name);
 // suggests something they're about to do anyway.
 export function busyAlternatives(name, catalog, excludeNames = [], limit = 3) {
   if (!isBusyEligible(name) || !Array.isArray(catalog) || catalog.length === 0) return [];
+  if (!alternativesCache.has(catalog)) alternativesCache.set(catalog, new Map());
+  const cache = alternativesCache.get(catalog);
+  const key = JSON.stringify([name, limit, catalog.length, excludeNames]);
+  if (!cache.has(key)) {
+    if (cache.size >= MAX_CACHED) cache.clear();
+    cache.set(key, rankAlternatives(name, catalog, excludeNames, limit));
+  }
+  return cache.get(key).map(a => ({ ...a }));
+}
+
+// Every card asks on every logger render (each keystroke, each clock second)
+// and one answer ranks the whole library, so they're kept per catalog until
+// the workout's exercises change.
+const alternativesCache = new WeakMap();
+const MAX_CACHED = 300;
+
+function rankAlternatives(name, catalog, excludeNames, limit) {
   return swapAlternatives(name, catalog, { exclude: excludeNames, limit: 24 })
     .filter(e => !isSameExerciseName(name, e.name) && freeOfSame(name, e.name))
     .map(e => ({ e, match: swapMatchPercent(name, e, catalog) }))

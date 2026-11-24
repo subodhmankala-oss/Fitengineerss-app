@@ -8,6 +8,7 @@ vi.mock('../../services/databaseService', () => ({
   default: { getExerciseLibrary: () => Promise.resolve([]) },
 }));
 import WeeklyMuscleAnalytics from './WeeklyMuscleAnalytics';
+import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../../utils/pendingWorkoutAdds';
 
 // Every day of the current month up to today gets 3 bench sets, so a week
 // in reads Chest high and a month in reads Chest as a weekly average.
@@ -22,7 +23,7 @@ const weekDays = Array.from({ length: 7 }, (_, i) => getLocalDateString(new Date
 const monthName = (offset) => new Date(today.getFullYear(), today.getMonth() + offset, 1)
   .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-const Harness = () => {
+const Harness = (props) => {
   const [monthOffset, setMonthOffset] = useState(0);
   return (
     <WeeklyMuscleAnalytics
@@ -36,6 +37,21 @@ const Harness = () => {
       monthOffset={monthOffset}
       setMonthOffset={setMonthOffset}
       monthlyStats={{ totalVolume: 10, totalSets: 20, workoutsCount: 30, totalCalories: 40 }}
+      {...props}
+    />
+  );
+};
+
+// Wired to the real queue, as the client's Home (WorkoutProgressDashboard) does.
+const ClientHarness = ({ onGo }) => {
+  const [queued, setQueued] = useState(() => getPendingWorkoutAdds());
+  return (
+    <Harness
+      onAddExercise={n => { queueWorkoutAdd(n); setQueued(getPendingWorkoutAdds()); }}
+      onRemoveExercise={n => { unqueueWorkoutAdd(n); setQueued(getPendingWorkoutAdds()); }}
+      addedNames={queued}
+      addedCount={queued.length}
+      onGoToWorkout={onGo}
     />
   );
 };
@@ -91,5 +107,44 @@ describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
     expect(screen.getByText('Neglected Muscles')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Balance/ }));
     expect(screen.getByText('Muscle Balance')).toBeTruthy();
+  });
+});
+
+describe('WeeklyMuscleAnalytics — adding from the neglected list', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(cleanup);
+  const openNeglected = () => fireEvent.click(screen.getByRole('button', { name: /\d+ neglected/ }));
+
+  it('queues a tapped suggestion, offers the way to the workout, and un-ticks', () => {
+    const onGo = vi.fn();
+    render(<ClientHarness onGo={onGo} />);
+    openNeglected();
+    fireEvent.click(screen.getByTitle('Add Barbell Row'));
+    fireEvent.click(screen.getByTitle('Add Romanian Deadlift'));
+    expect(getPendingWorkoutAdds()).toEqual(['Barbell Row', 'Romanian Deadlift']);
+    expect(screen.getByTitle('Remove Barbell Row').getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(screen.getByTitle('Remove Barbell Row'));
+    expect(getPendingWorkoutAdds()).toEqual(['Romanian Deadlift']);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add 1 exercise to your workout →' })[0]);
+    expect(onGo).toHaveBeenCalledTimes(1);
+  });
+
+  it('"Clear all" empties the queue and un-ticks the chips', () => {
+    render(<ClientHarness onGo={() => {}} />);
+    openNeglected();
+    fireEvent.click(screen.getByTitle('Add Barbell Row'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear all' })[0]);
+    expect(getPendingWorkoutAdds()).toEqual([]);
+    expect(screen.getByTitle('Add Barbell Row')).toBeTruthy();
+    expect(screen.queryByText(/Added exercises/)).toBeNull();
+  });
+
+  it('stays a plain list where there is nothing to add to', () => {
+    render(<Harness />);
+    openNeglected();
+    expect(screen.queryByTitle('Add Barbell Row')).toBeNull();
+    expect(screen.getByText('Barbell Row')).toBeTruthy();
   });
 });

@@ -1,11 +1,25 @@
 import React, { useMemo } from 'react';
 import { getLastTrainedInfo, RECOMMENDED_EXERCISES } from '../../utils/muscleAnalytics';
 import MuscleThumbnail from './MuscleThumbnail';
+import '../exerciseRecChips.css';
 
 // Same red used for the "Neglected" status elsewhere (MuscleCard, heat map
 // legend) — every muscle here is by definition neglected, so the icon color
 // doesn't need to vary card-to-card.
 const NEGLECTED_COLOR = '#ef4444';
+
+// The first tick opens the "Added exercises" strip above the list. Browsers
+// without scroll anchoring (iPhone) would slide the list down under the
+// finger, so put the tapped chip back where it was. Two frames: a browser
+// that does anchor has already corrected by then, leaving nothing to move.
+const holdInPlace = (chip) => {
+  const before = chip.getBoundingClientRect().top;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const moved = chip.isConnected ? chip.getBoundingClientRect().top - before : 0;
+    const scroller = chip.closest('.main-content') || document.scrollingElement;
+    if (scroller && Math.abs(moved) > 1) scroller.scrollTop += moved;
+  }));
+};
 
 /**
  * Section 5 — Neglected Muscles. Membership is driven by `weeklyMuscleStats`
@@ -19,8 +33,13 @@ const NEGLECTED_COLOR = '#ef4444';
  * Content-only (no card wrapper/header) — this shares a single card with
  * Section 1 (Muscle Balance Overview) via a left/right tab switcher in
  * WeeklyMuscleAnalytics.jsx, so the wrapper/header/subtext live there.
+ *
+ * onAddExercise/onRemoveExercise/addedNames: the same add/un-add chips as the
+ * muscle detail screen (see MuscleRegionBreakdown). Without onAddExercise the
+ * suggestions stay plain labels.
  */
-const NeglectedMuscles = ({ logs, weeklyMuscleStats, period = 'week' }) => {
+const NeglectedMuscles = ({ logs, weeklyMuscleStats, period = 'week', onAddExercise = null, onRemoveExercise = null, addedNames = [], addTargetLabel = null }) => {
+  const added = new Set(addedNames.map(n => n.toLowerCase()));
   const neglected = useMemo(() => {
     return weeklyMuscleStats
       .filter(m => m.status.key === 'neglected')
@@ -62,11 +81,31 @@ const NeglectedMuscles = ({ logs, weeklyMuscleStats, period = 'week' }) => {
                 </span>
               </div>
               <div className="neglected-recs">
-                <span className="neglected-recs-label">Recommended exercises</span>
+                <span className="neglected-recs-label">
+                  {onAddExercise ? `Tap to add to ${addTargetLabel || 'your workout'}` : 'Recommended exercises'}
+                </span>
                 <div className="neglected-recs-list">
-                  {recommendedExercises.map(ex => (
-                    <span key={ex} className="neglected-rec-chip">{ex}</span>
-                  ))}
+                  {recommendedExercises.map(ex => {
+                    if (!onAddExercise) return <span key={ex} className="neglected-rec-chip">{ex}</span>;
+                    const isAdded = added.has(ex.toLowerCase());
+                    return (
+                      <button
+                        key={ex}
+                        type="button"
+                        className={`ex-history-rec-chip ex-history-rec-chip--tap neglected-add-chip${isAdded ? ' on' : ''}`}
+                        aria-pressed={isAdded}
+                        disabled={isAdded && !onRemoveExercise}
+                        title={isAdded ? `Remove ${ex}` : `Add ${ex}`}
+                        onClick={e => {
+                          holdInPlace(e.currentTarget);
+                          if (isAdded) onRemoveExercise(ex);
+                          else onAddExercise(ex);
+                        }}
+                      >
+                        {isAdded ? '✓' : '+'} {ex}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

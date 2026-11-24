@@ -23,6 +23,14 @@ const TickIcon = ({ size }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
 );
 
+const newLabel = (n) => `${n} new exercise${n === 1 ? '' : 's'}`;
+const NoteIcon = ({ path }) => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg>
+);
+const NewNote = ({ count }) => (
+  <span className="wpc-new"><NoteIcon path="M4 8h14l-4-4M20 16H6l4 4" /><span>{newLabel(count)}</span></span>
+);
+
 // One day, full size: date · body heat map · workout · play (tick once done).
 function DayRow({ slot, session, isMain, onStart }) {
   const { program, done, kcal, date, isToday } = slot;
@@ -35,7 +43,7 @@ function DayRow({ slot, session, isMain, onStart }) {
       className={`wpc-row ${isMain ? 'main' : ''}`}
       aria-label={label}
       disabled={done}
-      onClick={() => onStart(program)}
+      onClick={() => onStart(slot)}
     >
       <span className="wpc-date">
         <span className="wpc-date-day">{dayShort(date)}</span>
@@ -58,6 +66,12 @@ function DayRow({ slot, session, isMain, onStart }) {
         {done
           ? <span className="wpc-stats done">Done{kcal > 0 ? ` · ${kcal} kcal` : ''}</span>
           : <span className="wpc-stats">{session.minutes} min · {session.exerciseCount} exercise{session.exerciseCount === 1 ? '' : 's'}</span>}
+        {!done && session.swaps > 0 && <NewNote count={session.swaps} />}
+        {/* Only on the one to do now: which muscle is most neglected changes
+            with every workout, so a later day's can't be promised yet. */}
+        {isMain && session.finisherMuscle && (
+          <span className="wpc-new added"><NoteIcon path="M12 5v14M5 12h14" /><span>{session.finisherMuscle} added</span></span>
+        )}
       </span>
       <span className={`wpc-play ${done ? 'done' : isMain ? 'now' : ''}`} aria-hidden="true">
         {done ? <TickIcon size={20} /> : <PlayIcon size={20} />}
@@ -67,21 +81,22 @@ function DayRow({ slot, session, isMain, onStart }) {
 }
 
 // One of the other days, in the strip under the big card.
-function SmallDay({ slot, onStart }) {
+function SmallDay({ slot, swaps, onStart }) {
   const { program, done, kcal, date, isToday } = slot;
   return (
     <button
       type="button"
       className="wpc-small"
-      aria-label={done ? `${program.name}, done` : `Start ${program.name}`}
+      aria-label={done ? `${program.name}, done` : `Start ${program.name}${swaps > 0 ? ` — ${newLabel(swaps)}` : ''}`}
       disabled={done}
-      onClick={() => onStart(program)}
+      onClick={() => onStart(slot)}
     >
       <span className="wpc-text">
         <span className="wpc-small-day">
           {isToday ? 'Today' : `${dayShort(date)} ${dayNumber(date)}`}{done && kcal > 0 ? ` · ${kcal} kcal` : ''}
         </span>
         <span className="wpc-small-name">{shortProgramName(program.name)}</span>
+        {swaps > 0 && <NewNote count={swaps} />}
       </span>
       <span className={`wpc-play small ${done ? 'done' : ''}`} aria-hidden="true">
         {done ? <TickIcon size={16} /> : <PlayIcon size={15} />}
@@ -96,8 +111,8 @@ function SmallDay({ slot, onStart }) {
  * own play button. Right after "Make my plan" (`justMade`) every day shows
  * full size instead. Swipe left to hide it for the week.
  *
- * plan: buildWeekPlan() · sessionFor(program): what the logger will build
- * (minutes, exercises, muscles) · note: replaces the level under the title.
+ * plan: buildWeekPlan() · sessionFor(slot): what the logger will build
+ * (minutes, exercises, muscles, what's new) · note: replaces the level under the title.
  */
 export default function WeekPlanCard({ plan, levelLabel, note, days, justMade = false, hintKey, sessionFor, onStart, onChangeDays, onHide }) {
   const [editDays, setEditDays] = useState(null); // null = not editing
@@ -143,7 +158,7 @@ export default function WeekPlanCard({ plan, levelLabel, note, days, justMade = 
         {header}
         <div className="wpc-list">
           {slots.map(s => (
-            <DayRow key={slotKey(s)} slot={s} session={sessionFor(s.program)} isMain={s === main} onStart={onStart} />
+            <DayRow key={slotKey(s)} slot={s} session={sessionFor(s)} isMain={s === main} onStart={onStart} />
           ))}
         </div>
         <p className="wpc-foot">Feeling ready early? Press play on any card, any day.</p>
@@ -164,16 +179,16 @@ export default function WeekPlanCard({ plan, levelLabel, note, days, justMade = 
                 <span className="wpc-name">Week done, {doneCount} of {slots.length}</span>
                 <span className="wpc-stats">Want more? {shortProgramName(nextProgram.name)} is next</span>
               </span>
-              <button type="button" className="wpc-play" aria-label={`Start ${nextProgram.name}`} onClick={() => onStart(nextProgram)}>
+              <button type="button" className="wpc-play" aria-label={`Start ${nextProgram.name}`} onClick={() => onStart({ program: nextProgram, date: '' })}>
                 <PlayIcon size={20} />
               </button>
             </div>
           ) : (
             <>
-              <DayRow slot={main} session={sessionFor(main.program)} isMain onStart={onStart} />
+              <DayRow slot={main} session={sessionFor(main)} isMain onStart={onStart} />
               {others.length > 0 && (
                 <div className="wpc-strip">
-                  {others.map(s => <SmallDay key={slotKey(s)} slot={s} onStart={onStart} />)}
+                  {others.map(s => <SmallDay key={slotKey(s)} slot={s} swaps={s.done ? 0 : sessionFor(s).swaps} onStart={onStart} />)}
                 </div>
               )}
             </>

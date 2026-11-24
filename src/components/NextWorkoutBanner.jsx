@@ -26,11 +26,11 @@ const CATEGORIES = ['gym', 'home'];
 // Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 // Also saves the level/category as the one the client is on — that level
 // then stays the suggestion for 12 weeks (see determineWorkoutGuidance).
-// The swap count comes from this client's server logs (countPriorRuns), so
-// the logger applies the same swaps the banner previewed.
-function startProgram(userId, onNavigateToWorkouts, category, level, program, pref, logs) {
+// priorRuns comes from this client's server logs (countPriorRuns), so the
+// logger applies the same swaps the card previewed.
+function startProgram(userId, onNavigateToWorkouts, category, level, program, pref, priorRuns) {
   databaseService.saveLibraryLevelPref(userId, { level, category }, pref);
-  startLibraryProgram(userId, category, level, program, countPriorRuns(logs, program?.name));
+  startLibraryProgram(userId, category, level, program, priorRuns);
   onNavigateToWorkouts && onNavigateToWorkouts();
 }
 
@@ -194,6 +194,12 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
 
   const levelLabel = level.charAt(0).toUpperCase() + level.slice(1);
   const toDo = (program) => (easyRestart ? easyRestartProgram(program) : program);
+  // How often this program will have been done by a card's day: the first of
+  // two Full Body As in a week doesn't make the second one new until it's
+  // done, so a card still to come counts towards the later one's note.
+  const runsBefore = (slot) => countPriorRuns(logs, slot.program.name, parseLocalDateString(slot.date > today ? slot.date : today));
+  const runsExpected = (slot) => runsBefore(slot) + plan.slots.filter(s =>
+    s.program === slot.program && !s.done && s.date >= today && s.date < slot.date).length;
   let note = null;
   if (easyRestart) note = 'Easy restart · 2 sets each';
   else if (reason === 'leveled-up') note = `${levelLabel} unlocked`;
@@ -206,8 +212,8 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
       days={days}
       justMade={justMade}
       hintKey={`nextWorkoutSwipeHintSeen_${userId}`}
-      sessionFor={(program) => todaysSession(toDo(program), level, category, logs)}
-      onStart={(program) => startProgram(userId, onNavigateToWorkouts, category, level, toDo(program), pref, logs)}
+      sessionFor={(slot) => todaysSession(toDo(slot.program), level, category, logs, runsExpected(slot))}
+      onStart={(slot) => startProgram(userId, onNavigateToWorkouts, category, level, toDo(slot.program), pref, runsBefore(slot))}
       onChangeDays={saveDays}
       onHide={hideWeek}
     />
@@ -276,13 +282,13 @@ function ReopenRow({ title, subtitle, onClick }) {
 //   focus: ["Warm-up", "2 new exercises", "Core finisher (15 days)"] — read
 //          out by screen readers; no swap the first time a program is done
 //          (see countPriorRuns)
+//   swaps / finisherMuscle: the same, for the card's visible notes
 //   exerciseCount: warm-up + main + finisher
 //   minutes: ~2.5 min per working set (getPlanCardMeta's estimate) + 5 for
 //            the warm-up
 //   muscles / main / view: for the heat map — `main` are the muscles an
 //          exercise targets first; the rest are only worked along the way.
-function todaysSession(program, level, category, logs) {
-  const priorRuns = countPriorRuns(logs, program.name);
+function todaysSession(program, level, category, logs, priorRuns) {
   const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises || [], level, category, priorRuns });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
   const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
@@ -305,6 +311,8 @@ function todaysSession(program, level, category, logs) {
 
   return {
     focus,
+    swaps,
+    finisherMuscle: finisher?.finisherFor.muscle || null,
     exerciseCount: warmups.length + working.length,
     minutes: Math.max(15, Math.round((workingSets * 2.5) / 5) * 5 + (warmups.length ? 5 : 0)),
     muscles,

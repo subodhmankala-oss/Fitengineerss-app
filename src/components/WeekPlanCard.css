@@ -202,6 +202,22 @@
   font-weight: 600;
 }
 
+/* What's new in that day's workout: swapped-in exercises, and the neglected
+   muscle added at the end. */
+.wpc-new {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--accent-text);
+}
+
+.wpc-new svg { flex-shrink: 0; }
+.wpc-new.added { color: var(--tint-amber); }
+
 .wpc-small-day {
   font-size: 0.76rem;
   font-weight: 600;

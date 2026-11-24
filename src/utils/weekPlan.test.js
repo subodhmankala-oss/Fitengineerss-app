@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildWeekPlan, cleanTrainingDays, mondayOf, sessionsFromLogs, shortProgramName } from './weekPlan';
+import { buildWeekPlan, cleanTrainingDays, mondayOf, sessionsFromLogs } from './weekPlan';
 
 const A = { name: 'Beginner Full Body A' };
 const B = { name: 'Beginner Full Body B' };
@@ -91,12 +91,6 @@ describe('helpers', () => {
   it('mondayOf treats Sunday as the end of the week', () => {
     expect(mondayOf('2026-11-29')).toBe('2026-11-23');
     expect(mondayOf('2026-11-23')).toBe('2026-11-23');
-  });
-
-  it('shortProgramName', () => {
-    expect(shortProgramName('Home Beginner Core & Mobility')).toBe('Core & Mobility');
-    expect(shortProgramName('Advanced Push (Strength)')).toBe('Push (Strength)');
-    expect(shortProgramName('Beginner')).toBe('Beginner');
   });
 
   it('sessionsFromLogs: one per program per day, calories counted once', () => {

@@ -48,7 +48,7 @@ export default function BottomIsland({
   const activeIndex = tabs.findIndex((t) => t.id === activeTab);
   return (
     <nav className={`bottom-nav ${className}`.trim()} aria-label={navLabel}>
-      <div className="bottom-island">
+      <div className="bottom-island" style={{ '--count': tabs.length }}>
         {activeIndex >= 0 && (
           <span className="bottom-island-pill" style={{ '--i': activeIndex }} aria-hidden="true" />
         )}

@@ -1,0 +1,28 @@
+/* Seven day circles, Monday first (TrainingDayPicker). */
+.day-picker {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.day-picker-day {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.day-picker-day.selected {
+  background: color-mix(in srgb, var(--primary-accent) 14%, var(--bg-card));
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--primary-accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}

@@ -8,6 +8,8 @@ import { splitLogRowsForRecap } from '../utils/coachNoteRecap';
 import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
 import { setCatalogMuscles } from '../utils/muscleGroups';
 import { withExerciseIds } from '../utils/exerciseName';
+import { getLocalDateString } from '../utils/dateUtils';
+import { cleanTrainingDays, DEFAULT_TRAINING_DAYS } from '../utils/weekPlan';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -5281,6 +5283,46 @@ const databaseService = {
       });
     } catch (e) {
       console.warn('saveLibraryLevelPref failed (kept on this device):', e.message || e);
+    }
+  },
+
+  // The weekdays a self-guided client trains on ({ days, since }, see
+  // utils/weekPlan). Read on its own, not with getLibraryLevelPref: if these
+  // columns can't be read, the level still can. A client who never chose gets
+  // the default days from today on, remembered on this device so the week's
+  // cards stay put.
+  async getLibraryDays(userId) {
+    if (!userId) return null;
+    const localKey = `libraryDays_${userId}`;
+    let local = null;
+    try { local = JSON.parse(localStorage.getItem(localKey) || 'null'); } catch { /* none saved */ }
+    if (isSupabaseConfigured) {
+      try {
+        const rows = await restSelect(`clients?user_id=eq.${encodeURIComponent(userId)}&select=library_days,library_days_since`);
+        const days = cleanTrainingDays(rows?.[0]?.library_days);
+        if (days) {
+          const saved = { days, since: rows[0].library_days_since || null };
+          try { localStorage.setItem(localKey, JSON.stringify(saved)); } catch { /* storage full/blocked */ }
+          return saved;
+        }
+      } catch (e) {
+        console.warn('getLibraryDays failed (using local copy):', e.message || e);
+      }
+    }
+    if (cleanTrainingDays(local?.days)) return local;
+    const fallback = { days: DEFAULT_TRAINING_DAYS, since: getLocalDateString() };
+    try { localStorage.setItem(localKey, JSON.stringify(fallback)); } catch { /* storage full/blocked */ }
+    return fallback;
+  },
+
+  async saveLibraryDays(userId, { days, since }) {
+    if (!userId || !cleanTrainingDays(days)) return;
+    try { localStorage.setItem(`libraryDays_${userId}`, JSON.stringify({ days, since })); } catch { /* storage full/blocked */ }
+    if (!isSupabaseConfigured) return;
+    try {
+      await restUpdate(`clients?user_id=eq.${encodeURIComponent(userId)}`, { library_days: days, library_days_since: since });
+    } catch (e) {
+      console.warn('saveLibraryDays failed (kept on this device):', e.message || e);
     }
   },
 

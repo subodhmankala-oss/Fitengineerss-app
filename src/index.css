@@ -477,27 +477,3 @@ html.keyboard-open .trainer-dashboard-container {
   box-shadow: 0 0 0 2px var(--bg-card);
   pointer-events: none;
 }
-
-/* Home screen next-workout card (NextWorkoutBanner): logo-blue play button
-   with a soft ring breathing out, so the slim card still reads as "tap me". */
-.next-workout-play {
-  flex-shrink: 0;
-  width: 64px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--primary-accent);
-  color: #fff;
-  animation: next-workout-pulse 2.2s ease-in-out infinite;
-}
-
-@keyframes next-workout-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.5); }
-  50% { box-shadow: 0 0 0 8px rgba(var(--accent-rgb), 0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .next-workout-play { animation: none; }
-}

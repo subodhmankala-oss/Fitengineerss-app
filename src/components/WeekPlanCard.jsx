@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import SwipeToHide from './SwipeToHide';
 import WeekWorkoutSheet from './WeekWorkoutSheet';
 import { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
-import { WEEKS_PER_LEVEL } from '../utils/beginnerGuidance';
+import { LEVEL_DAYS, WEEKS_PER_LEVEL } from '../utils/levelClock';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './WeekPlanCard.css';
 
@@ -18,13 +18,13 @@ const HEAT = { main: '#ef4444', also: '#f59e0b' };
  * Change days); the play button starts it straight away. Swipe left to hide
  * it for the week.
  *
- * levelWeek: week 1–12 of the level, drawn as the bar above "See workout"
- * with what it counts towards (nextLevelLabel) under it; null = neither
- * (Advanced has no next level).
+ * progress: { week: 1–12 of the level, lost: days taken back by time away },
+ * drawn as the bar above "See workout" with what it counts towards
+ * (nextLevelLabel) under it; null = neither (Advanced has no next level).
  * plan: buildWeekPlan() · sessionFor(slot): what the logger will build ·
  * loggedFor(slot): what was saved for a done one · note: replaces "Day 2 of 4".
  */
-export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, levelWeek, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide }) {
+export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, progress, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide }) {
   const [open, setOpen] = useState(false);
   const { slots, main, doneCount, weekDone, nextWeek, nextProgram } = plan;
 
@@ -37,7 +37,10 @@ export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, levelWe
   if (weekDone) line = `Week done, ${doneCount} of ${slots.length}`;
   else if (nextWeek) line = `Next week, day 1 of ${slots.length}`;
 
-  const weeksLeft = WEEKS_PER_LEVEL - levelWeek + 1;
+  const { week = 0, lost = 0 } = progress || {};
+  const weeksLeft = WEEKS_PER_LEVEL - week + 1;
+  const filled = (week / WEEKS_PER_LEVEL) * 100;
+  const lostLabel = `down ${lost} day${lost === 1 ? '' : 's'}`;
 
   return (
     <section className="wpc" aria-label="Your workout week">
@@ -81,28 +84,30 @@ export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, levelWe
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11-6.86a1 1 0 0 0 0-1.7l-11-6.86A1 1 0 0 0 8 5.14z" /></svg>
             </button>
           </div>
-          {levelWeek && (
+          {progress && (
             <div
               className="wpc-level"
               role="progressbar"
-              aria-label={`${levelLabel}, week ${levelWeek} of ${WEEKS_PER_LEVEL}`}
+              aria-label={`${levelLabel}, week ${week} of ${WEEKS_PER_LEVEL}${lost > 0 ? `, ${lostLabel}` : ''}`}
               aria-valuemin={0}
               aria-valuemax={WEEKS_PER_LEVEL}
-              aria-valuenow={levelWeek}
+              aria-valuenow={week}
             >
-              <span style={{ width: `${(levelWeek / WEEKS_PER_LEVEL) * 100}%` }} />
+              <span style={{ width: `${filled}%` }} />
+              {/* What time away took back; wide enough to see even for 1 day. */}
+              {lost > 0 && <span className="lost" style={{ width: `${Math.min(100 - filled, Math.max(4, (lost / LEVEL_DAYS) * 100))}%` }} />}
             </div>
           )}
-          {levelWeek && (
+          {progress && (
             <div className="wpc-level-text">
-              <span>Week {levelWeek} of {WEEKS_PER_LEVEL}</span>
+              <span>Week {week} of {WEEKS_PER_LEVEL}{lost > 0 && <span className="wpc-lost">{lostLabel}</span>}</span>
               {nextLevelLabel && (
                 <span className="wpc-next-level">{nextLevelLabel} {weeksLeft === 1 ? 'next week' : `in ${weeksLeft} weeks`}</span>
               )}
             </div>
           )}
           {/* Says the card opens; nothing else on it did (2026-11-25). */}
-          <button type="button" className={`wpc-see ${levelWeek ? '' : 'lined'}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          <button type="button" className={`wpc-see ${progress ? '' : 'lined'}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
             See workout
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
           </button>

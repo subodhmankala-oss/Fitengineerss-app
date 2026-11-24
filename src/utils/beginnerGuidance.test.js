@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickNextBeginnerProgram, determineWorkoutGuidance, weekOfLevel } from './beginnerGuidance';
+import { pickNextBeginnerProgram, determineWorkoutGuidance, levelProgress } from './beginnerGuidance';
 
 const programs = [
   { name: 'Beginner Full Body A' },
@@ -216,7 +216,9 @@ describe('determineWorkoutGuidance with a chosen level (12 weeks per level)', ()
 
   it('moves up one level after 12 weeks', () => {
     const pref = { level: 'intermediate', category: 'gym', since: '2026-10-29' };
-    const g = determineWorkoutGuidance(lib, [], at('2027-01-22'), pref);
+    const sessions = [];
+    for (let d = new Date(2026, 9, 29); d < new Date(2027, 0, 22); d.setDate(d.getDate() + 3)) sessions.push({ date: d.toLocaleDateString('en-CA'), planName: 'Push Day' });
+    const g = determineWorkoutGuidance(lib, sessions, at('2027-01-22'), pref);
     expect(g.level).toBe('advanced');
     expect(g.reason).toBe('leveled-up');
   });
@@ -238,28 +240,31 @@ describe('determineWorkoutGuidance with a chosen level (12 weeks per level)', ()
   });
 });
 
-describe('weekOfLevel', () => {
+describe('levelProgress', () => {
   const on = (d) => new Date(`${d}T12:00:00`);
   const pref = { level: 'beginner', category: 'gym', since: '2026-09-07' };
+  // Twice a week from the start, so nothing is lost.
+  const weekly = [];
+  for (let d = new Date(2026, 8, 7); d < new Date(2026, 11, 10); d.setDate(d.getDate() + 3)) weekly.push({ date: d.toLocaleDateString('en-CA'), planName: 'x' });
+  const week = (level, d, p = pref) => levelProgress(level, weekly, on(d), p);
 
   it('counts from the day the level was chosen', () => {
-    expect(weekOfLevel('beginner', [], on('2026-09-07'), pref)).toBe(1);
-    expect(weekOfLevel('beginner', [], on('2026-09-21'), pref)).toBe(3);
-    expect(weekOfLevel('beginner', [], on('2026-11-29'), pref)).toBe(12);
+    expect(week('beginner', '2026-09-07')).toEqual({ week: 1, lost: 0 });
+    expect(week('beginner', '2026-09-21').week).toBe(3);
+    expect(week('beginner', '2026-11-29').week).toBe(12);
   });
 
   it('stays at 12 until the level changes over, then starts again', () => {
-    expect(weekOfLevel('beginner', [], on('2026-12-02'), pref)).toBe(12);
-    expect(weekOfLevel('intermediate', [], on('2026-12-02'), pref)).toBe(1);
+    expect(week('beginner', '2026-12-02').week).toBe(12);
+    expect(week('intermediate', '2026-12-02').week).toBe(1);
   });
 
   it('with no level chosen, counts from the first session', () => {
-    const sessions = [{ date: '2026-09-21', planName: 'x' }, { date: '2026-09-07', planName: 'x' }];
-    expect(weekOfLevel('beginner', sessions, on('2026-09-28'))).toBe(4);
+    expect(week('beginner', '2026-09-28', null).week).toBe(4);
   });
 
   it('none on Advanced, or ahead of the clock', () => {
-    expect(weekOfLevel('advanced', [], on('2026-09-21'), { ...pref, level: 'advanced' })).toBeNull();
-    expect(weekOfLevel('intermediate', [{ date: '2026-09-07', planName: 'x' }], on('2026-09-28'))).toBeNull();
+    expect(week('advanced', '2026-09-21', { ...pref, level: 'advanced' })).toBeNull();
+    expect(week('intermediate', '2026-09-28', null)).toBeNull();
   });
 });

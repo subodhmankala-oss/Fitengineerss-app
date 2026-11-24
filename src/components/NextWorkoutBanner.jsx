@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
-import { determineWorkoutGuidance, weekOfLevel } from '../utils/beginnerGuidance';
+import { determineWorkoutGuidance, levelProgress } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
 import WeekPlanCard from './WeekPlanCard';
@@ -42,8 +42,9 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program, pr
 // it deep-links straight into logging that exact program (startProgram).
 // Renders nothing if no Workout Library programs are configured at all.
 // easyRestart: back from a break ("Taking a break") — every exercise capped
-// at 2 sets for the first workout back.
-export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, easyRestart = false }) {
+// at 2 sets for the first workout back. breaks: their days don't count
+// towards (or against) the level's 12 weeks.
+export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, easyRestart = false, breaks = null }) {
   const [library, setLibrary] = useState(null); // null = still loading
   const [pref, setPref] = useState(undefined); // undefined = still loading
   const [training, setTraining] = useState(undefined); // { days, since }; undefined = still loading
@@ -131,7 +132,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
   const loggedDays = (logs || []).filter(l => l.log_date).map(l => ({ date: l.log_date, planName: l.plan_name || l.planName || '' }));
   // As of this Monday, so a level that ends mid-week doesn't swap out a
   // half-done week.
-  const guidance = determineWorkoutGuidance(library, loggedDays, parseLocalDateString(monday), pref);
+  const guidance = determineWorkoutGuidance(library, loggedDays, parseLocalDateString(monday), pref, breaks || []);
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
@@ -212,7 +213,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
       plan={plan}
       levelLabel={`${levelLabel} · ${category === 'home' ? 'Home' : 'Gym'}`}
       nextLevelLabel={nextLevelLabel}
-      levelWeek={weekOfLevel(level, loggedDays, parseLocalDateString(today), pref)}
+      progress={levelProgress(level, loggedDays, parseLocalDateString(today), pref, breaks || [])}
       note={note}
       days={days}
       hintKey={`nextWorkoutSwipeHintSeen_${userId}`}

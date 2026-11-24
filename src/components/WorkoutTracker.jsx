@@ -55,7 +55,7 @@ import { clearOpenDraft, forgetDiscardedDraft, isKnownNoOpenDraft, peekOpenDraft
 import OpeningLogger from './OpeningLogger';
 import MuscleGapHint from './MuscleGapHint';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
-import { levelFromHistory } from '../utils/clientTrainingLevel';
+import { trainingLevelFor } from '../utils/clientTrainingLevel';
 import { templateTargetTime } from '../utils/templateTargets';
 import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import useWorkoutFullScreen from '../hooks/useWorkoutFullScreen';
@@ -3100,7 +3100,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     : []);
   const muscleGapLogs = useMemo(() => [...savedSetRows, ...JSON.parse(liveGapJson)], [savedSetRows, liveGapJson]);
   // Saved level, else the one their training time puts them at.
-  const trainingLevel = useMemo(() => savedTrainingLevel || levelFromHistory(muscleGapLogs), [savedTrainingLevel, muscleGapLogs]);
+  const trainingLevel = useMemo(() => trainingLevelFor(savedTrainingLevel, savedSetRows, ownBreaks), [savedTrainingLevel, savedSetRows, ownBreaks]);
   // Ring beside each ticked set: this week's sets for the exercise's main
   // muscle vs its weekly target (see utils/setMuscleRing.js).
   const ringInputs = setRingInputs(logExercises);

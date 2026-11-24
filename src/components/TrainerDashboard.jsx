@@ -109,7 +109,7 @@ import SetLiftOverlay, { SetDropZone, SetLiftHint } from './SetLiftOverlay';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 import MuscleGapHint from './MuscleGapHint';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
-import { levelFromHistory } from '../utils/clientTrainingLevel';
+import { trainingLevelFor } from '../utils/clientTrainingLevel';
 import PhoneGate from './PhoneGate';
 import CoachFirstClientCard from './CoachFirstClientCard';
 import { hasValidPhone } from '../utils/coachPhone';
@@ -1846,7 +1846,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // session objects `workoutLogs` holds.
   const [rawWorkoutLogs, setRawWorkoutLogs] = useState([]);
   // Selected client's level: saved, else the one their training time puts them at.
-  const selectedClientLevel = useMemo(() => savedClientLevel || levelFromHistory(rawWorkoutLogs), [savedClientLevel, rawWorkoutLogs]);
+  const { breaks: loadedBreaks } = useClientBreaks();
+  const selectedClientLevel = useMemo(
+    () => trainingLevelFor(savedClientLevel, rawWorkoutLogs, (loadedBreaks || []).filter(b => b.clientUserId === selectedClient?.id)),
+    [savedClientLevel, rawWorkoutLogs, loadedBreaks, selectedClient?.id]
+  );
   // "Add missed exercise" on the client's Daily history (same sheet the
   // client gets on Home → Daily).
   const [missedExOpen, setMissedExOpen] = useState(false);

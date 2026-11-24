@@ -281,6 +281,28 @@ describe('NextWorkoutBanner — the week', () => {
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
+  it('time away takes the bar back: how many days, in stripes', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner, intermediate: [{ name: 'Intermediate Push', exercises: [] }] } });
+    vi.setSystemTime(new Date('2026-12-16T12:00:00')); // back today, 21 days since the last one
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-11-02' });
+    const dates = ['2026-11-02', '2026-11-05', '2026-11-09', '2026-11-12', '2026-11-16', '2026-11-19', '2026-11-23', '2026-11-25'];
+    show({ logs: dates.map(d => did(d, 'Beginner Full Body A')) });
+    // 23 days in, 20 full days off = 2 weeks: 23 + 21 − 14 − 6 = 24 days.
+    expect(await screen.findByText('down 6 days')).not.toBeNull();
+    expect(screen.getByRole('progressbar', { name: 'Beginner · Gym, week 4 of 12, down 6 days' })).not.toBeNull();
+    expect(document.querySelector('.wpc-level .lost').style.width).toMatch(/^7\.14/);
+    expect(screen.getByText('Intermediate in 9 weeks')).not.toBeNull();
+  });
+
+  it('days on a break take nothing back', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    vi.setSystemTime(new Date('2026-12-16T12:00:00'));
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-11-19' });
+    show({ logs: [did('2026-11-25', 'Beginner Full Body A')], breaks: [{ startDate: '2026-11-26', backDate: '2026-12-16' }] });
+    expect(await screen.findByText('Week 2 of 12')).not.toBeNull(); // 7 days in, then paused
+    expect(screen.queryByText(/^down/)).toBeNull();
+  });
+
   it('says when the next level comes', async () => {
     mockLibrary({ gym: { beginner: gymBeginner, intermediate: [{ name: 'Intermediate Push', exercises: [] }] } });
     databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-10-26' });

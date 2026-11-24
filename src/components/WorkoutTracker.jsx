@@ -40,7 +40,7 @@ import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { useSetLiftDrop } from '../hooks/useSetLiftDrop';
 import SetLiftOverlay, { SetDropZone, SetLiftHint } from './SetLiftOverlay';
 import { exerciseIdField } from '../utils/exerciseName';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, fillPendingAddedSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import { tickedSetRows, publishLiveRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
@@ -50,7 +50,9 @@ import { getSetRingStates } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
-import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
+import { getPendingWorkoutAdds, takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
+import { clearOpenDraft, forgetDiscardedDraft, isKnownNoOpenDraft, peekOpenDraft } from '../utils/openDraftHandoff';
+import OpeningLogger from './OpeningLogger';
 import MuscleGapHint from './MuscleGapHint';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
 import { levelFromHistory } from '../utils/clientTrainingLevel';
@@ -246,7 +248,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const loadWorkoutDraft = () => {
     try {
       const raw = localStorage.getItem(workoutDraftKey);
-      if (!raw) return null;
+      // No copy on this phone (started on another one, or handed over by the
+      // coach): open straight from what Home already read from the server.
+      if (!raw) {
+        const handed = peekOpenDraft(localStorage.getItem('userId'), loggedInUser);
+        return handed && !wasWorkoutSaved('self', handed.workoutTimerStartedAt) ? handed : null;
+      }
       const draft = JSON.parse(raw);
       // A workout already saved from this device is finished, not open.
       if (draft && wasWorkoutSaved('self', draft.workoutTimerStartedAt)) return null;
@@ -256,6 +263,24 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     }
   };
   const [savedWorkoutDraft] = useState(loadWorkoutDraft);
+  // Set when Home just started a workout (its Start cards, or exercises added
+  // from the muscle detail) and the logger isn't up yet. Opens Log Sets on a
+  // placeholder instead of whichever tab was last open.
+  const autoStartKey = `workoutTrackerAutoStart_${localStorage.getItem('userId') || loggedInUser}`;
+  const [autoStartQueued] = useState(() => {
+    try { return !!localStorage.getItem(autoStartKey); } catch { return false; }
+  });
+  const [openingLogger, setOpeningLogger] = useState(() => !savedWorkoutDraft && (autoStartQueued || getPendingWorkoutAdds().length > 0));
+  // Home already checked and nothing is open, so queued exercises don't wait
+  // for this screen's own check.
+  const [noOpenDraftKnown] = useState(() => !savedWorkoutDraft && !autoStartQueued && isKnownNoOpenDraft(localStorage.getItem('userId')));
+  useEffect(() => { clearOpenDraft(); }, []);
+  // A coach plan that never arrives must not leave the placeholder up.
+  useEffect(() => {
+    if (!openingLogger) return undefined;
+    const t = setTimeout(() => setOpeningLogger(false), 8000);
+    return () => clearTimeout(t);
+  }, [openingLogger]);
   // Canonical DB user id, resolved async on mount — needed to save/load/clear
   // this client's workout_drafts row (the DB copy of the same in-progress
   // session, which is what survives being away from the app/device and is
@@ -279,7 +304,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // wasn't the last one in its exercise.
   const { isExitingSet, beginExit, handleAnimationEnd: handleExitAnimationEnd, registerRow } = useExitingSetRow();
 
-  const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
+  const [activeView, setActiveView] = useState(savedWorkoutDraft || openingLogger ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
   // Segmented-tab taps are remembered so a reload (pull-to-refresh) returns to
   // the same sub-tab. Programmatic switches deliberately aren't — see the note
   // above lastLevelKey's effect.
@@ -478,6 +503,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // from these timestamps (never an incrementing counter), same as the coach.
   const [workoutTimerStatus, setWorkoutTimerStatus] = useState(savedWorkoutDraft?.workoutTimerStatus ?? 'idle'); // 'idle' | 'running' | 'paused'
   const [workoutTimerStartedAt, setWorkoutTimerStartedAt] = useState(savedWorkoutDraft?.workoutTimerStartedAt ?? null);
+  const timerStartedAtRef = useRef(workoutTimerStartedAt);
+  useEffect(() => { timerStartedAtRef.current = workoutTimerStartedAt; }, [workoutTimerStartedAt]);
   const [workoutPauseIntervals, setWorkoutPauseIntervals] = useState(savedWorkoutDraft?.workoutPauseIntervals ?? []); // [{ pausedAt, resumedAt }]
   // Derived, not stored — every read site below (Finish summary, live badge,
   // billing, stopwatch display) keeps using this name/shape unchanged.
@@ -583,7 +610,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // moves to reflect that the session is actually finishing today.
   useEffect(() => {
     if (!savedWorkoutDraft || !savedWorkoutDraft.logDate) return;
-    if (savedWorkoutDraft.logDate === getLocalDateString()) return;
+    if (savedWorkoutDraft.logDate === getLocalDateString()) {
+      if (savedWorkoutDraft.fromCoach) triggerToast('📲 Your coach sent you the rest of this workout. Finish the remaining exercises.');
+      return;
+    }
     setLogDate(getLocalDateString());
     if (savedWorkoutDraft.workoutTimerStatus && savedWorkoutDraft.workoutTimerStatus !== 'idle') {
       setWorkoutTimerStartedAt(Date.now());
@@ -616,7 +646,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
     const fillPendingPrev = (history) => {
       prevHistoryReadyRef.current = true;
-      setLogExercises(prev => fillPendingPrevSets(prev, (exercise, setIdx) =>
+      const withAdds = prev => fillPendingAddedSets(prev, exercise => findPreviousExerciseSetsIn(history, loggedInUser, exercise));
+      setLogExercises(prev => fillPendingPrevSets(withAdds(prev), (exercise, setIdx) =>
         findPreviousLoggedSetIn(history, loggedInUser, exercise, setIdx)));
       const pending = pendingFinisherRef.current;
       pendingFinisherRef.current = null;
@@ -939,6 +970,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // to Save — both need the exact same reset (timer, draft row, exercise
   // list) so a session can't be half-cleared by one path and not the other.
   const handleDiscardWorkout = () => {
+    forgetDiscardedDraft(workoutTimerStartedAt);
+    setOpeningLogger(false);
     resetWorkoutTimer();
     setIsLoggingWorkout(false);
     setTemplateName('');
@@ -989,10 +1022,21 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           databaseService.deleteWorkoutDraft(id, 'self').catch(() => {});
           return;
         }
+        // This is the session started on this screen a moment ago: the first
+        // autosave beat this slow read, and what's on screen is newer.
+        if (!savedWorkoutDraft && dbDraft.timerStartedAt && Number(dbDraft.timerStartedAt) === Number(timerStartedAtRef.current)) return;
         const dbTime = dbDraft.updatedAt ? new Date(dbDraft.updatedAt).getTime() : 0;
         const localTime = savedWorkoutDraft?.savedAt || 0;
         if (!savedWorkoutDraft || dbTime > localTime) {
-          if (dbDraft.exercises && dbDraft.exercises.length > 0) setLogExercises(dbDraft.exercises);
+          if (dbDraft.exercises && dbDraft.exercises.length > 0) {
+            // Exercises queued from Home that already opened a session of
+            // their own move into the one that was open all along.
+            const added = startedFromAddsRef.current;
+            startedFromAddsRef.current = [];
+            setLogExercises(prev => prev
+              .filter(ex => added.includes(ex.name) && !dbDraft.exercises.some(d => d.name.toLowerCase() === ex.name.toLowerCase()))
+              .reduce(addExerciseInOrder, dbDraft.exercises));
+          }
           // Same staleness check as the local-draft mount effect above — this
           // DB draft may be from a previous calendar day (different device,
           // or the local mirror was cleared). Never resume it pinned to that
@@ -1046,6 +1090,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // draft check above has settled, so a session restored from the DB isn't
   // clobbered by (or doesn't clobber) a freshly started one.
   const [draftCheckDone, setDraftCheckDone] = useState(false);
+  const startedFromAddsRef = useRef([]);
 
   const draftSaveTimerRef = useRef(null);
   // The draft waiting out the debounce below, if any.
@@ -2828,7 +2873,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   useEffect(() => {
     if (autoStartConsumedRef.current) return;
     autoStartConsumedRef.current = true;
-    const key = `workoutTrackerAutoStart_${localStorage.getItem('userId') || loggedInUser}`;
+    const key = autoStartKey;
     let payload = null;
     try {
       const raw = localStorage.getItem(key);
@@ -2837,14 +2882,21 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     if (!payload) return;
     try { localStorage.removeItem(key); } catch { /* ignore quota/serialization errors */ }
     if (savedWorkoutDraft) return; // already mid-session — don't clobber it
-    // Home's "New plan from your coach" card sends just the plan id — the
-    // plan itself arrives with clientPlans, so the effect below starts it.
+    // Home's "New plan from your coach" card sends the plan it's showing, so
+    // it opens at once. One without its exercises (queued by an older build)
+    // is started by the effect below, once clientPlans has it.
+    if (payload.coachPlanId && payload.coachPlan?.exercises?.length > 0) {
+      markPlanOpened(payload.coachPlanId);
+      startPlan(payload.coachPlan, 'coach');
+      setActiveView('log');
+      return;
+    }
     if (payload.coachPlanId) {
       pendingCoachPlanIdRef.current = payload.coachPlanId;
       setActiveView('log');
       return;
     }
-    if (!payload.name || !Array.isArray(payload.exercises)) return;
+    if (!payload.name || !Array.isArray(payload.exercises)) { setOpeningLogger(false); return; }
     handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null, payload.category || genericCategory, payload.priorRuns);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -3235,19 +3287,26 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // each commit instead of listed as deps (which would re-run it every render).
   const pendingAddsHelpersRef = useRef(null);
   useEffect(() => {
-    pendingAddsHelpersRef.current = { buildStartingSets, startWorkoutClock, triggerToast };
+    // Started before the history loaded: last time's sets go in once it has
+    // (see fillPendingAddedSets).
+    const markAddPending = sets => (prevHistoryReadyRef.current ? sets : sets.map(s => ({ ...s, prevPending: 'add' })));
+    pendingAddsHelpersRef.current = { buildStartingSets, startWorkoutClock, triggerToast, markAddPending };
   });
   useEffect(() => {
-    if (!draftCheckDone) return;
+    if (!draftCheckDone && !noOpenDraftKnown) return;
     const names = takePendingWorkoutAdds();
     if (!names.length) return;
-    const { buildStartingSets, startWorkoutClock, triggerToast } = pendingAddsHelpersRef.current;
-    const toEntry = name => (isBodyweightExercise(name) ? { name, sets: buildStartingSets(name), bodyweightMode: true } : { name, sets: buildStartingSets(name) });
+    const { buildStartingSets, startWorkoutClock, triggerToast, markAddPending } = pendingAddsHelpersRef.current;
+    const toEntry = name => {
+      const sets = markAddPending(buildStartingSets(name));
+      return isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets };
+    };
     if (isLoggingWorkout) {
       setLogExercises(prev => names.filter(n => !prev.some(le => le.name.toLowerCase() === n.toLowerCase())).map(toEntry).reduce(addExerciseInOrder, prev));
     } else {
       // Same as "+ Start empty workout", with the queued exercises after the warm-ups.
       setLogExercises([...getDefaultWarmupExercises(), ...names.map(toEntry)]);
+      startedFromAddsRef.current = names;
       setTemplateName('Custom Session');
       setLogClient(loggedInUser);
       setLogDate(getLocalDateString());
@@ -3257,7 +3316,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     }
     setActiveView('log');
     triggerToast(`Added ${names.join(', ')} to your workout!`);
-  }, [draftCheckDone, isLoggingWorkout, loggedInUser]);
+  }, [draftCheckDone, noOpenDraftKnown, isLoggingWorkout, loggedInUser]);
 
   // "Recent workouts" in the Existing Plan dropdown — past sessions rebuilt
   // as loadable plans, so a workout the client never ticked "Save as
@@ -3960,7 +4019,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         </div>
       )}
 
-      {activeView === 'log' && !isLoggingWorkout && (() => {
+      {activeView === 'log' && !isLoggingWorkout && openingLogger && <OpeningLogger />}
+
+      {activeView === 'log' && !isLoggingWorkout && !openingLogger && (() => {
         // startPlan is defined at component scope (see above) — shared with
         // the Home screen's coach-plan deep link.
         // "Top 10" means best-PERFORMED, not most recent: ranked by each

@@ -3,7 +3,11 @@
 .workout-progress-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* Home scrolls in here, not in .main-content, so it has to run down through
+     .main-content's bottom padding itself. At a plain 100% it stopped 90px
+     short and its cards were cut in a straight line above the bottom tabs. */
+  height: calc(100% + var(--safe-bottom));
+  margin-bottom: calc(-1 * var(--safe-bottom));
   width: 100%;
   /* Edge-to-edge: no side gutters — cards/sections span the full screen
      width. Vertical padding kept; horizontal removed. Direct children that

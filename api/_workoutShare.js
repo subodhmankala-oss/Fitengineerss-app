@@ -11,7 +11,7 @@ const ROW_SELECT = 'id,user_id,log_date,exercise_name,set_number,reps,weight_kg,
 const enc = encodeURIComponent;
 // Base64 JPEG (they all start /9j/).
 const IMAGE_RE = /^\/9j\/[A-Za-z0-9+/]+={0,2}$/;
-const SHARE_SELECT = 'token,user_id,log_date,session_keys,show_name,show_map,show_weights,show_calories,body_sex';
+const SHARE_SELECT = 'token,user_id,log_date,session_keys,show_name,show_photo,show_map,show_weights,show_calories,body_sex';
 
 export function makeRest({ supabaseUrl, serviceKey, fetchImpl = (...a) => fetch(...a) }) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
@@ -44,13 +44,14 @@ const toShare = (row) => ({
   logDate: row.log_date,
   key: row.share_key,
   showName: row.show_name,
+  showPhoto: row.show_photo,
   showMap: row.show_map,
   showWeights: row.show_weights,
   showCalories: row.show_calories,
 });
 
 const listShares = async (rest, userId) => (await rest.get(
-  `workout_shares?user_id=eq.${enc(userId)}&active=is.true&select=token,log_date,share_key,show_name,show_map,show_weights,show_calories&order=log_date.desc&limit=1000`
+  `workout_shares?user_id=eq.${enc(userId)}&active=is.true&select=token,log_date,share_key,show_name,show_photo,show_map,show_weights,show_calories&order=log_date.desc&limit=1000`
 )).map(toShare);
 
 const clip = (v, max) => String(v ?? '').trim().slice(0, max);
@@ -58,8 +59,9 @@ const wholeNumber = (v) => (Number.isFinite(Number(v)) && v != null ? Math.max(0
 
 // Owner's side. `userId` is the verified caller, never taken from the body.
 // ops: list
-//      prepare { logDate, key, token, image, bodySex, title, sets, durationSeconds }
-//        — uploads the message picture; the link stays off
+//      prepare { logDate, key, token, image, shows, flags, bodySex, title, sets,
+//        durationSeconds } — uploads the message picture (shows: pictureShows);
+//        the link stays off
 //      save { logDate, key, token, flags, bodySex, title, sets, durationSeconds }
 //      flags { logDate, key, flags } — what shows, nothing else (also on a
 //        prepared link that isn't on yet)
@@ -82,13 +84,21 @@ export async function ownerShareOp(rest, userId, body) {
 
   const flagCols = {
     show_name: body.flags?.showName !== false,
+    show_photo: body.flags?.showPhoto === true,
     show_map: body.flags?.showMap !== false,
     show_weights: body.flags?.showWeights !== false,
     show_calories: body.flags?.showCalories !== false,
     updated_at: new Date().toISOString(),
   };
+  // A stored picture carrying something now switched off goes at once (the
+  // sheet then stores a new one).
+  const dropStalePicture = async () => {
+    const stale = !flagCols.show_photo ? 'picture_shows=not.is.null' : !flagCols.show_name ? 'picture_shows=eq.photo-name' : null;
+    if (stale) await rest.write(`${match}&${stale}`, 'PATCH', { preview_image: null, picture_shows: null });
+  };
   if (op === 'flags') {
     await rest.write(match, 'PATCH', flagCols);
+    await dropStalePicture();
     return done();
   }
 
@@ -115,11 +125,12 @@ export async function ownerShareOp(rest, userId, body) {
   const fresh = { user_id: userId, log_date: logDate, share_key: key, token };
 
   if (op === 'prepare') {
-    if (existing) await rest.write(match, 'PATCH', { ...facts, preview_image: image, ...(existing.active ? {} : { ...flagCols, token }) });
+    const picture = { preview_image: image, picture_shows: ['photo', 'photo-name'].includes(body.shows) ? body.shows : null };
+    if (existing) await rest.write(match, 'PATCH', { ...facts, ...picture, ...(existing.active ? {} : { ...flagCols, token }) });
     // The link may be sent (saved) at this very moment: then that row stands.
     else {
-      await rest.write('workout_shares?on_conflict=user_id,share_key', 'POST', { ...fresh, ...facts, ...flagCols, preview_image: image, active: false }, 'resolution=ignore-duplicates,return=minimal');
-      await rest.write(match, 'PATCH', { preview_image: image });
+      await rest.write('workout_shares?on_conflict=user_id,share_key', 'POST', { ...fresh, ...facts, ...flagCols, ...picture, active: false }, 'resolution=ignore-duplicates,return=minimal');
+      await rest.write(match, 'PATCH', picture);
     }
     return done();
   }
@@ -137,6 +148,7 @@ export async function ownerShareOp(rest, userId, body) {
   // A link already out there keeps working; only its settings change. The
   // reply carries the token really in use.
   if (existing) await rest.write(match, 'PATCH', existing.active ? row : { ...row, token, active: true });
+  await dropStalePicture();
   return done();
 }
 
@@ -162,12 +174,12 @@ export async function readSharedWorkout(rest, token, { withBests = true } = {}) 
   const rows = (await dayRows(rest, share.user_id, share.log_date)).filter(r => keys.has(sessionKeyOf(r)));
   if (rows.length === 0) return null;
   const [users, previousBests] = await Promise.all([
-    share.show_name ? rest.get(`users?id=eq.${enc(share.user_id)}&select=full_name&limit=1`) : [],
+    share.show_name || share.show_photo ? rest.get(`users?id=eq.${enc(share.user_id)}&select=full_name,avatar_url&limit=1`) : [],
     withBests && share.show_weights
       ? bestsBefore(rest, share.user_id, share.log_date, [...new Set(rows.map(r => r.exercise_name))])
       : {},
   ]);
-  return shapeSharedWorkout({ share, rows, fullName: users[0]?.full_name, previousBests });
+  return shapeSharedWorkout({ share, rows, fullName: users[0]?.full_name, avatarUrl: users[0]?.avatar_url, previousBests });
 }
 
 // A link being sent: chat apps look at it the moment it lands in the message

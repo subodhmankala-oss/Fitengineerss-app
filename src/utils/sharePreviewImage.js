@@ -1,8 +1,9 @@
 // The picture chat apps show on a shared workout's message: name, sets, time
-// and the muscle map. Drawn in the owner's browser (the body drawings live
+// and the muscle map, plus the person when they chose to show their photo. Drawn in the owner's browser (the body drawings live
 // there) and stored with the link, so it goes away when sharing stops. It
-// carries no weights, calories or person's name.
+// carries no weights or calories.
 import { getBodyArt, recolorSvg, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT } from '../components/MuscleAnalytics/muscleBodyShapes';
+import { getAvatarColor } from './avatarUtil';
 import { workoutNameParts, workoutNameTags } from './workoutNameParts';
 import { HELPED_MUSCLE_COLOR, MAIN_MUSCLE_COLOR } from './workoutShare';
 
@@ -12,8 +13,10 @@ const BODY_W = 236;
 const BODY_H = Math.round(BODY_W * (369 / 200));
 const SCALE = BODY_W / 200;
 
-const loadImage = (src) => new Promise((resolve, reject) => {
+const loadImage = (src, cors) => new Promise((resolve, reject) => {
   const img = new Image();
+  // Google answers 429 to photo requests that name another site.
+  if (cors) { img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'; }
   img.onload = () => resolve(img);
   img.onerror = () => reject(new Error('preview image part failed to load'));
   img.src = src;
@@ -98,11 +101,14 @@ export function wrapLines(measure, text, width, max) {
 }
 
 /** The picture as base64 JPEG (no data: prefix), or null if it can't be drawn. */
-export async function drawSharePreview({ title, sets, durationSeconds, muscles, sex }) {
+// `person`: { name, photoUrl } when their photo is on (name null when that is
+// off); without a photo the name's first letter stands in.
+export async function drawSharePreview({ title, sets, durationSeconds, muscles, sex, person = null }) {
   try {
     const colors = Object.fromEntries(muscles.map(m => [m.muscle, m.main ? MAIN_MUSCLE_COLOR : HELPED_MUSCLE_COLOR]));
-    const [front, back, logo] = await Promise.all([
+    const [front, back, logo, face] = await Promise.all([
       drawBody(sex, 'front', colors), drawBody(sex, 'back', colors), loadImage('/logo.png').catch(() => null),
+      person?.photoUrl ? loadImage(person.photoUrl, true).catch(() => null) : null,
       ...['600 32px Outfit', '600 18px Outfit', '600 21px Outfit', '700 24px Outfit', '500 24px Outfit'].map(f => document.fonts?.load(f).catch(() => null)),
     ]);
     const canvas = newCanvas(PREVIEW_W, PREVIEW_H);
@@ -126,18 +132,57 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     ctx.fillText('Fitengineers', x + (logo ? 56 : 0), 70);
 
     // Says what this is to someone who doesn't know the app.
-    ctx.strokeStyle = '#34d399';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + 2, 138);
-    ctx.lineTo(x + 8, 144);
-    ctx.lineTo(x + 19, 131);
-    ctx.stroke();
-    font(600, 21);
-    ctx.fillStyle = '#34d399';
-    ctx.fillText('Workout completed', x + 30, 145);
+    const completed = (cx, cy) => {
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx + 2, cy - 7);
+      ctx.lineTo(cx + 8, cy - 1);
+      ctx.lineTo(cx + 19, cy - 14);
+      ctx.stroke();
+      font(600, 21);
+      ctx.fillStyle = '#34d399';
+      ctx.fillText('Workout completed', cx + 30, cy);
+    };
+    const letter = person?.name ? person.name[0].toUpperCase() : '';
+    const showPerson = !!(face || letter);
+    if (showPerson) {
+      const r = 38;
+      const cx = x + r;
+      const cy = 104 + r;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+      if (face) {
+        ctx.drawImage(face, cx - r, cy - r, r * 2, r * 2);
+      } else {
+        ctx.fillStyle = getAvatarColor(person.name);
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        font(700, 34);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(letter, cx - ctx.measureText(letter).width / 2, cy + 12);
+      }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 1, 0, Math.PI * 2);
+      ctx.stroke();
+      const tx = x + r * 2 + 18;
+      if (person.name) {
+        font(600, 29);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(wrapLines(s => ctx.measureText(s).width, person.name, 300, 1)[0] || '', tx, 138);
+        completed(tx, 169);
+      } else {
+        completed(tx, 150);
+      }
+    } else {
+      completed(x, 145);
+    }
 
     const parts = workoutNameParts(title);
     const tags = workoutNameTags(parts);
@@ -147,7 +192,7 @@ export async function drawSharePreview({ title, sets, durationSeconds, muscles, 
     let lines = wrapLines(measure, parts.name, 400, 9);
     const small = lines.length > 2;
     if (small) { font(600, 26); lines = wrapLines(measure, parts.name, 400, 3); }
-    let y = small ? 184 : 188;
+    let y = (small ? 184 : 188) + (showPerson ? 36 : 0);
     const lineStep = small ? 34 : 40;
     lines.forEach(l => { text(l, y, '#ffffff'); y += lineStep; });
     const lastLineWidth = measure(lines[lines.length - 1] || '');

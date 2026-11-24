@@ -5,8 +5,9 @@ import { isBodyweightExercise } from '../data/exerciseLibrary.js';
 
 export { SHARE_TOKEN_RE, shareTokenFromPath } from './shareToken.js';
 
-export const SHARE_FLAGS = ['showName', 'showMap', 'showWeights', 'showCalories'];
-export const DEFAULT_SHARE_FLAGS = { showName: true, showMap: true, showWeights: true, showCalories: true };
+// A face is more private than the rest, so the photo starts off.
+export const DEFAULT_SHARE_FLAGS = { showName: true, showPhoto: false, showMap: true, showWeights: true, showCalories: true };
+export const flagsOf = (share) => Object.fromEntries(Object.entries(DEFAULT_SHARE_FLAGS).map(([k, d]) => [k, share?.[k] ?? d]));
 
 // 128 random bits. Made in the browser so the link is known the instant
 // WhatsApp opens (opening it after a network wait gets blocked on phones).
@@ -78,9 +79,20 @@ export function firstNameOf(fullName) {
   return !first || first.toLowerCase() === 'warrior' || first.includes('@') ? null : first.slice(0, 30);
 }
 
+// The person's Google photo at `size` px, or null. Only Google's own host:
+// this address is opened on strangers' phones.
+export function googlePhotoUrl(avatarUrl, size = 192) {
+  const m = /^https:\/\/lh3\.googleusercontent\.com\/[\w\-/.]+(=[\w-]*)?$/.exec(String(avatarUrl || ''));
+  return m ? `${String(avatarUrl).replace(/=[\w-]*$/, '')}=s${size}-c` : null;
+}
+
+// What of the person the message picture shows: their photo, with or without
+// the name. null = neither (the photo is off).
+export const pictureShows = (flags) => (!flags.showPhoto ? null : flags.showName ? 'photo-name' : 'photo');
+
 // Server: saved rows → the only fields a visitor ever receives. Switched-off
 // parts are left out here, not hidden in the page.
-export function shapeSharedWorkout({ share, rows, fullName, previousBests = {} }) {
+export function shapeSharedWorkout({ share, rows, fullName, avatarUrl, previousBests = {} }) {
   const seen = new Set();
   let durationSeconds = null;
   let calories = null;
@@ -123,6 +135,8 @@ export function shapeSharedWorkout({ share, rows, fullName, previousBests = {} }
     title: rows.find(r => r.plan_name)?.plan_name || 'Workout',
     date: share.log_date,
     name: share.show_name ? firstNameOf(fullName) : null,
+    showPhoto: !!share.show_photo,
+    photo: share.show_photo ? googlePhotoUrl(avatarUrl) : null,
     durationSeconds,
     calories: share.show_calories && calories != null ? Math.round(calories) : null,
     showMap: !!share.show_map,

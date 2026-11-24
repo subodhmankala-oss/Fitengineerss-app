@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 
 vi.mock('../services/databaseService', () => ({
@@ -31,7 +31,15 @@ function mockLibrary({ gym = {}, home = {} } = {}) {
   });
 }
 
+// The logs below have fixed dates, and a level steps up after 12 weeks: on
+// 2026-11-24 the real date put 2026-09-01 past that and these tests broke.
+// Only Date is pinned; timers stay real.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-10T12:00:00') });
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   localStorage.clear();
   sessionStorage.clear();

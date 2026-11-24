@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickNextBeginnerProgram, determineWorkoutGuidance } from './beginnerGuidance';
+import { pickNextBeginnerProgram, determineWorkoutGuidance, weekOfLevel } from './beginnerGuidance';
 
 const programs = [
   { name: 'Beginner Full Body A' },
@@ -235,5 +235,31 @@ describe('determineWorkoutGuidance with a chosen level (12 weeks per level)', ()
   it('falls back to the tenure logic when the chosen level has no programs', () => {
     const g = determineWorkoutGuidance(lib, [], at('2026-10-30'), { level: 'intermediate', category: 'home', since: '2026-10-29' });
     expect(g.reason).toBe('no-sessions');
+  });
+});
+
+describe('weekOfLevel', () => {
+  const on = (d) => new Date(`${d}T12:00:00`);
+  const pref = { level: 'beginner', category: 'gym', since: '2026-09-07' };
+
+  it('counts from the day the level was chosen', () => {
+    expect(weekOfLevel('beginner', [], on('2026-09-07'), pref)).toBe(1);
+    expect(weekOfLevel('beginner', [], on('2026-09-21'), pref)).toBe(3);
+    expect(weekOfLevel('beginner', [], on('2026-11-29'), pref)).toBe(12);
+  });
+
+  it('stays at 12 until the level changes over, then starts again', () => {
+    expect(weekOfLevel('beginner', [], on('2026-12-02'), pref)).toBe(12);
+    expect(weekOfLevel('intermediate', [], on('2026-12-02'), pref)).toBe(1);
+  });
+
+  it('with no level chosen, counts from the first session', () => {
+    const sessions = [{ date: '2026-09-21', planName: 'x' }, { date: '2026-09-07', planName: 'x' }];
+    expect(weekOfLevel('beginner', sessions, on('2026-09-28'))).toBe(4);
+  });
+
+  it('none on Advanced, or ahead of the clock', () => {
+    expect(weekOfLevel('advanced', [], on('2026-09-21'), { ...pref, level: 'advanced' })).toBeNull();
+    expect(weekOfLevel('intermediate', [{ date: '2026-09-07', planName: 'x' }], on('2026-09-28'))).toBeNull();
   });
 });

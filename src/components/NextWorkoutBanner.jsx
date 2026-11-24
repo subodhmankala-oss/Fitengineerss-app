@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
-import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
+import { determineWorkoutGuidance, weekOfLevel } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
 import WeekPlanCard from './WeekPlanCard';
@@ -207,6 +207,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
     <WeekPlanCard
       plan={plan}
       levelLabel={`${levelLabel} · ${category === 'home' ? 'Home' : 'Gym'}`}
+      levelWeek={weekOfLevel(level, loggedDays, parseLocalDateString(today), pref)}
       note={note}
       days={days}
       hintKey={`nextWorkoutSwipeHintSeen_${userId}`}

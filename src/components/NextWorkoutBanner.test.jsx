@@ -265,6 +265,19 @@ describe('NextWorkoutBanner — the week', () => {
     expect(exerciseNames()).not.toContain('Neglected muscle');
   });
 
+  it('the bar shows how far through the level’s 12 weeks, and Advanced has none', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner, advanced: [{ name: 'Advanced Push', exercises: [] }] } });
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-10-26' });
+    const { unmount } = show({ logs: lastWeek }); // 16 days in
+    const bar = await screen.findByRole('progressbar', { name: 'Beginner · Gym, week 3 of 12' });
+    expect(bar.firstChild.style.width).toBe('25%');
+    unmount();
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'advanced', category: 'gym', since: '2026-10-26' });
+    show({ logs: lastWeek });
+    await screen.findByRole('button', { name: 'See workout' });
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
   it('another day can be opened and started from the sheet', async () => {
     mockLibrary({ gym: { beginner: realBeginner } });
     const onNavigate = vi.fn();

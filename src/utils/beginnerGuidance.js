@@ -76,7 +76,7 @@ const CATEGORIES = ['gym', 'home'];
 // different purpose (gating which tier a coach sees a client at); kept
 // fully separate on purpose rather than unified, so this doesn't touch
 // coach-facing UI coaches already rely on.
-const WEEKS_PER_LEVEL = 12;
+export const WEEKS_PER_LEVEL = 12;
 
 // Distinct program names (squashed) from `programs` that appear anywhere in
 // `sessions` — used only for the "never go backward" floor below (has the
@@ -210,6 +210,22 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now(), pr
   if (reason === 'no-beginner-session' && level !== 'beginner') reason = 'leveled-up';
 
   return { category, level, program: pick.program, reason, lastProgram: pick.lastProgram };
+}
+
+// Which week (1–12) of `level` the client is in, on the same clock that
+// decides the level: the chosen level's start date, or with none chosen the
+// first-ever session. Null on Advanced (nothing to step up to), and for a
+// client placed ahead of that clock, whose step-up it doesn't decide.
+export function weekOfLevel(level, sessions, now = Date.now(), pref = null) {
+  const at = LEVELS.indexOf(level);
+  if (at < 0 || at === LEVELS.length - 1) return null;
+  const chosen = LEVELS.includes(pref?.level) && CATEGORIES.includes(pref?.category);
+  const nowMs = now instanceof Date ? now.getTime() : now;
+  const startDate = chosen ? pref.since : (sessions || []).map(s => s.date).filter(Boolean).sort()[0];
+  const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : nowMs;
+  const weeks = Math.max(0, (nowMs - startMs) / (7 * 24 * 60 * 60 * 1000));
+  const weeksIn = weeks - WEEKS_PER_LEVEL * (at - (chosen ? LEVELS.indexOf(pref.level) : 0));
+  return weeksIn < 0 ? null : Math.min(WEEKS_PER_LEVEL, Math.floor(weeksIn) + 1);
 }
 
 // The chosen-level path of determineWorkoutGuidance. Null (fall back to the

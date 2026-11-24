@@ -23,6 +23,24 @@
   padding-right: 12px;
 }
 
+/* How far through the level (week 3 of 12), where the dividing line was. */
+.wpc-level {
+  height: 5px;
+  margin: 2px 12px 0;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(var(--fg-rgb), 0.12);
+}
+
+.wpc-level span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--primary-accent);
+}
+
+.wpc-see.lined { border-top: 1px solid var(--border-color); }
+
 .wpc-see {
   display: flex;
   align-items: center;
@@ -32,7 +50,6 @@
   min-height: 38px;
   padding: 0;
   border: 0;
-  border-top: 1px solid var(--border-color);
   background: none;
   font-family: inherit;
   font-size: 0.82rem;

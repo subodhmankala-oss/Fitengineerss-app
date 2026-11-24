@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import SwipeToHide from './SwipeToHide';
 import WeekWorkoutSheet from './WeekWorkoutSheet';
 import { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
+import { WEEKS_PER_LEVEL } from '../utils/beginnerGuidance';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './WeekPlanCard.css';
 
@@ -17,10 +18,12 @@ const HEAT = { main: '#ef4444', also: '#f59e0b' };
  * Change days); the play button starts it straight away. Swipe left to hide
  * it for the week.
  *
+ * levelWeek: week 1–12 of the level, drawn as the bar above "See workout";
+ * null = no bar (Advanced has no next level).
  * plan: buildWeekPlan() · sessionFor(slot): what the logger will build ·
  * loggedFor(slot): what was saved for a done one · note: replaces "Day 2 of 4".
  */
-export default function WeekPlanCard({ plan, levelLabel, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide }) {
+export default function WeekPlanCard({ plan, levelLabel, levelWeek, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide }) {
   const [open, setOpen] = useState(false);
   const { slots, main, doneCount, weekDone, nextWeek, nextProgram } = plan;
 
@@ -75,8 +78,20 @@ export default function WeekPlanCard({ plan, levelLabel, note, days, hintKey, se
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11-6.86a1 1 0 0 0 0-1.7l-11-6.86A1 1 0 0 0 8 5.14z" /></svg>
             </button>
           </div>
+          {levelWeek && (
+            <div
+              className="wpc-level"
+              role="progressbar"
+              aria-label={`${levelLabel}, week ${levelWeek} of ${WEEKS_PER_LEVEL}`}
+              aria-valuemin={0}
+              aria-valuemax={WEEKS_PER_LEVEL}
+              aria-valuenow={levelWeek}
+            >
+              <span style={{ width: `${(levelWeek / WEEKS_PER_LEVEL) * 100}%` }} />
+            </div>
+          )}
           {/* Says the card opens; nothing else on it did (2026-11-25). */}
-          <button type="button" className="wpc-see" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          <button type="button" className={`wpc-see ${levelWeek ? '' : 'lined'}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
             See workout
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
           </button>

@@ -76,6 +76,13 @@ describe('determineWorkoutGuidance', () => {
   // wall clock, so these can't drift or flake as actual time passes.
   const NOW = new Date('2026-12-01T00:00:00').getTime();
   const daysBeforeNow = (days) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // A workout every 4 days from then on: time away would hold a level back
+  // (see levelClock).
+  const trainingSince = (days, planName) => {
+    const out = [];
+    for (let d = days; d >= 1; d -= 4) out.push({ date: daysBeforeNow(d), planName });
+    return out;
+  };
   const ONE_LEVEL_WEEKS = 12; // must match WEEKS_PER_LEVEL in beginnerGuidance.js
 
   it('returns null when neither category has any programs', () => {
@@ -117,9 +124,7 @@ describe('determineWorkoutGuidance', () => {
   });
 
   it('levels up to Intermediate once ~3 months have passed since the first-ever session, even with zero Intermediate activity', () => {
-    const sessions = [
-      { date: daysBeforeNow(ONE_LEVEL_WEEKS * 7 + 7), planName: 'Custom Routine' } // 13 weeks — comfortably past 3 months, never did a named Beginner program
-    ];
+    const sessions = trainingSince(ONE_LEVEL_WEEKS * 7 + 7, 'Custom Routine');
     const result = determineWorkoutGuidance(library, sessions, NOW);
     expect(result.category).toBe('gym');
     expect(result.level).toBe('intermediate');
@@ -139,9 +144,7 @@ describe('determineWorkoutGuidance', () => {
   });
 
   it('levels up to Advanced once ~6 months have passed since the first-ever session', () => {
-    const sessions = [
-      { date: daysBeforeNow(ONE_LEVEL_WEEKS * 2 * 7 + 7), planName: 'Gym Beginner A' } // 25 weeks — comfortably past 6 months
-    ];
+    const sessions = trainingSince(ONE_LEVEL_WEEKS * 2 * 7 + 7, 'Gym Beginner A');
     const result = determineWorkoutGuidance(library, sessions, NOW);
     expect(result.level).toBe('advanced');
     expect(result.reason).toBe('leveled-up');

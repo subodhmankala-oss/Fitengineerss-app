@@ -3043,19 +3043,24 @@ html.keyboard-open .rest-timer-floating-card {
   animation: restTimerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Coach side has no bottom tabs to clear (that 78px of bottom padding is for
-   the client's), and sits inside a bordered panel rather than
-   full-bleed against the screen edge — a small fixed gap + rounded corners
-   reads better there than edge-to-edge. */
+/* Coach on phones: the client's card, with the same floating tabs over its
+   bottom edge (z 998, .bottom-nav--coach). Desktop has no bottom tabs to clear,
+   so a small fixed gap + rounded corners. */
 .rest-timer-floating-card--coach {
-  bottom: 12px;
-  padding-bottom: 14px;
-  left: 8px;
-  right: 8px;
-  width: auto;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(var(--accent-rgb), 0.25);
-  border-top: 2px solid #3b82f6;
+  z-index: 997;
+}
+
+@media (min-width: 900px) {
+  .rest-timer-floating-card--coach {
+    bottom: 12px;
+    padding-bottom: 14px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(var(--accent-rgb), 0.25);
+    border-top: 2px solid #3b82f6;
+  }
 }
 
 @keyframes restTimerFadeIn {

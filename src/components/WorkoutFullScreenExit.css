@@ -93,7 +93,7 @@ body.workout-full-screen .hevy-logger-wrapper > .exercises-form-section {
   }
 }
 
-body.workout-full-screen .rest-timer-floating-card:not(.rest-timer-floating-card--coach) {
+body.workout-full-screen .rest-timer-floating-card {
   padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }
 

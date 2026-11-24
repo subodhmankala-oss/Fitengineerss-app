@@ -1566,9 +1566,8 @@
     white-space: nowrap;
   }
 
-  /* Header as its own card — same surface and border as the tabs band
-     below. Under 768px it runs edge to edge instead (useFullBleed adds
-     .is-full-bleed) and joins the tabs band into one panel, below. */
+  /* Header as its own card. Under 768px it runs edge to edge instead
+     (useFullBleed adds .is-full-bleed, below). */
   .client-detail-view .client-detail-header {
     gap: 10px !important;
     padding: 10px 12px;
@@ -2164,17 +2163,13 @@
   }
 }
 
-/* Phones: header + tabs as one full-width panel. The header loses its side
-   borders and corners, its bottom edge meets the tabs band (whose usual top
-   line is the divider — kept full strength so the active tab's pill never
-   looks like it spills into the header, esp. in light mode), and its content is padded back in line with the
-   cards. With the details card open, the card sits between them, so the
-   header closes with its own bottom line. */
+/* Phones: the header runs edge to edge. It loses its side borders and corners,
+   and its content is padded back in line with the cards. */
 .client-detail-view .client-detail-header.is-full-bleed {
   border-left: none;
   border-right: none;
   border-top: 1.5px solid var(--border-strong);
-  border-bottom: none;
+  border-bottom: 1.5px solid var(--border-strong);
   border-radius: 0;
   /* The page insets rows with their own --screen-gutter padding (not the
      parent's), so the bleed measured here is often 0 — keep the gutter and
@@ -2185,10 +2180,6 @@
 
 .client-detail-view:not(.is-card-open) .client-detail-header.is-full-bleed {
   margin-bottom: 0 !important;
-}
-
-.client-detail-view.is-card-open .client-detail-header.is-full-bleed {
-  border-bottom: 1.5px solid var(--border-strong);
 }
 
 /* Unattach client: a ⋮ menu at the end of the header on desktop; on phones

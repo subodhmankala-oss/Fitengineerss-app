@@ -14,9 +14,8 @@
 
 .coach-tabs-track {
   position: relative;
-  /* Each tab as wide as its content, spare room spread between them — so
-     "Measurements" shows in full on a phone. The pill is placed over the
-     active tab by CoachDetailTabs (it measures the tab). */
+  /* Each tab as wide as its content, spare room spread between them. The pill
+     is placed over the active tab by CoachDetailTabs (it measures the tab). */
   display: flex;
   justify-content: space-between;
   gap: 2px;
@@ -80,9 +79,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.coach-tab-label .short { display: none; }
 .coach-tab-unread { position: absolute; top: -3px; right: -8px; }
-.coach-tab-live-head { display: none; }
 
 .coach-tab-status {
   display: flex;
@@ -119,94 +116,31 @@
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 
-@media (max-width: 600px) {
-  .coach-tab-label .long { display: none; }
-  .coach-tab-label .short { display: inline; }
-  /* Tighter on phones so all four tabs — "Measurements" in full — fit. */
-  .coach-tabs-track { gap: 0; }
-  .coach-tabs .coach-tab { padding: 8px 6px 7px; }
-  .coach-tab-head { gap: 4px; }
-  .coach-tab-head svg { width: 13px; height: 13px; }
-  .coach-tab-label { font-size: 0.72rem; }
-  .coach-tab-status { font-size: 0.66rem; gap: 4px; }
-}
-/* Narrow phones (360px Android and below): drop the small icons so every
-   label and status still reads in full. */
-@media (max-width: 370px) {
-  .coach-tab-head svg { display: none; }
-}
-@media (min-width: 601px) {
-  .coach-tab-label .long { display: inline; }
-  .coach-tab-label .short { display: none; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .coach-tabs-pill,
   .coach-tabs-pill.is-sliding { transition: none; }
   .coach-tab-live { animation: none; }
 }
 
-/* Phones: a full-width band like a tab bar — useFullBleed stretches the track
-   to the screen edges (adds .is-full-bleed + --bleed-left/right). Side
-   borders and rounded ends go, top and bottom lines stay, and the tabs are
-   padded back in by exactly the stretch so they line up with the cards. */
-.coach-tabs-track.is-full-bleed {
-  border-left: none;
-  border-right: none;
-  border-top: 1.5px solid var(--border-strong);
-  border-bottom: 1.5px solid var(--border-strong);
-  border-radius: 0;
-  padding-left: var(--bleed-left, 8px);
-  padding-right: var(--bleed-right, 8px);
+/* Phones: the tabs float at the bottom (BottomIsland), leaving only the gap
+   between the client header and the page, and room to scroll the page's last
+   row clear of them. */
+.coach-tabs.is-island {
+  height: 16px;
+  margin-bottom: 0;
 }
 
-/* Phones: the selected tab is marked by a coloured underline that slides
-   between tabs (same pill element, reshaped) instead of a tinted box — the
-   client header above has no boxes either. */
-@media (max-width: 899px) {
-  .coach-tabs-pill {
-    top: auto;
-    bottom: 0;
-    height: 2.5px;
-    border-radius: 2px 2px 0 0;
-    background: var(--tone);
-    box-shadow: none;
-  }
+.client-detail-view:has(.coach-tabs.is-island) {
+  padding-bottom: calc(var(--safe-bottom) - 24px);
 }
 
-/* Phones: each tab is an equal column — icon over a short name ("Plan",
-   "Log", "History", "Body"), no status line. Icons are grey until the tab
-   is active, then take its colour with the name; the sliding underline
-   spans the whole tab. The Log tab keeps its pulsing dot while the clock
-   runs. */
-@media (max-width: 899px) {
-  .coach-tab-status { display: none; }
-  .coach-tab-label .long { display: none; }
-  .coach-tab-label .short { display: inline; }
-  .coach-tabs-track { gap: 0; }
-  .coach-tabs .coach-tab {
-    flex: 1 1 0;
-    align-items: center;
-    padding: 10px 4px 9px;
-  }
-  .coach-tab-head {
-    flex-direction: column;
-    gap: 5px;
-  }
-  .coach-tabs .coach-tab-head svg {
-    display: block;
-    width: 18px;
-    height: 18px;
-    color: var(--text-muted);
-    opacity: 1;
-  }
-  .coach-tabs .coach-tab.active .coach-tab-head svg { color: var(--tone); }
-  .coach-tab-label { font-size: 0.8rem; font-weight: 600; }
-  .coach-tab.active .coach-tab-label { color: var(--tone); }
-  .coach-tab-live-head {
-    display: block;
-    position: absolute;
-    top: 0;
-    right: calc(50% - 16px);
-  }
+/* Nothing to clear while they're out of the way. */
+body.workout-full-screen .client-detail-view:has(.coach-tabs.is-island),
+html.keyboard-open .client-detail-view:has(.coach-tabs.is-island) {
+  padding-bottom: 0;
+}
+
+/* From here the header is a card with its own gap below. */
+@media (min-width: 768px) {
+  .coach-tabs.is-island { height: 4px; }
 }

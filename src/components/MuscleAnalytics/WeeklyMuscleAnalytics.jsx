@@ -363,7 +363,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           <>
             <p className="muscle-analytics-subtext">Muscles with zero sets logged this {period}.</p>
             {pickedStrip}
-            <NeglectedMuscles logs={logs} weeklyMuscleStats={muscleStats} period={period} onAddExercise={onAddExercise ? trackAdd : null} onRemoveExercise={onRemoveExercise ? trackRemove : null} addedNames={addedNames} addTargetLabel={addTargetLabel} />
+            <NeglectedMuscles logs={logs} weeklyMuscleStats={muscleStats} period={period} onAddExercise={onAddExercise ? trackAdd : null} onRemoveExercise={onRemoveExercise ? trackRemove : null} addedNames={addedNames} />
           </>
         )}
       </div>

@@ -38,7 +38,7 @@ const holdInPlace = (chip) => {
  * muscle detail screen (see MuscleRegionBreakdown). Without onAddExercise the
  * suggestions stay plain labels.
  */
-const NeglectedMuscles = ({ logs, weeklyMuscleStats, period = 'week', onAddExercise = null, onRemoveExercise = null, addedNames = [], addTargetLabel = null }) => {
+const NeglectedMuscles = ({ logs, weeklyMuscleStats, period = 'week', onAddExercise = null, onRemoveExercise = null, addedNames = [] }) => {
   const added = new Set(addedNames.map(n => n.toLowerCase()));
   const neglected = useMemo(() => {
     return weeklyMuscleStats
@@ -81,9 +81,7 @@ const NeglectedMuscles = ({ logs, weeklyMuscleStats, period = 'week', onAddExerc
                 </span>
               </div>
               <div className="neglected-recs">
-                <span className="neglected-recs-label">
-                  {onAddExercise ? `Tap to add to ${addTargetLabel || 'your workout'}` : 'Recommended exercises'}
-                </span>
+                <span className="neglected-recs-label">Suggested exercises</span>
                 <div className="neglected-recs-list">
                   {recommendedExercises.map(ex => {
                     if (!onAddExercise) return <span key={ex} className="neglected-rec-chip">{ex}</span>;

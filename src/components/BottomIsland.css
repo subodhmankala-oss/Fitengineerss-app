@@ -52,6 +52,10 @@
 .bottom-island {
   position: relative;
   display: flex;
+  /* Sized from the tab count, not left to the browser: with four tabs some
+     phones sized the capsule for the open tab alone and the rest spilled out. */
+  flex-shrink: 0;
+  width: calc(var(--island-tab) * (var(--count, 3) - 1) + var(--island-open) + 8px);
   height: 46px;
   padding: 4px;
   border-radius: 23px;

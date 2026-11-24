@@ -2704,6 +2704,13 @@ div.live-timer-bar > .live-timer-end {
    accessory bar, and one animation we fully control. `.set-value-btn` reuses
    the same look the old <input> had; scroll-margin-block leaves it room to
    breathe when scrolled into view above the pad instead of hugging the edge. */
+.set-value-btn,
+.btn-hevy-check,
+.btn-add-set-link {
+  /* No double-tap-zoom wait before a tap counts. */
+  touch-action: manipulation;
+}
+
 .set-value-btn {
   font-family: inherit;
   appearance: none;

@@ -10,9 +10,28 @@ const byNewestFirst = (a, b) => new Date(b.date) - new Date(a.date);
 
 // clientName null = the list is already one client's history (the coach
 // Live Log's workoutLogs), so nothing to filter.
-const clientSessionsNewestFirst = (sessions, clientName) => (sessions || [])
+const sortSessions = (sessions, clientName) => sessions
   .filter(s => clientName == null || (s.clientName || '').toLowerCase() === clientName.toLowerCase())
   .sort(byNewestFirst);
+
+// The PREV column asks once per set row on every render — each keystroke and
+// each second of the running clock — so the sorted history and each
+// exercise's past entries are worked out once per session list (a new list is
+// a new array, so it starts fresh; the length check covers one grown in place).
+const historyCache = new WeakMap();
+const historyFor = (sessions, clientName) => {
+  if (!Array.isArray(sessions)) return { newestFirst: [], byExercise: new Map() };
+  let cached = historyCache.get(sessions);
+  if (!cached || cached.length !== sessions.length) {
+    cached = { length: sessions.length, clients: new Map() };
+    historyCache.set(sessions, cached);
+  }
+  const key = clientName == null ? null : clientName.toLowerCase();
+  if (!cached.clients.has(key)) {
+    cached.clients.set(key, { newestFirst: sortSessions(sessions, clientName), byExercise: new Map() });
+  }
+  return cached.clients.get(key);
+};
 
 // A session's entry for this exercise, skipping one done only as warm-up
 // sets (a library program's warm-up block — Squat, Glute Bridge, Incline
@@ -33,17 +52,35 @@ const lookupTarget = (exercise) => {
   return entry.exerciseId || exerciseNameKey(entry.name) ? entry : null;
 };
 
+const findAnyExercise = (session, exercise) => (session.exercises || []).find(e => sameExerciseEntry(e, exercise));
+
+// This exercise's entry in every past session that has it, newest first.
+const pastEntries = (sessions, clientName, target, findIn = findWorkingExercise) => {
+  const { newestFirst, byExercise } = historyFor(sessions, clientName);
+  const key = `${findIn === findWorkingExercise ? 'working' : 'any'}|${target.exerciseId || ''}|${exerciseNameKey(target.name)}`;
+  if (!byExercise.has(key)) {
+    byExercise.set(key, newestFirst.map(s => findIn(s, target)).filter(e => e && e.sets));
+  }
+  return byExercise.get(key);
+};
+
 // The most recent logged set for this exercise (a name or `{ name,
 // exerciseId }`) at this set index, or null when the client has never
 // logged it.
 export function findPreviousLoggedSetIn(sessions, clientName, exercise, setIdx) {
   const target = lookupTarget(exercise);
   if (!target) return null;
-  for (const session of clientSessionsNewestFirst(sessions, clientName)) {
-    const found = findWorkingExercise(session, target);
-    if (found && found.sets && found.sets[setIdx]) return found.sets[setIdx];
-  }
-  return null;
+  const found = pastEntries(sessions, clientName, target).find(e => e.sets[setIdx]);
+  return found ? found.sets[setIdx] : null;
+}
+
+// The same, with warm-up-only entries counted too: the coach's PREV column,
+// over one client's own history.
+export function findPreviousAnySetIn(sessions, exercise, setIdx) {
+  const target = lookupTarget(exercise);
+  if (!target) return null;
+  const found = pastEntries(sessions, null, target, findAnyExercise).find(e => e.sets[setIdx]);
+  return found ? found.sets[setIdx] : null;
 }
 
 // Every set of this exercise from the most recent session that has it, or
@@ -51,11 +88,8 @@ export function findPreviousLoggedSetIn(sessions, clientName, exercise, setIdx) 
 export function findPreviousExerciseSetsIn(sessions, clientName, exercise) {
   const target = lookupTarget(exercise);
   if (!target) return null;
-  for (const session of clientSessionsNewestFirst(sessions, clientName)) {
-    const found = findWorkingExercise(session, target);
-    if (found && found.sets && found.sets.length > 0) return found.sets;
-  }
-  return null;
+  const found = pastEntries(sessions, clientName, target).find(e => e.sets.length > 0);
+  return found ? found.sets : null;
 }
 
 // A plan's kg/BW box starts from PREV (see withPrevValues in

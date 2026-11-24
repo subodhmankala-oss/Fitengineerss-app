@@ -34,12 +34,18 @@ export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...
   // The figures wear the sheet's colours (the week's status per muscle and
   // part, saved + this workout), so the bar and the sheet it opens agree.
   const view = useMemo(() => getWeekMuscleView(savedLogs, rows, logDate, level), [savedLogs, rows, logDate, level]);
-  const colorFor = (m) => {
-    const stat = view?.byAll[m];
-    const tier = stat ? getHeatMapTier(stat) : null;
-    return tier && tier.key !== 'not_trained' ? tier.color : null;
-  };
-  const pulseKey = (m) => setsBy[m] || 0;
+  // Drawn again only when a tick changes them, not on every logger render.
+  const figures = useMemo(() => {
+    const colorFor = (m) => {
+      const stat = view?.byAll[m];
+      const tier = stat ? getHeatMapTier(stat) : null;
+      return tier && tier.key !== 'not_trained' ? tier.color : null;
+    };
+    const pulseKey = (m) => setsBy[m] || 0;
+    return ['front', 'back'].map(side => (
+      <HeatBodyFigure key={side} view={side} height={46} colorFor={colorFor} pulseKey={pulseKey} regionSplit={view?.regionSplit} />
+    ));
+  }, [view, setsBy]);
 
   const label = hit.length
     ? `Muscles worked this workout: ${hit.map(s => s.muscle).join(', ')}`
@@ -55,8 +61,7 @@ export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...
         aria-label={label}
         title="This week's muscles"
       >
-        <HeatBodyFigure view="front" height={46} colorFor={colorFor} pulseKey={pulseKey} regionSplit={view?.regionSplit} />
-        <HeatBodyFigure view="back" height={46} colorFor={colorFor} pulseKey={pulseKey} regionSplit={view?.regionSplit} />
+        {figures}
       </button>
       <WeekMuscleSheet open={open} onClose={close} savedLogs={savedLogs} liveRows={rows} logDate={logDate} level={level} {...actions} />
     </div>

@@ -10,8 +10,15 @@ const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // Formats a Date as YYYY-MM-DD in the given (default: browser local) timezone.
 // en-CA locale formats natively as YYYY-MM-DD, avoiding manual padding/joins.
-export const getLocalDateString = (date = new Date(), timeZone = LOCAL_TZ) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+// One formatter per timezone: building one is slow on phones, and the loggers
+// ask for today's date several times a render.
+const dayFormatters = new Map();
+export const getLocalDateString = (date = new Date(), timeZone = LOCAL_TZ) => {
+  if (!dayFormatters.has(timeZone)) {
+    dayFormatters.set(timeZone, new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }));
+  }
+  return dayFormatters.get(timeZone).format(date);
+};
 
 // Parses a YYYY-MM-DD string as local midnight. New Date('YYYY-MM-DD') parses
 // as UTC midnight per spec, which silently shifts the day for any non-UTC user.

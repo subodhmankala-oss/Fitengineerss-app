@@ -13,9 +13,9 @@
      app's Home/Workout/Profile bar sits on top of the pad's own bottom row,
      covering '.', '0', and backspace on the client side. */
   z-index: 1100;
-  background: rgba(var(--bg-card-active-rgb), 0.98);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* Solid, no backdrop blur: it was 98% opaque, so the blur showed nothing but
+     was redone by the phone each time the rows behind it changed. */
+  background: rgb(var(--bg-card-active-rgb));
   border-top: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 16px 16px 0 0;
   /* Was reusing the app's --safe-bottom (90px — reserved for the bottom nav
@@ -145,6 +145,8 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
 }
 
 .set-number-pad-grid {
+  /* Two quick taps (11, 22) are two presses, never a double-tap zoom. */
+  touch-action: manipulation;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;

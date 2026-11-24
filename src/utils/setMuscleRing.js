@@ -37,6 +37,24 @@ export function weekRangeFor(dateStr) {
 }
 
 /**
+ * The parts of the open workout the rings depend on, as a string: which
+ * exercises, which sets are ticked, and what's in the ticked ones. Typing a
+ * weight into a set that isn't ticked yet leaves it unchanged, so the rings
+ * aren't recounted on every key. JSON.parse of it is what getSetRingStates
+ * gets as `exercises`.
+ */
+export function setRingInputs(exercises) {
+  return JSON.stringify((exercises || []).map(ex => ({
+    name: ex?.name,
+    sets: (ex?.sets || []).map(s => ({
+      isWarmup: s.isWarmup,
+      setType: s.setType,
+      ...(s.isCompleted ? { isCompleted: true, weight: s.weight, reps: s.reps } : {}),
+    })),
+  })));
+}
+
+/**
  * Ring state per set, keyed `${exIdx}-${setIdx}`. Every set of an exercise
  * that maps to a muscle gets an entry; warmups get none.
  *   { state: 'idle' | 'progress' | 'done' | 'none', fraction, muscle, region, sets, target, color }
@@ -56,15 +74,17 @@ export function getSetRingStates(savedLogs, exercises, logDate, level) {
   if (!logDate || !Array.isArray(exercises) || exercises.length === 0) return out;
   const [start, end] = weekRangeFor(logDate);
   const targets = getMuscleTargets(level);
+  // The ring only counts this week, so the rest of the history is dropped up front.
+  const weekLogs = (savedLogs || []).filter(l => l.log_date >= start && l.log_date <= end);
   // Running set counts, keyed by muscle ("Shoulders") or muscle + region
   // ("Shoulders:Side Delts"), seeded from the week's saved sets on first use.
   const counts = {};
-  getWeeklyMuscleStats(savedLogs || [], start, end, { includeUntrained: true, level })
+  getWeeklyMuscleStats(weekLogs, start, end, { includeUntrained: true, level })
     .forEach(s => { counts[s.muscle] = s.totalSets; });
   const regionKey = (muscle, region) => {
     const key = `${muscle}:${region}`;
     if (!(key in counts)) {
-      counts[key] = getRegionBreakdownForMuscle(savedLogs || [], muscle, start, end, { level })
+      counts[key] = getRegionBreakdownForMuscle(weekLogs, muscle, start, end, { level })
         .find(r => r.id === region)?.sets || 0;
     }
     return key;

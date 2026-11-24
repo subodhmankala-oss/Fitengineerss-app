@@ -71,6 +71,21 @@ const tokenSort = (s) => (s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Bool
  */
 export function findExerciseGuideMatch(list, name, exerciseId = null) {
   if (!Array.isArray(list) || list.length === 0) return null;
+  let cached = guideMatchCache.get(list);
+  if (!cached || cached.length !== list.length) {
+    cached = { length: list.length, matches: new Map() };
+    guideMatchCache.set(list, cached);
+  }
+  const cacheKey = `${exerciseId || ''}|${name || ''}`;
+  if (!cached.matches.has(cacheKey)) cached.matches.set(cacheKey, searchGuideMatch(list, name, exerciseId));
+  return cached.matches.get(cacheKey);
+}
+
+// Asked for every card on every logger render, and a name the list doesn't
+// have falls through all six tiers of it — so answers are kept per list.
+const guideMatchCache = new WeakMap();
+
+function searchGuideMatch(list, name, exerciseId) {
   let match = exerciseId ? list.find(pe => pe.id === exerciseId) : null;
   if (match) return match;
   if (!name) return null;

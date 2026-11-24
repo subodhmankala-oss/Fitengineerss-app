@@ -13,6 +13,7 @@
 // Shared by the browser and the api/ function, so plain functions only.
 
 import { exerciseNameKey, foldExerciseDashes } from './exerciseName.js';
+import { memoByName } from './memoByName.js';
 
 // Exercises the program itself can't use as a working exercise — warm-ups
 // are added by the coach (and library programs add their own), never chosen
@@ -71,12 +72,12 @@ export function formatCatalogForPrompt(catalog) {
     .join('\n');
 }
 
-const words = (name) => foldExerciseDashes(name)
+const words = memoByName((name) => foldExerciseDashes(name)
   .toLowerCase()
   .replace(/[()]/g, ' ')
   .split(/[^a-z0-9]+/)
   .filter(Boolean)
-  .map(w => (w.length >= 3 && /[^sui]s$/.test(w) ? w.slice(0, -1) : w));
+  .map(w => (w.length >= 3 && /[^sui]s$/.test(w) ? w.slice(0, -1) : w)));
 
 // Equipment words carry no movement meaning on their own — "Cable" alone
 // should not make "Cable Fly" a match for "Cable Row".

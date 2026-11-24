@@ -106,17 +106,27 @@
 .coach-tab.active .coach-tab-status { color: var(--tone); font-weight: 700; }
 
 .coach-tab-live {
+  position: relative;
   width: 6px;
   height: 6px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--tone-livelog);
+}
+/* The pulse is a disc that grows behind the dot. Only transform and opacity
+   move: an animated box-shadow repainted the page on every frame for the
+   whole workout, which is what made typing in the Live Log lag. */
+.coach-tab-live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tone-livelog) 55%, transparent);
   animation: coach-tab-pulse 1.6s infinite;
 }
 @keyframes coach-tab-pulse {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone-livelog) 55%, transparent); }
-  70% { box-shadow: 0 0 0 6px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0% { transform: scale(1); opacity: 1; }
+  70%, 100% { transform: scale(3); opacity: 0; }
 }
 
 @media (max-width: 600px) {
@@ -143,7 +153,7 @@
 @media (prefers-reduced-motion: reduce) {
   .coach-tabs-pill,
   .coach-tabs-pill.is-sliding { transition: none; }
-  .coach-tab-live { animation: none; }
+  .coach-tab-live::after { animation: none; }
 }
 
 /* Phones: a full-width band like a tab bar — useFullBleed stretches the track

@@ -33,7 +33,7 @@ import CoachNoteComposer from './CoachNoteComposer';
 import { buildSessionRecap, noteFirstName, buildQuickReplies } from '../utils/coachNoteRecap';
 import useFullBleed from '../utils/useFullBleed';
 import WorkoutHeadLine from './WorkoutHeadLine';
-import { getSetRingStates } from '../utils/setMuscleRing';
+import { getSetRingStates, setRingInputs } from '../utils/setMuscleRing';
 import SetMuscleRing, { SetRingHeaderMuscle } from './SetMuscleRing';
 import StatsStrip from './StatsStrip';
 import CoachDetailTabs from './CoachDetailTabs';
@@ -91,8 +91,8 @@ import ExerciseCardTitle from './ExerciseCardTitle';
 import WarmupMoveRow from './WarmupMoveRow';
 import useWorkoutFullScreen from '../hooks/useWorkoutFullScreen';
 import WorkoutFullScreenExit from './WorkoutFullScreenExit';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
-import { sameExerciseEntry, findLibraryExercise, libraryExerciseId, exerciseIdField, foldExerciseDashes } from '../utils/exerciseName';
+import { findPreviousLoggedSetIn, findPreviousAnySetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findLibraryExercise, libraryExerciseId, exerciseIdField, foldExerciseDashes } from '../utils/exerciseName';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
@@ -2007,7 +2007,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Sets ticked so far in the Live Log, as workout_logs rows: the client's
   // Muscles tab counts them before the session is saved (same as the
   // client's own logger — see utils/liveSessionStore.js).
-  const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
+  // Same array until a tick (or a ticked set's numbers) changes, so typing
+  // doesn't recount the week's muscles on every key.
+  const liveTickedJson = JSON.stringify(tickedSetRows(liveExercises, liveDate));
+  const liveTickedRows = useMemo(() => JSON.parse(liveTickedJson), [liveTickedJson]);
   // Live Log timer bar spans the screen edge to edge.
   const liveTimerBarRef = useFullBleed({ trackStuck: true });
   const liveHeadLineRef = useFullBleed();
@@ -2017,9 +2020,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // below it into one panel (see .client-detail-header.is-full-bleed).
   const clientHeaderRef = useFullBleed();
   // Ring beside each ticked set — same as the client's logger (utils/setMuscleRing.js).
+  const liveRingInputs = setRingInputs(liveExercises);
   const liveSetRings = useMemo(
-    () => getSetRingStates(rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel),
-    [rawWorkoutLogs, liveExercises, liveDate, selectedClientLevel]
+    () => getSetRingStates(rawWorkoutLogs, JSON.parse(liveRingInputs), liveDate, selectedClientLevel),
+    [rawWorkoutLogs, liveRingInputs, liveDate, selectedClientLevel]
   );
   const [livePlanName, setLivePlanName] = useState('Live Routine');
   const [liveSaving, setLiveSaving] = useState(false);
@@ -2073,8 +2077,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // recomputed fresh from timestamps below — this tick only drives the UI.
   useLiveTick(liveTimerStatus === 'running', 1000);
 
-  // Live set timers for timed exercises — re-render every 100ms for smooth UI
-  useLiveTick(Object.values(liveSetTimers).some(t => t.isRunning), 100);
+  // Live set timers for timed exercises — re-render 4x a second. They show whole
+  // seconds, and ten full-screen renders a second left no room for taps
+  useLiveTick(Object.values(liveSetTimers).some(t => t.isRunning), 250);
 
   // Keep the running/paused set stopwatches in localStorage (with the
   // client, the session's clock start and the exercise names they're keyed
@@ -2872,13 +2877,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
   // What's behind this week for the client being logged: their saved sets
   // plus the sets already ticked off in this live session (not saved yet).
-  const liveGapLogs = useMemo(() => {
-    const rows = [...rawWorkoutLogs];
-    liveExercises.forEach(ex => (ex.sets || []).forEach(set => {
-      if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: liveDate, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup ? 'warmup' : null });
-    }));
-    return rows;
-  }, [rawWorkoutLogs, liveExercises, liveDate]);
+  const liveGapJson = JSON.stringify(liveExercises.flatMap(ex => (ex.sets || []).filter(set => set.isCompleted)
+    .map(set => ({ exercise_name: ex.name, log_date: liveDate, reps: set.reps, weight_kg: set.weight, set_type: set.isWarmup ? 'warmup' : null }))));
+  const liveGapLogs = useMemo(() => [...rawWorkoutLogs, ...JSON.parse(liveGapJson)], [rawWorkoutLogs, liveGapJson]);
 
   // exerciseId: the picked library record's id (see ExercisePickerModal);
   // the hint/history chips pass a name only.
@@ -4763,16 +4764,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // never logged it. workoutLogs is already scoped to the one selected
   // client, so no name filtering needed. `target` is the plan/logger entry
   // (its exerciseId counts, see sameExerciseEntry) or a bare name.
-  const findPreviousLoggedSet = (target, setIdx) => {
-    const history = [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
-    for (const session of history) {
-      const exercise = session.exercises.find(e => sameExerciseEntry(e, target));
-      if (exercise && exercise.sets && exercise.sets[setIdx]) {
-        return exercise.sets[setIdx];
-      }
-    }
-    return null;
-  };
+  const findPreviousLoggedSet = (target, setIdx) => findPreviousAnySetIn(workoutLogs, target, setIdx);
 
   // The kg/BW box should start from what the PREV column shows, not from
   // whatever number happens to be stored in the plan — a leftover 20 kg

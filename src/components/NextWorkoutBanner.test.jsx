@@ -295,6 +295,43 @@ describe('NextWorkoutBanner — the week', () => {
     expect(label).not.toMatch(/new exercise|finisher/);
   });
 
+  it('a program twice in one week: the first time it is plain, the repeat shows its new exercise', async () => {
+    mockLibrary({ gym: { beginner: realBeginner } });
+    vi.setSystemTime(new Date('2026-11-09T12:00:00')); // Monday
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-11-09' });
+    databaseService.getLibraryDays.mockResolvedValueOnce({ days: [0, 2, 4, 5], since: '2026-11-09' });
+    show();
+    await screen.findByText('Your week');
+    expect(bigCard().textContent).not.toMatch(/new exercise|added/);
+    expect(smallCards()).toEqual([
+      'Start Beginner Full Body B', 'Start Beginner Lower & Core', 'Start Beginner Full Body A — 1 new exercise'
+    ]);
+    expect(document.querySelectorAll('.wpc-new')).toHaveLength(1);
+  });
+
+  it('once the first is done, the repeat really starts with the new exercise — even the same day', async () => {
+    mockLibrary({ gym: { beginner: realBeginner } });
+    vi.setSystemTime(new Date('2026-11-09T12:00:00'));
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-11-09' });
+    databaseService.getLibraryDays.mockResolvedValueOnce({ days: [0, 2, 4, 5], since: '2026-11-09' });
+    show({ logs: [did('2026-11-09', 'Beginner Full Body A', { exercise_name: 'Goblet Squat' })] });
+    fireEvent.click(await screen.findByRole('button', { name: 'Start Beginner Full Body A — 1 new exercise' }));
+    expect(JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1')).priorRuns).toBe(1);
+  });
+
+  it('shows what is new on the card: swapped exercises and the neglected muscle added', async () => {
+    mockLibrary({ gym: { beginner: realBeginner } });
+    const row = (log_date, plan_name, exercise_name) => ({ log_date, plan_name, exercise_name, set_type: null });
+    show({ logs: [
+      row('2026-10-24', 'Beginner Lower & Core', 'Crunch'), row('2026-10-28', 'Beginner Full Body A', 'Push-up'),
+      row('2026-11-01', 'Beginner Full Body B', 'Seated Row (Machine)'), row('2026-11-09', 'Beginner Full Body B', 'Leg Press')
+    ] });
+    await screen.findByText('Your week');
+    expect(bigCard().textContent).toMatch(/1 new exercise\w+ added/);
+    // The neglected muscle is only promised for the one to do now.
+    expect(document.querySelectorAll('.wpc-new.added')).toHaveLength(1);
+  });
+
   it('a client who chose a level but has never trained gets their week, not the picker', async () => {
     mockLibrary({ gym: { beginner: realBeginner } });
     databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: null });

@@ -33,10 +33,10 @@
 }
 
 .bottom-nav::before {
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-  -webkit-mask-image: linear-gradient(to top, #000 45%, transparent 88%);
-  mask-image: linear-gradient(to top, #000 45%, transparent 88%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(to top, #000 55%, transparent 92%);
+  mask-image: linear-gradient(to top, #000 55%, transparent 92%);
 }
 
 .bottom-nav::after {

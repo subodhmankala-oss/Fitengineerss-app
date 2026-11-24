@@ -548,6 +548,20 @@
   border-radius: var(--radius-full);
 }
 
+/* Tappable version: ticked = tint + ring. Scoped to the list so it wins over
+   exerciseRecChips.css whichever loads last. */
+.neglected-recs-list .neglected-add-chip {
+  padding: 8px 13px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.neglected-recs-list .neglected-add-chip.on {
+  background: rgba(var(--accent-rgb), 0.2);
+  border-color: transparent;
+  box-shadow: 0 0 0 1.5px var(--accent-text);
+}
+
 /* ── Section 2: Muscle Heat Map ── */
 .heatmap-view-toggle {
   display: flex;

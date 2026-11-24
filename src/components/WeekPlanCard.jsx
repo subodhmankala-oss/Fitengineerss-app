@@ -18,12 +18,13 @@ const HEAT = { main: '#ef4444', also: '#f59e0b' };
  * Change days); the play button starts it straight away. Swipe left to hide
  * it for the week.
  *
- * levelWeek: week 1–12 of the level, drawn as the bar above "See workout";
- * null = no bar (Advanced has no next level).
+ * levelWeek: week 1–12 of the level, drawn as the bar above "See workout"
+ * with what it counts towards (nextLevelLabel) under it; null = neither
+ * (Advanced has no next level).
  * plan: buildWeekPlan() · sessionFor(slot): what the logger will build ·
  * loggedFor(slot): what was saved for a done one · note: replaces "Day 2 of 4".
  */
-export default function WeekPlanCard({ plan, levelLabel, levelWeek, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide }) {
+export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, levelWeek, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide }) {
   const [open, setOpen] = useState(false);
   const { slots, main, doneCount, weekDone, nextWeek, nextProgram } = plan;
 
@@ -35,6 +36,8 @@ export default function WeekPlanCard({ plan, levelLabel, levelWeek, note, days, 
   let line = `Day ${slots.indexOf(main) + 1} of ${slots.length}`;
   if (weekDone) line = `Week done, ${doneCount} of ${slots.length}`;
   else if (nextWeek) line = `Next week, day 1 of ${slots.length}`;
+
+  const weeksLeft = WEEKS_PER_LEVEL - levelWeek + 1;
 
   return (
     <section className="wpc" aria-label="Your workout week">
@@ -88,6 +91,14 @@ export default function WeekPlanCard({ plan, levelLabel, levelWeek, note, days, 
               aria-valuenow={levelWeek}
             >
               <span style={{ width: `${(levelWeek / WEEKS_PER_LEVEL) * 100}%` }} />
+            </div>
+          )}
+          {levelWeek && (
+            <div className="wpc-level-text">
+              <span>Week {levelWeek} of {WEEKS_PER_LEVEL}</span>
+              {nextLevelLabel && (
+                <span className="wpc-next-level">{nextLevelLabel} {weeksLeft === 1 ? 'next week' : `in ${weeksLeft} weeks`}</span>
+              )}
             </div>
           )}
           {/* Says the card opens; nothing else on it did (2026-11-25). */}

@@ -22,6 +22,7 @@ import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const CATEGORIES = ['gym', 'home'];
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 // Also saves the level/category as the one the client is on — that level
@@ -191,7 +192,10 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
     );
   }
 
-  const levelLabel = level.charAt(0).toUpperCase() + level.slice(1);
+  const levelLabel = capitalize(level);
+  // Only a level this place has programs for.
+  const nextLevel = LEVELS[LEVELS.indexOf(level) + 1];
+  const nextLevelLabel = library[category]?.[nextLevel]?.length > 0 ? capitalize(nextLevel) : null;
   const toDo = (program) => (easyRestart ? easyRestartProgram(program) : program);
   // How often this program will have been done by a card's day: the first of
   // two Full Body As in a week doesn't make the second one new until it's
@@ -207,6 +211,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
     <WeekPlanCard
       plan={plan}
       levelLabel={`${levelLabel} · ${category === 'home' ? 'Home' : 'Gym'}`}
+      nextLevelLabel={nextLevelLabel}
       levelWeek={weekOfLevel(level, loggedDays, parseLocalDateString(today), pref)}
       note={note}
       days={days}

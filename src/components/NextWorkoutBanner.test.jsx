@@ -271,11 +271,26 @@ describe('NextWorkoutBanner — the week', () => {
     const { unmount } = show({ logs: lastWeek }); // 16 days in
     const bar = await screen.findByRole('progressbar', { name: 'Beginner · Gym, week 3 of 12' });
     expect(bar.firstChild.style.width).toBe('25%');
+    expect(screen.getByText('Week 3 of 12')).not.toBeNull();
+    // No Intermediate programs here, so none is promised.
+    expect(screen.queryByText(/^Intermediate/)).toBeNull();
     unmount();
     databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'advanced', category: 'gym', since: '2026-10-26' });
     show({ logs: lastWeek });
     await screen.findByRole('button', { name: 'See workout' });
     expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('says when the next level comes', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner, intermediate: [{ name: 'Intermediate Push', exercises: [] }] } });
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-10-26' });
+    const { unmount } = show({ logs: lastWeek });
+    expect(await screen.findByText('Intermediate in 10 weeks')).not.toBeNull();
+    unmount();
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: '2026-08-24' });
+    show({ logs: lastWeek }); // 11 weeks and 2 days in
+    expect(await screen.findByText('Intermediate next week')).not.toBeNull();
+    expect(screen.getByText('Week 12 of 12')).not.toBeNull();
   });
 
   it('another day can be opened and started from the sheet', async () => {

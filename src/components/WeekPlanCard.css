@@ -39,6 +39,20 @@
   background: var(--primary-accent);
 }
 
+.wpc-level-text {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.wpc-next-level {
+  font-weight: 600;
+  color: var(--wpc-green);
+}
+
 .wpc-see.lined { border-top: 1px solid var(--border-color); }
 
 .wpc-see {

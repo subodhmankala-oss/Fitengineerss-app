@@ -29,6 +29,9 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { tickedSetRows } from '../utils/liveSessionStore';
 import WorkoutMuscleHeat from './WorkoutMuscleHeat';
+import ProgramRing from './ProgramRing';
+import useMediaQuery from '../hooks/useMediaQuery';
+import { lastWorkoutLine } from '../utils/clientHeaderLine';
 import CoachNoteComposer from './CoachNoteComposer';
 import { buildSessionRecap, noteFirstName, buildQuickReplies } from '../utils/coachNoteRecap';
 import useFullBleed from '../utils/useFullBleed';
@@ -239,17 +242,7 @@ const LIVE_REST_KEY = 'coachLiveRestEndAt';
 // names } — see the save effect next to liveSetTimers and setTimerRestore.js.
 const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
-// Goal → tint (tint + ring chips, never a solid fill): client summary card
-// and the one-line client header.
-// Short goal names for the one-line client header (phones).
-const GOAL_SHORT = {
-  'Fat Loss': 'Fat loss',
-  'Muscle Building': 'Muscle',
-  'Gut Fix': 'Gut',
-  'Gut Health': 'Gut',
-  'General Fitness': 'Fitness'
-};
-
+// Goal → tint for the client summary card's goal dots.
 const GOAL_TINTS = {
   'Fat Loss': 'var(--tint-orange)',
   'Muscle Building': 'var(--tint-blue)',
@@ -257,6 +250,8 @@ const GOAL_TINTS = {
   'Gut Health': 'var(--tint-cyan)',
   'General Fitness': 'var(--tint-violet)'
 };
+
+const NO_ROWS = [];
 
 const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, openTestimonials = false, onTestimonialLinkUsed }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
@@ -2019,6 +2014,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Phones: the client header runs edge to edge and joins the tabs band
   // below it into one panel (see .client-detail-header.is-full-bleed).
   const clientHeaderRef = useFullBleed();
+  const isPhoneLayout = useMediaQuery('(max-width: 899px)');
   // Ring beside each ticked set — same as the client's logger (utils/setMuscleRing.js).
   const liveRingInputs = setRingInputs(liveExercises);
   const liveSetRings = useMemo(
@@ -5706,6 +5702,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const programSessionsDone = selectedClient?.program_started_on
     ? workoutLogs.filter(s => s.date >= selectedClient.program_started_on).length
     : workoutLogs.length;
+  const clientLastWorkout = selectedClient ? lastWorkoutLine(workoutLogs) : null;
   // Nothing logged or loaded yet → the Live tab shows only the start card.
   const liveNotStarted = liveExercises.length === 0 && liveTimerStatus === 'idle';
   const onLiveTemplatePick = (e) => {
@@ -8252,88 +8249,78 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-                <Avatar
-                  className="client-avatar"
-                  email={selectedClient.email}
-                  name={selectedClient.userName}
-                  avatarUrl={selectedClient.avatarUrl}
-                  size={42}
-                />
-                <div
-                  className="client-detail-header-info"
-                  style={{ minWidth: 0, flex: 1 }}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={clientCardOpen}
-                  aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
-                  onClick={toggleClientCard}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleClientCard(); } }}
+                {/* Phones: the program around the photo, one piece per session. */}
+                <ProgramRing
+                  done={programSessionsDone}
+                  total={selectedClient.coach_id === loggedInUserId ? selectedClient.total_sessions : null}
                 >
-                  <div className="client-detail-name-row">
-                    <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
-                    {/* Phones: down arrow beside the name — tap to open the
-                        details card; flips when open. */}
-                    <svg className={`client-detail-name-chevron${clientCardOpen ? ' is-open' : ''}`} width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                      <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                  <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
-                  {/* Phones: "● Fat loss · 86 kg" in place of the email. */}
-                  <span className="client-detail-live-sub">
-                    {/* Primary goal only, short name, so the line stays calm;
-                        the details card shows both goals in full. */}
-                    {[selectedClient.userGoal].filter(Boolean).map(goal => (
-                      <span key={goal} className="client-detail-goal-chip" title={goal} style={{ '--goal-tint': GOAL_TINTS[goal] || 'var(--text-muted)' }}>
-                        {GOAL_SHORT[goal] || goal}
-                      </span>
-                    ))}
-                    <span className="client-detail-live-sub-text">
-                      {(clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight)
-                        ? `${selectedClient.userGoal ? '· ' : ''}${clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight} kg`
-                        : (!selectedClient.userGoal ? selectedClient.email : '')}
-                    </span>
-                  </span>
-                </div>
-                {/* Tappable: opens the same Edit Total Sessions popup as the
-                    summary card's pencil (that card is folded on phones). */}
-                {selectedClient.coach_id === loggedInUserId && (
-                  <button
-                    type="button"
-                    className={`client-detail-live-sessions${selectedClient.total_sessions == null ? ' is-unset' : ''}`}
-                    aria-label={selectedClient.total_sessions != null
-                      ? `${programSessionsDone} of ${selectedClient.total_sessions} sessions, ${Math.max(0, selectedClient.total_sessions - programSessionsDone)} left. Edit program`
-                      : 'Set total sessions'}
-                    title="Edit total sessions and program dates"
-                    onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
+                  <Avatar
+                    className="client-avatar"
+                    email={selectedClient.email}
+                    name={selectedClient.userName}
+                    avatarUrl={selectedClient.avatarUrl}
+                    size={42}
+                  />
+                </ProgramRing>
+                <div className="client-detail-header-info" style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    className="client-detail-toggle"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={clientCardOpen}
+                    aria-label={`${clientCardOpen ? 'Hide' : 'Show'} ${selectedClient.userName}'s details`}
+                    onClick={toggleClientCard}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleClientCard(); } }}
                   >
-                    {selectedClient.total_sessions != null ? (() => {
-                      const total = selectedClient.total_sessions;
-                      const pct = total ? Math.min(1, programSessionsDone / total) : 0;
-                      const c = 2 * Math.PI * 8;
-                      return (
+                    <div className="client-detail-name-row">
+                      <h4 className="client-detail-name" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }} title={selectedClient.userName}>{selectedClient.userName}</h4>
+                      {/* Phones: down arrow beside the name — tap to open the
+                          details card; flips when open. */}
+                      <svg className={`client-detail-name-chevron${clientCardOpen ? ' is-open' : ''}`} width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                        <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                    <span className="client-detail-email" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
+                    {/* Phones: last workout ("Legs · yesterday") in place of the
+                        email. Goal and weight are in the details card. */}
+                    <span className="client-detail-last">
+                      {clientLastWorkout ? (
                         <>
-                          <svg className="client-detail-live-sessions-ring" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-                            <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(var(--fg-rgb), 0.14)" strokeWidth="3" />
-                            {pct > 0 && (
-                              <circle cx="10" cy="10" r="8" fill="none" stroke="var(--accent-soft)" strokeWidth="3" strokeLinecap="round"
-                                strokeDasharray={`${pct * c} ${c}`} transform="rotate(-90 10 10)" />
-                            )}
-                          </svg>
-                          <span className="client-detail-live-sessions-text">
-                            <span className="client-detail-live-sessions-num">{programSessionsDone}/{total}</span>
-                            <span className="client-detail-live-sessions-label">sessions</span>
-                          </span>
+                          <span className="client-detail-last-name">{clientLastWorkout.name || 'Trained'}</span>
+                          <span className="client-detail-last-when">{clientLastWorkout.name ? ' · ' : ' '}{clientLastWorkout.when}</span>
                         </>
-                      );
-                    })() : (
-                      <>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                        Sessions
-                      </>
-                    )}
-                  </button>
+                      ) : (loadingLogs ? ' ' : 'No workouts yet')}
+                    </span>
+                  </div>
+                  {/* Tappable: opens the same Edit Total Sessions popup as the
+                      summary card's pencil (that card is folded on phones). */}
+                  {selectedClient.coach_id === loggedInUserId && (
+                    <button
+                      type="button"
+                      className={`client-detail-live-sessions${selectedClient.total_sessions == null ? ' is-unset' : ''}`}
+                      aria-label={selectedClient.total_sessions != null
+                        ? `${programSessionsDone} of ${selectedClient.total_sessions} sessions, ${Math.max(0, selectedClient.total_sessions - programSessionsDone)} left. Edit program`
+                        : 'Set total sessions'}
+                      title="Edit total sessions and program dates"
+                      onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
+                    >
+                      {selectedClient.total_sessions != null
+                        ? <><b>{programSessionsDone}</b> of {selectedClient.total_sessions} sessions</>
+                        : '+ Set sessions'}
+                    </button>
+                  )}
+                </div>
+                {/* Phones: what they've trained this week, on the body. Tap
+                    for This week's muscles. */}
+                {isPhoneLayout && (
+                  <WorkoutMuscleHeat
+                    weekOnly
+                    height={58}
+                    rows={liveDate === getLocalDateString() ? liveTickedRows : NO_ROWS}
+                    logDate={getLocalDateString()}
+                    savedLogs={rawWorkoutLogs}
+                    level={selectedClientLevel}
+                  />
                 )}
                 {/* Deliberately low-key: muted dots, no label, so Remove is
                     there when needed but never a tap-target by accident. */}

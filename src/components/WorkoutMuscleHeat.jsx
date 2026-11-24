@@ -20,8 +20,11 @@ import './WorkoutMuscleHeat.css';
  * training level — what the sheet needs to count the week like home does.
  * `workoutNames`, `laterNames`, `onAddExercise`, `onSaveForLater` drive the
  * sheet's next-part row (see WeekMuscleSheet).
+ * `weekOnly`: the coach's client header — the week's bodies outside the
+ * logger, so the label and the sheet talk about the week, not a workout.
+ * `height` is the figures' height.
  */
-export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...actions }) {
+function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, height = 46, weekOnly = false, ...actions }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
@@ -43,16 +46,16 @@ export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...
     };
     const pulseKey = (m) => setsBy[m] || 0;
     return ['front', 'back'].map(side => (
-      <HeatBodyFigure key={side} view={side} height={46} colorFor={colorFor} pulseKey={pulseKey} regionSplit={view?.regionSplit} />
+      <HeatBodyFigure key={side} view={side} height={height} colorFor={colorFor} pulseKey={pulseKey} regionSplit={view?.regionSplit} />
     ));
-  }, [view, setsBy]);
+  }, [view, setsBy, height]);
 
-  const label = hit.length
+  const label = weekOnly ? "This week's muscles" : hit.length
     ? `Muscles worked this workout: ${hit.map(s => s.muscle).join(', ')}`
     : 'Muscles worked this workout: none yet';
 
   return (
-    <div className="wmh">
+    <div className={`wmh${weekOnly ? ' is-week' : ''}`}>
       <button
         type="button"
         className={`wmh-toggle${open ? ' is-open' : ''}`}
@@ -63,7 +66,11 @@ export default function WorkoutMuscleHeat({ rows, logDate, savedLogs, level, ...
       >
         {figures}
       </button>
-      <WeekMuscleSheet open={open} onClose={close} savedLogs={savedLogs} liveRows={rows} logDate={logDate} level={level} {...actions} />
+      <WeekMuscleSheet open={open} onClose={close} savedLogs={savedLogs} liveRows={rows} logDate={logDate} level={level} weekOnly={weekOnly} {...actions} />
     </div>
   );
 }
+
+// The screens around it re-render every second (timers), so skip it unless a
+// prop changed.
+export default React.memo(WorkoutMuscleHeat);

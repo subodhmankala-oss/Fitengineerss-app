@@ -56,6 +56,8 @@
   padding-top: 13px;
   border-top: 1px solid rgba(var(--fg-rgb), 0.1);
 }
+/* Opened from the client header: the week is the first section, no line above. */
+.wms-sheet.is-idle .wms-grab + .wms-sec { margin-top: 0; padding-top: 0; border-top: none; }
 .wms-sec-note { flex-shrink: 0; font-size: 0.74rem; color: rgba(var(--fg-rgb), 0.55); }
 /* This workout's sets and volume: quiet numbers, right of the heading. */
 .wms-totals { display: flex; flex-shrink: 0; }

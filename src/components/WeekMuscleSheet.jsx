@@ -42,6 +42,9 @@ import './WeekMuscleSheet.css';
 // muscles this workout has worked. Under the workout's cards, every other
 // muscle sits in a quiet stack (worst first, like a wallet): tap to fan it
 // out, tap a card to open its parts and the same now-or-later chips.
+//
+// `weekOnly` (coach's client header): opened outside the logger, so with no
+// workout running the "This workout" totals and tick-a-set hint are left out.
 
 const fmt = n => String(Math.round((n || 0) * 10) / 10);
 const EPS = 0.001;
@@ -77,6 +80,7 @@ const SectionHead = ({ title, note }) => (
 export default function WeekMuscleSheet({
   open, onClose, savedLogs, liveRows, logDate, level,
   workoutNames, laterNames, onAddExercise, onSaveForLater, onUnsave, onRemoveExercise, onAddSets,
+  weekOnly = false,
 }) {
   // The part whose exercise list is open: { muscle, id, sets, min, mode, suggestions }.
   const [picking, setPicking] = useState(null);
@@ -137,20 +141,23 @@ export default function WeekMuscleSheet({
   if (!open || !data) return null;
   // A part whose card has gone (sets unticked) closes its list.
   const { start, end, byAll, regionSplit, todaySets, todayVolume, cards, others } = data;
+  const idle = weekOnly && cards.length === 0 && todaySets === 0;
   const pickOpen = picking && [...cards, ...others].some(c => c.stat.muscle === picking.muscle) ? picking : null;
 
   return createPortal(
     <div className="wms-root" role="dialog" aria-modal="true" aria-label="This week's muscles">
       <div className="wms-backdrop" onClick={closeSheet} />
-      <div className="wms-sheet">
+      <div className={`wms-sheet${idle ? ' is-idle' : ''}`}>
         <button type="button" className="wms-grab" aria-label="Close" onClick={closeSheet}><span /></button>
-        <div className="wms-head">
-          <h3 className="wms-title">This workout</h3>
-          <div className={`wms-totals${todaySets === 0 ? ' is-empty' : ''}`}>
-            <span className="wms-total"><b>{todaySets}</b> <small>set{todaySets === 1 ? '' : 's'}</small></span>
-            <span className="wms-total"><b>{todayVolume.toLocaleString('en-IN')}<i> kg</i></b> <small>volume</small></span>
+        {!idle && (
+          <div className="wms-head">
+            <h3 className="wms-title">This workout</h3>
+            <div className={`wms-totals${todaySets === 0 ? ' is-empty' : ''}`}>
+              <span className="wms-total"><b>{todaySets}</b> <small>set{todaySets === 1 ? '' : 's'}</small></span>
+              <span className="wms-total"><b>{todayVolume.toLocaleString('en-IN')}<i> kg</i></b> <small>volume</small></span>
+            </div>
           </div>
-        </div>
+        )}
         {cards.length > 0 && (
           <div className="wms-now">
             <span className="wms-now-dot" aria-hidden="true" />
@@ -169,7 +176,7 @@ export default function WeekMuscleSheet({
           ))}
         </div>
 
-        {cards.length === 0 ? (
+        {idle ? null : cards.length === 0 ? (
           <p className="wms-empty">Tick a set and the muscles it works show up here, the same as your home cards.</p>
         ) : (
           <>

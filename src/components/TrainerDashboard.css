@@ -1364,10 +1364,11 @@
   color: var(--text-muted);
 }
 
-/* Client header on phones (every tab): one compact line — name,
-   goal · weight ▾, sessions done. The summary card folds under it and
-   opens on tapping the name (.is-card-open). Desktop sidebar unchanged. */
-.client-detail-live-sub,
+/* Client header on phones (every tab): photo in its program ring, name ▾,
+   last workout, sessions done, and this week's muscles on the body. The
+   summary card folds under it and opens on tapping the name
+   (.is-card-open). Desktop sidebar unchanged. */
+.client-detail-last,
 .client-detail-live-sessions,
 .client-detail-back,
 .client-detail-name-chevron {
@@ -1387,38 +1388,36 @@
     margin-bottom: 12px !important;
   }
 
-  .client-detail-view .client-detail-header-info {
+  .client-detail-view .client-detail-toggle {
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
 
-  .client-detail-view .client-detail-live-sub {
+  .client-detail-view .client-detail-last {
     display: flex;
-    align-items: center;
-    gap: 6px;
     min-width: 0;
-    margin-top: 3px;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-  }
-
-  /* Goal: coloured dot + coloured text — no chip box. */
-  .client-detail-header-info .client-detail-goal-chip {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+    margin-top: 2px;
     font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--goal-tint);
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--text-muted);
+    white-space: nowrap;
   }
 
-  .client-detail-header-info .client-detail-goal-chip::before {
-    content: '';
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--goal-tint);
+  /* A long workout name shortens; "yesterday" always shows. */
+  .client-detail-last .client-detail-last-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  .client-detail-last .client-detail-last-when {
+    flex-shrink: 0;
+    font-size: inherit;
+    color: inherit;
+    white-space: pre;
   }
 
   .client-detail-name-row {
@@ -1426,15 +1425,6 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
-  }
-
-  .client-detail-header-info .client-detail-live-sub-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-    color: var(--text-main);
-    opacity: 0.85;
   }
 
   /* Summary card fold: height eases 0 → natural (grid rows), the card fades
@@ -1474,21 +1464,23 @@
     transition: opacity 0.28s ease 0.06s, transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  /* Sessions badge: fades out while the card is open — the card's own
+  /* Sessions line: folds away while the card is open — the card's own
      sessions row (with dates and its pencil) is then the one place to edit. */
   .client-detail-view .client-detail-live-sessions {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0s;
+    display: block;
+    max-height: 26px;
+    overflow: hidden;
+    transition: max-height 0.28s ease, opacity 0.2s ease, padding 0.28s ease, visibility 0s linear 0s;
   }
 
   .client-detail-view.is-card-open .client-detail-live-sessions {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
     opacity: 0;
-    transform: scale(0.92);
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0.22s;
+    transition: max-height 0.28s ease, opacity 0.2s ease, padding 0.28s ease, visibility 0s linear 0.28s;
   }
 }
 
@@ -1502,58 +1494,34 @@
   }
 }
 
-/* Sessions, no box: small ring, "11/16" over "sessions" (tap to edit; the
-   card shows "N left" and dates). Unset: a plain "+ Sessions" link. */
+/* Sessions: "3 of 12 sessions" under the last workout (tap to edit; the card
+   shows "N left" and dates). Unset: a plain "+ Set sessions" link. */
 .client-detail-live-sessions {
-  gap: 7px;
-  padding: 4px 0 4px 6px;
+  padding: 2px 10px 4px 0;
   background: none;
   border: none;
-  border-radius: 10px;
   font: inherit;
   font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--accent-text);
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: left;
+  color: var(--text-muted);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
+.client-detail-live-sessions b,
 .client-detail-live-sessions.is-unset {
-  gap: 4px;
+  font-weight: 600;
+  color: var(--accent-text);
 }
 
-.client-detail-live-sessions:hover,
 .client-detail-live-sessions:focus-visible {
-  background: rgba(var(--accent-soft-rgb), 0.08);
-}
-
-.client-detail-live-sessions-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
-}
-
-.client-detail-live-sessions-label {
-  font-size: 0.66rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.client-detail-live-sessions:active {
-  transform: scale(0.97);
-}
-
-.client-detail-live-sessions-ring {
-  flex-shrink: 0;
-}
-
-.client-detail-live-sessions-num {
-  font-size: 0.86rem;
-  font-weight: 700;
-  color: var(--text-main);
-  font-variant-numeric: tabular-nums;
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 1px;
+  border-radius: 6px;
 }
 
 /* Long names stay on one line and end in "…" (full name in the card's
@@ -1570,7 +1538,7 @@
      (useFullBleed adds .is-full-bleed, below). */
   .client-detail-view .client-detail-header {
     gap: 10px !important;
-    padding: 10px 12px;
+    padding: 8px 12px;
     background: var(--bg-card);
     border: 1px solid var(--border-strong);
     border-radius: 18px;
@@ -2217,7 +2185,7 @@
 }
 
 /* Phones: the client header IS the top bar — back arrow, avatar, name
-   (down arrow = tap to open the details card), sessions ring + label. The separate
+   (down arrow = tap to open the details card), the week's body. The separate
    "Dashboard / Manage Client" breadcrumb row is hidden. */
 @media (max-width: 899px) {
   .client-detail-view .dashboard-breadcrumb {
@@ -2246,19 +2214,14 @@
   }
 
   .client-detail-view .client-detail-header .client-avatar {
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
-    font-size: 0.78rem !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    font-size: 0.95rem !important;
   }
 
   .client-detail-view .client-detail-header-info .client-detail-name {
     font-size: 1rem !important;
-  }
-
-  .client-detail-view .client-detail-live-sub {
-    margin-top: 1px;
-    font-size: 0.74rem;
   }
 
   .client-detail-view .client-detail-name-chevron {

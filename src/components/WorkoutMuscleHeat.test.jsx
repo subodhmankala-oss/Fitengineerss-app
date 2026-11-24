@@ -36,6 +36,15 @@ describe('WorkoutMuscleHeat', () => {
     expect(sheet.textContent).toMatch(/Chest[\s\S]*\+2 today/);
   });
 
+  it('weekOnly: opens on the week, without workout totals or the tick hint', () => {
+    render(<WorkoutMuscleHeat weekOnly rows={[]} logDate={DAY} savedLogs={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: "This week's muscles" }));
+    const sheet = screen.getByRole('dialog', { name: "This week's muscles" });
+    expect(sheet.textContent).not.toContain('This workout');
+    expect(sheet.textContent).not.toContain('Tick a set');
+    expect(sheet.textContent).toContain('All muscles');
+  });
+
   it('shows an empty hint before any set is ticked', () => {
     render(<WorkoutMuscleHeat rows={[]} logDate={DAY} />);
     fireEvent.click(screen.getByRole('button', { name: /none yet/ }));

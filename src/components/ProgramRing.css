@@ -1,0 +1,34 @@
+/* Client's program around their photo (ProgramRing.jsx). Phones only — on
+   desktop the header keeps the plain photo. */
+.program-ring {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.program-ring > svg {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .program-ring:not(.is-unset) {
+    width: 56px;
+    height: 56px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .program-ring > svg {
+    display: block;
+    position: absolute;
+    inset: 0;
+  }
+
+  .program-ring .is-done {
+    stroke: var(--accent-soft);
+  }
+
+  .program-ring .is-left {
+    stroke: rgba(var(--fg-rgb), 0.13);
+  }
+}

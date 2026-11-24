@@ -7,6 +7,7 @@ import { formatSecondsToTimeString } from '../utils/liveWorkoutTimer';
 import { formatDurationShort } from '../utils/monthlyProgress';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { HELPED_MUSCLE_COLOR, MAIN_MUSCLE_COLOR, sharedWeightLabel, sharedWorkoutMuscles, sharedWorkoutTotals } from '../utils/workoutShare';
+import { getAvatarColor } from '../utils/avatarUtil';
 import { workoutNameParts, workoutNameTags } from '../utils/workoutNameParts';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './SharedWorkoutPage.css';
@@ -24,6 +25,17 @@ function setCells(name, set, showWeights) {
   if (isLoadedCarryExercise(name)) return [weight, `${set.reps} m`];
   if (isWarmupExercise(name)) return [`${set.reps} reps`];
   return [weight, `${set.reps} reps`];
+}
+
+// Their photo when they chose to show it; without one, their first letter.
+function Person({ workout }) {
+  const [failed, setFailed] = useState(false);
+  if (!workout.showPhoto) return null;
+  if (workout.photo && !failed) {
+    return <img className="swp-face" src={workout.photo} alt={workout.name || ''} referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+  }
+  if (!workout.name) return null;
+  return <span className="swp-face" style={{ background: getAvatarColor(workout.name) }} aria-hidden="true">{workout.name[0].toUpperCase()}</span>;
 }
 
 function Exercise({ ex, showWeights }) {
@@ -136,11 +148,14 @@ export default function SharedWorkoutPage({ token }) {
         </header>
 
         <div className="swp-title">
+          <Person workout={workout} />
+          <div>
           <h1>{nameParts.name}{level && <span className={`swp-tag ${level.kind}`}>{level.text}</span>}</h1>
           {tags.length > 0 && (
             <div className="swp-tags">{tags.map(t => <span key={t.kind} className={`swp-tag ${t.kind}`}>{t.text}</span>)}</div>
           )}
           <p>{[workout.name, dateLabel].filter(Boolean).join(' · ')}</p>
+          </div>
         </div>
 
         <StatsStrip className="swp-stats" items={[

@@ -121,6 +121,18 @@ describe('opening a shared workout', () => {
     return res;
   };
 
+  it('shows a photo only when the owner turned it on, and only from Google', async () => {
+    const avatar_url = 'https://lh3.googleusercontent.com/a/ACg8abc-_1=s96-c';
+    rows.users = [{ id: 'owner-1', full_name: 'Rahul Sharma', avatar_url }];
+    expect((await visit()).body.workout).toMatchObject({ showPhoto: false, photo: null });
+    rows.workout_shares = [share({ show_photo: true })];
+    expect((await visit()).body.workout).toMatchObject({ showPhoto: true, photo: 'https://lh3.googleusercontent.com/a/ACg8abc-_1=s192-c' });
+    for (const bad of ['https://evil.example/a=s96-c', 'javascript:alert(1)', 'https://lh3.googleusercontent.com.evil.example/a', null]) {
+      rows.users = [{ full_name: 'Rahul Sharma', avatar_url: bad }];
+      expect((await visit()).body.workout.photo).toBeNull();
+    }
+  });
+
   it('gives chat apps an escaped preview in a single read', async () => {
     fetch.mockClear();
     const res = await getHtml({ preview_title: '<script>"x"' });
@@ -189,7 +201,6 @@ describe('owner', () => {
     rows.workout_shares = [];
     const res = await own({ op: 'save', ...base, user_id: 'someone-else', flags: { showWeights: false }, bodySex: 'male', title: 'Push Day', sets: 2, durationSeconds: 3120 });
     expect(res.statusCode).toBe(200);
-    expect(writes).toHaveLength(1);
     expect(writes[0]).toMatchObject({ table: 'workout_shares', method: 'POST', body: { user_id: 'owner-1', token: TOKEN, share_key: KEY, session_keys: [KEY], show_weights: false, show_name: true, body_sex: 'male', preview_title: 'Push Day', preview_sets: 2 } });
   });
 
@@ -198,7 +209,7 @@ describe('owner', () => {
     rows.workout_logs.push(set({ id: 'row-9', plan_name: 'Beginner Full Body B', session_id: 's2', exercise_name: 'Squat', created_at: '2026-11-23T09:00:00Z' }));
     await own({ op: 'save', ...base });
     await own({ op: 'save', ...base, key: 'sid:s2', token: 'B'.repeat(22) });
-    expect(writes.map(w => [w.body.share_key, w.body.session_keys])).toEqual([['sid:s1', ['sid:s1']], ['sid:s2', ['sid:s2']]]);
+    expect(writes.filter(w => w.method === 'POST').map(w => [w.body.share_key, w.body.session_keys])).toEqual([['sid:s1', ['sid:s1']], ['sid:s2', ['sid:s2']]]);
   });
 
   it('keeps the link already out there when shared again', async () => {
@@ -213,13 +224,33 @@ describe('owner', () => {
     const res = await own({ op: 'prepare', ...base, image: '/9j/AAAA', flags: { showName: false } });
     expect(res.statusCode).toBe(200);
     expect(writes[0]).toMatchObject({ method: 'POST', body: { user_id: 'owner-1', token: TOKEN, active: false, preview_image: '/9j/AAAA', show_name: false } });
-    expect(writes[1].body).toEqual({ preview_image: '/9j/AAAA' });
+    expect(writes[1].body).toEqual({ preview_image: '/9j/AAAA', picture_shows: null });
   });
 
   it('a new picture never changes what a live link shows', async () => {
     await own({ op: 'prepare', ...base, image: '/9j/AAAA', flags: { showName: false } });
     expect(Object.keys(writes[0].body)).not.toContain('show_name');
     expect(Object.keys(writes[0].body)).not.toContain('active');
+  });
+
+  it('drops a stored picture that shows what is now switched off', async () => {
+    await own({ op: 'flags', ...base, flags: { showPhoto: false } });
+    expect(writes[1]).toMatchObject({ method: 'PATCH', body: { preview_image: null, picture_shows: null } });
+    expect(writes[1].query).toContain('picture_shows=not.is.null');
+    writes = [];
+    await own({ op: 'flags', ...base, flags: { showPhoto: true, showName: false } });
+    expect(writes[1].query).toContain('picture_shows=eq.photo-name');
+    writes = [];
+    await own({ op: 'flags', ...base, flags: { showPhoto: true } });
+    expect(writes).toHaveLength(1);
+  });
+
+  it('keeps note of what of the person a picture shows', async () => {
+    await own({ op: 'prepare', ...base, image: '/9j/AAAA', shows: 'photo-name' });
+    expect(writes[0].body.picture_shows).toBe('photo-name');
+    writes = [];
+    await own({ op: 'prepare', ...base, image: '/9j/AAAA', shows: 'anything' });
+    expect(writes[0].body.picture_shows).toBeNull();
   });
 
   it('sending turns the prepared link on with the link that was sent', async () => {
@@ -256,7 +287,7 @@ describe('owner', () => {
     await own({ op: 'flags', ...base, flags: { showMap: false } });
     expect(writes[0].method).toBe('PATCH');
     expect(writes[0].query).toContain('user_id=eq.owner-1');
-    expect(Object.keys(writes[0].body).sort()).toEqual(['show_calories', 'show_map', 'show_name', 'show_weights', 'updated_at']);
+    expect(Object.keys(writes[0].body).sort()).toEqual(['show_calories', 'show_map', 'show_name', 'show_photo', 'show_weights', 'updated_at']);
   });
 
   it('stop deletes only their own link for that workout', async () => {

@@ -172,10 +172,10 @@
 }
 
 @media (max-width: 767px) {
-  /* Coach tabs straight onto the card too (unless a message or the finished
+  /* Coach header straight onto the card too (unless a message or the finished
      card sits between them). */
   .fs-tuck:has(+ .live-logger-container > .wh-tuck:first-child) .trainer-tabs.coach-tabs {
-    margin-bottom: 0;
+    height: 0;
   }
 
   .live-logger-container > .wh-tuck:first-child .wh-line {

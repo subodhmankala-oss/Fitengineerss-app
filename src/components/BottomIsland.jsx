@@ -1,7 +1,7 @@
 import './BottomIsland.css';
 
 // `duo` shapes get a light fill while their tab is open.
-const TABS = [
+const CLIENT_TABS = [
   {
     id: 'home',
     label: 'Home',
@@ -36,32 +36,40 @@ const TABS = [
 ];
 
 /**
- * The client app's bottom tabs: a small floating capsule. Only the open tab
- * shows its name; the tinted, ringed pill slides and the tab widens together.
+ * Floating bottom tabs: a small capsule. Only the open tab shows its name; the
+ * tinted, ringed pill slides and the tab widens together. The client app's main
+ * tabs by default; the coach's client screen passes its own (CoachDetailTabs).
+ * `isLive` marks a tab whose clock is running.
  */
-export default function BottomIsland({ activeTab, onSelect, hasDot = () => false }) {
-  const activeIndex = TABS.findIndex((t) => t.id === activeTab);
+export default function BottomIsland({
+  activeTab, onSelect, hasDot = () => false, isLive = () => false,
+  tabs = CLIENT_TABS, label: navLabel = 'Main', className = '',
+}) {
+  const activeIndex = tabs.findIndex((t) => t.id === activeTab);
   return (
-    <nav className="bottom-nav" aria-label="Main">
+    <nav className={`bottom-nav ${className}`.trim()} aria-label={navLabel}>
       <div className="bottom-island">
         {activeIndex >= 0 && (
           <span className="bottom-island-pill" style={{ '--i': activeIndex }} aria-hidden="true" />
         )}
-        {TABS.map(({ id, label, icon }) => {
+        {tabs.map(({ id, label, icon, tour }) => {
           const active = id === activeTab;
           const dot = !active && hasDot(id);
+          const live = isLive(id);
           return (
             <button
               key={id}
               type="button"
               className={`nav-item ${active ? 'active' : ''}`}
-              aria-label={dot ? `${label}, new` : label}
+              aria-label={`${label}${live ? ', running' : ''}${dot ? ', new' : ''}`}
               aria-current={active ? 'page' : undefined}
+              data-tour={tour}
               onClick={() => onSelect(id)}
             >
               <span className="icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">{icon}</svg>
-                {dot && <span className="unread-dot nav-unread-dot" aria-hidden="true" />}
+                {live && <span className="nav-live-dot" aria-hidden="true" />}
+                {dot && !live && <span className="unread-dot nav-unread-dot" aria-hidden="true" />}
               </span>
               <span className="nav-item-label" aria-hidden="true">{label}</span>
             </button>

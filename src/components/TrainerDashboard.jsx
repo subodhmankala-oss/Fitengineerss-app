@@ -8774,6 +8774,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     active={detailTab}
                     statuses={statuses}
                     liveRunning={liveTimerStatus === 'running'}
+                    hidden={mobileHeaderMenuOpen}
                     hasDot={(key) => hasClientDot(selectedClient?.id, key)}
                     onSelect={(key) => {
                       handleTabChange(key);
@@ -11155,9 +11156,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   )}
 
                   {/* Floating rest-between-sets timer — same behavior/UI as
-                      the client's own logger; --coach sits closer to the
-                      bottom edge since this side has no fixed bottom nav
-                      bar to clear. Portaled to .app-container for the same
+                      the client's own logger. Portaled to .app-container for the same
                       reason as the client's version (see WorkoutTracker.jsx)
                       — otherwise it scrolls away with this panel's own
                       internal scroll instead of staying pinned to the

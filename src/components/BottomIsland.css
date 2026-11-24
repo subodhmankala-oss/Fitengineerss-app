@@ -1,4 +1,5 @@
-/* Client bottom tabs: a small floating capsule (see BottomIsland.jsx).
+/* Floating bottom tabs, a small capsule: the client's main tabs and the coach's
+   client tabs (see BottomIsland.jsx).
    .bottom-nav itself is a full-width, click-through strip that blurs and fades
    the page behind the capsule, so no row is ever readable underneath it. Every
    tab's scroll area must reach the bottom of the screen for this to work (see
@@ -168,7 +169,50 @@ body.workout-full-screen .bottom-island {
   height: 8px;
 }
 
+/* The coach's running Live Log clock. */
+.nav-live-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6b4a;
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+
+/* The pulse moves transform and opacity only: an animated box-shadow would
+   repaint the page on every frame of the workout. */
+.nav-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(255, 107, 74, 0.55);
+  animation: nav-live-pulse 1.6s infinite;
+}
+
+@keyframes nav-live-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  70%, 100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Coach: under the sheets and pop-ups that live inside the dashboard (from
+   999), above its rest timer card. Typing a note or a plan name, it would ride
+   up on top of the keyboard, so it waits. */
+.bottom-nav--coach {
+  z-index: 998;
+}
+
+html.keyboard-open .bottom-nav--coach {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .nav-live-dot::after {
+    animation: none;
+  }
+
   .bottom-island-pill,
   .nav-item,
   .nav-item .icon,

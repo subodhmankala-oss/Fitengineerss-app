@@ -69,7 +69,8 @@ export default function CoachTourOverlay() {
         if (!scrolled) {
           scrolled = true;
           const r0 = el.getBoundingClientRect();
-          const offscreen = r0.top < 80 || r0.bottom > window.innerHeight - 80;
+          // Floating tabs are always on screen, however near its bottom edge.
+          const offscreen = !el.closest('.bottom-nav') && (r0.top < 80 || r0.bottom > window.innerHeight - 80);
           if (offscreen) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         const r = el.getBoundingClientRect();

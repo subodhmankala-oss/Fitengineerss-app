@@ -166,7 +166,7 @@ export default function WelcomeBackScreen({
       <div className="wb-hero">
         <div className="wb-hero-eyebrow">👀 Look who's back!</div>
         <h1 className="wb-hero-title">👋 Welcome back, {firstName}</h1>
-        <p className="wb-hero-sub">Your progress didn't disappear while you were away. 😄</p>
+        <p className="wb-hero-sub">Good to see you again. Your workouts are all saved. 😄</p>
       </div>
 
       {/* ── Journey / progress section — real data only, never fabricated ── */}

@@ -893,7 +893,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // an empty plans list is the only existing availability signal, so it
   // stands in for both halves of the brief's trigger condition, and applies
   // the same way to coach-connected and generic (unconnected) clients alike.
-  // "Your progress didn't disappear while you were away" only makes sense for
+  // "Good to see you again" only makes sense for
   // someone who has been away: a client who trained in the last week (e.g.
   // logged today, then reopened the app) goes straight to their dashboard.
   const latestLogDate = logs.reduce((m, l) => (l.log_date && l.log_date > m ? l.log_date : m), '');

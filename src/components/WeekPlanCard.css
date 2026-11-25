@@ -1,161 +1,102 @@
 /* The self-guided week on Home (WeekPlanCard). Home is a fixed-height flex
    column, so the section must not be squeezed. */
+/* Readable green text on both themes (the sheet uses it too). */
+:root { --wpc-green: #22c55e; }
+[data-theme="light"] { --wpc-green: #15803d; }
+
 .wpc {
   flex-shrink: 0;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   text-align: left;
-}
-
-.wpc-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 14px 9px;
-}
-
-.wpc-title {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
-  color: var(--text-main);
-}
-
-.wpc-sub {
-  margin: 1px 0 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.wpc-note {
-  font-weight: 700;
-  color: #16a34a;
-}
-
-.wpc-change,
-.wpc-cancel {
-  background: none;
-  border: none;
-  min-height: 40px;
-  padding: 0 2px;
-  font-family: inherit;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--accent-text);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.wpc-ready {
-  margin: 6px 14px 0;
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-main);
-}
-
-.wpc-foot {
-  margin: 10px 14px 4px;
-  text-align: center;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.wpc-edit {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  padding: 16px 14px;
-}
-
-.wpc-edit-actions {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.wpc-cancel {
-  padding: 0 10px;
-  color: var(--text-muted);
-}
-
-.wpc-list {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-
-.wpc-list .wpc-row {
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
 }
 
 .wpc-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
-  overflow: hidden;
+  border-radius: 12px;
 }
 
-.wpc-row {
+.wpc-main {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
+  padding-right: 12px;
+}
+
+/* How far through the level (week 3 of 12), where the dividing line was. */
+.wpc-level {
+  display: flex;
+  height: 5px;
+  margin: 2px 12px 0;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(var(--fg-rgb), 0.12);
+}
+
+.wpc-level span {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--primary-accent);
+}
+
+.wpc-level span.lost {
+  border-radius: 0 3px 3px 0;
+  background: repeating-linear-gradient(115deg, #f59e0b 0 4px, #b45309 4px 8px);
+}
+
+.wpc-lost {
+  margin-left: 7px;
+  font-weight: 600;
+  color: var(--tint-amber);
+}
+
+.wpc-level-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 10px;
+  padding: 6px 12px 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.wpc-next-level {
+  font-weight: 600;
+  color: var(--wpc-green);
+}
+
+.wpc-see.lined { border-top: 1px solid var(--border-color); }
+
+.wpc-see {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   width: 100%;
-  min-height: 92px;
-  padding: 13px 14px 13px 11px;
-  background: var(--bg-card);
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.wpc-open {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+  padding: 10px 0 10px 12px;
+  background: none;
   border: 0;
   text-align: left;
   font-family: inherit;
   color: var(--text-main);
   cursor: pointer;
-}
-
-.wpc-row:disabled,
-.wpc-small:disabled {
-  cursor: default;
-}
-
-/* The one to do: the ring is inset, so the card's rounded clip keeps all
-   four sides. */
-.wpc-row.main {
-  border-radius: 13px;
-  box-shadow: inset 0 0 0 2px var(--primary-accent);
-}
-
-.wpc-date {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  width: 42px;
-  line-height: 1.15;
-}
-
-.wpc-date-day {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.wpc-date-num {
-  font-size: 1.35rem;
-  font-weight: 700;
-}
-
-.wpc-date-today {
-  margin-top: 2px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--accent-text);
-}
-
-.wpc-row.main .wpc-date-day,
-.wpc-row.main .wpc-date-num {
-  color: var(--accent-text);
 }
 
 .wpc-body {
@@ -171,58 +112,59 @@
   min-width: 0;
 }
 
-.wpc-name,
-.wpc-small-name {
+.wpc-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.wpc-bars {
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+.wpc-bar {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+/* Six or seven days: narrower, so "Day 2 of 7" still fits a small phone. */
+.wpc-bars.many .wpc-bar { width: 8px; }
+
+.wpc-bar.done { background: #22c55e; }
+.wpc-bar.now { background: var(--primary-accent); }
+
+.wpc-note {
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 700;
-  line-height: 1.25;
+  color: var(--wpc-green);
 }
 
 .wpc-name {
-  font-size: 1rem;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.wpc-small-name {
-  font-size: 0.9rem;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .wpc-stats {
   margin-top: 1px;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.wpc-stats.done {
-  color: #16a34a;
-  font-weight: 600;
-}
-
-/* What's new in that day's workout: swapped-in exercises, and the neglected
-   muscle added at the end. */
-.wpc-new {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--accent-text);
-}
-
-.wpc-new svg { flex-shrink: 0; }
-.wpc-new.added { color: var(--tint-amber); }
-
-.wpc-small-day {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .wpc-play {
@@ -230,76 +172,22 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 46px;
-  height: 46px;
+  width: 64px;
+  height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
-  background: rgba(var(--accent-rgb), 0.12);
-  box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.45);
-  color: var(--accent-text);
-}
-
-button.wpc-play {
-  cursor: pointer;
-}
-
-.wpc-play.now {
+  border-radius: 12px;
   background: var(--primary-accent);
   color: #fff;
-  box-shadow: none;
+  cursor: pointer;
   animation: wpc-pulse 2.2s ease-in-out infinite;
-}
-
-.wpc-play.done {
-  background: rgba(34, 197, 94, 0.16);
-  box-shadow: none;
-  color: #16a34a;
-}
-
-.wpc-play.small {
-  width: 36px;
-  height: 36px;
 }
 
 @keyframes wpc-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.5); }
-  50% { box-shadow: 0 0 0 7px rgba(var(--accent-rgb), 0.12); }
+  50% { box-shadow: 0 0 0 8px rgba(var(--accent-rgb), 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wpc-play.now { animation: none; }
-}
-
-/* The week's other days: two to a row, a lone last one full width. */
-.wpc-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--border-color);
-}
-
-.wpc-small {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 60px;
-  padding: 9px 11px 9px 13px;
-  background: var(--bg-card);
-  border: 0;
-  text-align: left;
-  font-family: inherit;
-  color: var(--text-main);
-  cursor: pointer;
-}
-
-.wpc-small:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-}
-
-.wpc-done {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 14px;
+  .wpc-play { animation: none; }
 }

@@ -9,6 +9,8 @@ export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
 
 const squash = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+export const sameProgram = (a, b) => squash(a) === squash(b);
+
 // Sorted, unique, 0–6. Null when nothing usable is left.
 export function cleanTrainingDays(days) {
   if (!Array.isArray(days)) return null;
@@ -22,12 +24,6 @@ export function dayIndexOf(dateStr) {
 
 export function mondayOf(dateStr) {
   return shiftLocalDateString(dateStr, -dayIndexOf(dateStr));
-}
-
-// "Home Beginner Core & Mobility" → "Core & Mobility": the level and place
-// are already in the week's heading.
-export function shortProgramName(name) {
-  return (name || '').replace(/^(home\s+)?(beginner|intermediate|advanced)\s+/i, '') || name || '';
 }
 
 // One entry per program per day, with that session's calories (a
@@ -62,8 +58,8 @@ export function sessionsFromLogs(logs) {
  * @param days       training days, 0 = Monday
  * @param since      YYYY-MM-DD the days were chosen
  * @returns {null | { slots, main, doneCount, weekDone, nextWeek, nextProgram }}
- *   slots: [{ date, program, done, kcal, isToday, isPast }], main: the one to
- *   show big — today's, else the next one coming up, else the first missed.
+ *   slots: [{ date, program, done, doneOn, kcal, isToday, isPast }] (doneOn:
+ *   the day it was saved), main: the one to do — today's, else the next one coming up, else the first missed.
  *   nextWeek: no chosen day was left this week, so these are next week's.
  *   nextProgram: what comes after the last one done (for a finished week).
  */
@@ -91,7 +87,7 @@ export function buildWeekPlan({ programs, sessions, days, since, today = getLoca
 
   const matched = all.filter(s => s.date >= monday && s.date <= today && byName.has(squash(s.planName)));
   const before = matched.filter(s => s.date < cutoff).map(s => ({
-    date: s.date, program: byName.get(squash(s.planName)), done: true, kcal: s.kcal || 0, isToday: false, isPast: true
+    date: s.date, program: byName.get(squash(s.planName)), done: true, doneOn: s.date, kcal: s.kcal || 0, isToday: false, isPast: true
   }));
   // Sessions still free to tick a card; each ticks one.
   const free = matched.filter(s => s.date >= cutoff);
@@ -100,7 +96,7 @@ export function buildWeekPlan({ programs, sessions, days, since, today = getLoca
     const program = programs[(start + i) % programs.length];
     const at = free.findIndex(s => squash(s.planName) === squash(program.name));
     const session = at >= 0 ? free.splice(at, 1)[0] : null;
-    return { date, program, done: !!session, kcal: session?.kcal || 0, isToday: date === today, isPast: date < today };
+    return { date, program, done: !!session, doneOn: session?.date || null, kcal: session?.kcal || 0, isToday: date === today, isPast: date < today };
   });
 
   const slots = [...before, ...planned];

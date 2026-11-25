@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickNextBeginnerProgram, determineWorkoutGuidance } from './beginnerGuidance';
+import { pickNextBeginnerProgram, determineWorkoutGuidance, levelProgress } from './beginnerGuidance';
 
 const programs = [
   { name: 'Beginner Full Body A' },
@@ -76,6 +76,13 @@ describe('determineWorkoutGuidance', () => {
   // wall clock, so these can't drift or flake as actual time passes.
   const NOW = new Date('2026-12-01T00:00:00').getTime();
   const daysBeforeNow = (days) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // A workout every 4 days from then on: time away would hold a level back
+  // (see levelClock).
+  const trainingSince = (days, planName) => {
+    const out = [];
+    for (let d = days; d >= 1; d -= 4) out.push({ date: daysBeforeNow(d), planName });
+    return out;
+  };
   const ONE_LEVEL_WEEKS = 12; // must match WEEKS_PER_LEVEL in beginnerGuidance.js
 
   it('returns null when neither category has any programs', () => {
@@ -117,9 +124,7 @@ describe('determineWorkoutGuidance', () => {
   });
 
   it('levels up to Intermediate once ~3 months have passed since the first-ever session, even with zero Intermediate activity', () => {
-    const sessions = [
-      { date: daysBeforeNow(ONE_LEVEL_WEEKS * 7 + 7), planName: 'Custom Routine' } // 13 weeks — comfortably past 3 months, never did a named Beginner program
-    ];
+    const sessions = trainingSince(ONE_LEVEL_WEEKS * 7 + 7, 'Custom Routine');
     const result = determineWorkoutGuidance(library, sessions, NOW);
     expect(result.category).toBe('gym');
     expect(result.level).toBe('intermediate');
@@ -139,9 +144,7 @@ describe('determineWorkoutGuidance', () => {
   });
 
   it('levels up to Advanced once ~6 months have passed since the first-ever session', () => {
-    const sessions = [
-      { date: daysBeforeNow(ONE_LEVEL_WEEKS * 2 * 7 + 7), planName: 'Gym Beginner A' } // 25 weeks — comfortably past 6 months
-    ];
+    const sessions = trainingSince(ONE_LEVEL_WEEKS * 2 * 7 + 7, 'Gym Beginner A');
     const result = determineWorkoutGuidance(library, sessions, NOW);
     expect(result.level).toBe('advanced');
     expect(result.reason).toBe('leveled-up');
@@ -216,7 +219,9 @@ describe('determineWorkoutGuidance with a chosen level (12 weeks per level)', ()
 
   it('moves up one level after 12 weeks', () => {
     const pref = { level: 'intermediate', category: 'gym', since: '2026-10-29' };
-    const g = determineWorkoutGuidance(lib, [], at('2027-01-22'), pref);
+    const sessions = [];
+    for (let d = new Date(2026, 9, 29); d < new Date(2027, 0, 22); d.setDate(d.getDate() + 3)) sessions.push({ date: d.toLocaleDateString('en-CA'), planName: 'Push Day' });
+    const g = determineWorkoutGuidance(lib, sessions, at('2027-01-22'), pref);
     expect(g.level).toBe('advanced');
     expect(g.reason).toBe('leveled-up');
   });
@@ -235,5 +240,34 @@ describe('determineWorkoutGuidance with a chosen level (12 weeks per level)', ()
   it('falls back to the tenure logic when the chosen level has no programs', () => {
     const g = determineWorkoutGuidance(lib, [], at('2026-10-30'), { level: 'intermediate', category: 'home', since: '2026-10-29' });
     expect(g.reason).toBe('no-sessions');
+  });
+});
+
+describe('levelProgress', () => {
+  const on = (d) => new Date(`${d}T12:00:00`);
+  const pref = { level: 'beginner', category: 'gym', since: '2026-09-07' };
+  // Twice a week from the start, so nothing is lost.
+  const weekly = [];
+  for (let d = new Date(2026, 8, 7); d < new Date(2026, 11, 10); d.setDate(d.getDate() + 3)) weekly.push({ date: d.toLocaleDateString('en-CA'), planName: 'x' });
+  const week = (level, d, p = pref) => levelProgress(level, weekly, on(d), p);
+
+  it('counts from the day the level was chosen', () => {
+    expect(week('beginner', '2026-09-07')).toEqual({ week: 1, lost: 0 });
+    expect(week('beginner', '2026-09-21').week).toBe(3);
+    expect(week('beginner', '2026-11-29').week).toBe(12);
+  });
+
+  it('stays at 12 until the level changes over, then starts again', () => {
+    expect(week('beginner', '2026-12-02').week).toBe(12);
+    expect(week('intermediate', '2026-12-02').week).toBe(1);
+  });
+
+  it('with no level chosen, counts from the first session', () => {
+    expect(week('beginner', '2026-09-28', null).week).toBe(4);
+  });
+
+  it('none on Advanced, or ahead of the clock', () => {
+    expect(week('advanced', '2026-09-21', { ...pref, level: 'advanced' })).toBeNull();
+    expect(week('intermediate', '2026-09-28', null)).toBeNull();
   });
 });

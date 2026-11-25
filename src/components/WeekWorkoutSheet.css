@@ -1,0 +1,312 @@
+/* The full workout sliding up from Home's workout card (WeekWorkoutSheet). */
+.wws-root {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.wws-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  animation: wws-fade 0.25s ease;
+}
+
+.wws-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  max-height: 88dvh;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.12);
+  border-radius: 22px 22px 0 0;
+  text-align: left;
+  animation: wws-up 0.32s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+/* One height for every day, so the day buttons stay put when another day's
+   list is shorter. */
+.wws-sheet.tall {
+  height: min(88vh, 640px);
+  height: min(88dvh, 640px);
+}
+
+@keyframes wws-up { from { transform: translateY(100%); } }
+@keyframes wws-fade { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .wws-sheet,
+  .wws-backdrop { animation: none; }
+}
+
+/* Dragging this part down closes the sheet. */
+.wws-top {
+  flex-shrink: 0;
+  padding: 10px 16px 0;
+  touch-action: none;
+}
+
+.wws-grip {
+  width: 38px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 2px;
+  background: rgba(var(--fg-rgb), 0.22);
+}
+
+.wws-days {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.wws-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 50px;
+  padding: 4px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.wws-day b {
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.wws-day.on {
+  border-color: transparent;
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: inset 0 0 0 1.5px var(--primary-accent);
+  color: var(--accent-text);
+}
+
+.wws-day.on b { color: var(--accent-text); }
+
+.wws-day.done {
+  border-color: transparent;
+  background: rgba(34, 197, 94, 0.14);
+  color: var(--wpc-green);
+}
+
+.wws-day.done b { color: var(--wpc-green); }
+.wws-day.done.on { box-shadow: inset 0 0 0 1.5px #22c55e; }
+
+.wws-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding-bottom: 13px;
+}
+
+.wws-body {
+  --status-color: var(--primary-accent);
+  display: flex;
+  flex-shrink: 0;
+}
+
+.wws-title-box { min-width: 0; }
+
+.wws-when {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.wws-title {
+  margin: 2px 0 3px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.wws-meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.wws-meta.done {
+  font-weight: 600;
+  color: var(--wpc-green);
+}
+
+.wws-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px;
+  border-top: 1px solid rgba(var(--fg-rgb), 0.08);
+}
+
+.wws-warm {
+  margin: 12px 0 4px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.wws-warm-title {
+  margin: 0 0 1px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tint-amber);
+}
+
+.wws-warm-list {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.wws-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wws-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 48px;
+  padding: 6px 0;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.07);
+}
+
+.wws-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent-text);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.wws-mark.added {
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--tint-amber);
+}
+
+.wws-mark.done {
+  background: rgba(34, 197, 94, 0.16);
+  color: var(--wpc-green);
+}
+
+.wws-ex {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.wws-ex-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.wws-tag {
+  margin-top: 1px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.wws-tag.added { color: var(--tint-amber); }
+
+.wws-amount {
+  flex-shrink: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wws-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.wws-link {
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.wws-link.muted {
+  padding: 0 10px;
+  color: var(--text-muted);
+}
+
+.wws-action {
+  flex-shrink: 0;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+}
+
+.wws-start {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--primary-accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wws-edit { padding: 2px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+
+.wws-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}

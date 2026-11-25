@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
-import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
+import { determineWorkoutGuidance, levelProgress } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
 import WeekPlanCard from './WeekPlanCard';
@@ -10,7 +10,7 @@ import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import { getPlanCardMeta } from '../utils/planCardMeta';
 import { easyRestartProgram } from '../utils/clientBreaks';
-import { buildWeekPlan, DEFAULT_TRAINING_DAYS, mondayOf, sessionsFromLogs } from '../utils/weekPlan';
+import { buildWeekPlan, DEFAULT_TRAINING_DAYS, mondayOf, sameProgram, sessionsFromLogs } from '../utils/weekPlan';
 import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
@@ -22,6 +22,7 @@ import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const CATEGORIES = ['gym', 'home'];
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 // Also saves the level/category as the one the client is on — that level
@@ -37,16 +38,16 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program, pr
 // A self-guided client's Home guidance. A first-timer is asked for their
 // level, Gym or Home, and training days (FirstWorkoutPicker); everyone else
 // gets their week of Workout Library programs (WeekPlanCard) at the level
-// determineWorkoutGuidance puts them on, spread over those days. Playing a
-// card deep-links straight into logging that exact program (startProgram).
+// determineWorkoutGuidance puts them on, spread over those days. Playing
+// it deep-links straight into logging that exact program (startProgram).
 // Renders nothing if no Workout Library programs are configured at all.
 // easyRestart: back from a break ("Taking a break") — every exercise capped
-// at 2 sets for the first workout back.
-export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, easyRestart = false }) {
+// at 2 sets for the first workout back. breaks: their days don't count
+// towards (or against) the level's 12 weeks.
+export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, easyRestart = false, breaks = null }) {
   const [library, setLibrary] = useState(null); // null = still loading
   const [pref, setPref] = useState(undefined); // undefined = still loading
   const [training, setTraining] = useState(undefined); // { days, since }; undefined = still loading
-  const [justMade, setJustMade] = useState(false); // "Make my plan" just tapped
   // The ✕ on the first-workout picker hides it until the app is next opened
   // (sessionStorage, per client): a client who hasn't trained yet sees the
   // full level card on every fresh open, not a collapsed row forever
@@ -131,7 +132,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
   const loggedDays = (logs || []).filter(l => l.log_date).map(l => ({ date: l.log_date, planName: l.plan_name || l.planName || '' }));
   // As of this Monday, so a level that ends mid-week doesn't swap out a
   // half-done week.
-  const guidance = determineWorkoutGuidance(library, loggedDays, parseLocalDateString(monday), pref);
+  const guidance = determineWorkoutGuidance(library, loggedDays, parseLocalDateString(monday), pref, breaks || []);
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
@@ -164,7 +165,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
             databaseService.saveLibraryLevelPref(userId, { level, category }, pref);
             setPref({ level, category, since: today });
             saveDays(days);
-            setJustMade(true);
+            showWeek(); // a week hidden earlier must not swallow the plan just made
           }}
         />
       </div>
@@ -182,7 +183,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
   // picker, which is only for a first-timer (2026-11-15: a client who
   // already trains kept landing back on first-time setup). Level changes
   // live in the Library tab.
-  if (hiddenWeek === monday && !justMade) {
+  if (hiddenWeek === monday) {
     return (
       <ReopenRow
         title="Show my week"
@@ -192,7 +193,10 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
     );
   }
 
-  const levelLabel = level.charAt(0).toUpperCase() + level.slice(1);
+  const levelLabel = capitalize(level);
+  // Only a level this place has programs for.
+  const nextLevel = LEVELS[LEVELS.indexOf(level) + 1];
+  const nextLevelLabel = library[category]?.[nextLevel]?.length > 0 ? capitalize(nextLevel) : null;
   const toDo = (program) => (easyRestart ? easyRestartProgram(program) : program);
   // How often this program will have been done by a card's day: the first of
   // two Full Body As in a week doesn't make the second one new until it's
@@ -208,11 +212,13 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
     <WeekPlanCard
       plan={plan}
       levelLabel={`${levelLabel} · ${category === 'home' ? 'Home' : 'Gym'}`}
+      nextLevelLabel={nextLevelLabel}
+      progress={levelProgress(level, loggedDays, parseLocalDateString(today), pref, breaks || [])}
       note={note}
       days={days}
-      justMade={justMade}
       hintKey={`nextWorkoutSwipeHintSeen_${userId}`}
-      sessionFor={(slot) => todaysSession(toDo(slot.program), level, category, logs, runsExpected(slot))}
+      sessionFor={(slot) => todaysSession(toDo(slot.program), level, category, logs, runsExpected(slot), slot === plan.main || !slot.date)}
+      loggedFor={(slot) => loggedExercises(logs, slot)}
       onStart={(slot) => startProgram(userId, onNavigateToWorkouts, category, level, toDo(slot.program), pref, runsBefore(slot))}
       onChangeDays={saveDays}
       onHide={hideWeek}
@@ -282,16 +288,20 @@ function ReopenRow({ title, subtitle, onClick }) {
 //   focus: ["Warm-up", "2 new exercises", "Core finisher (15 days)"] — read
 //          out by screen readers; no swap the first time a program is done
 //          (see countPriorRuns)
-//   swaps / finisherMuscle: the same, for the card's visible notes
-//   exerciseCount: warm-up + main + finisher
+//   warmups / exercises: the same, listed in the sheet the card opens
+//   finisherLater: sets of the neglected muscle a later day will get
+//   exerciseCount / setCount: warm-up + main + finisher
 //   minutes: ~2.5 min per working set (getPlanCardMeta's estimate) + 5 for
 //            the warm-up
 //   muscles / main / view: for the heat map — `main` are the muscles an
 //          exercise targets first; the rest are only worked along the way.
-function todaysSession(program, level, category, logs, priorRuns) {
+// withFinisher: only for the one to do now — which muscle is most neglected
+// changes with every workout, so a later day's can't be promised yet.
+function todaysSession(program, level, category, logs, priorRuns, withFinisher) {
   const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises || [], level, category, priorRuns });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
-  const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
+  const pick = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
+  const finisher = withFinisher ? pick : null;
   const working = finisher ? [...exercises, finisher] : exercises;
   const setsOf = (ex) => (Array.isArray(ex.sets) ? ex.sets.length : Number(ex.sets) || 0);
   const workingSets = working.reduce((n, ex) => n + setsOf(ex), 0);
@@ -311,12 +321,47 @@ function todaysSession(program, level, category, logs, priorRuns) {
 
   return {
     focus,
-    swaps,
-    finisherMuscle: finisher?.finisherFor.muscle || null,
+    warmups,
+    exercises: working.map(ex => ({
+      name: ex.name,
+      amount: ex.reps ? `${setsOf(ex)} × ${ex.reps}` : `${setsOf(ex)} sets`,
+      tag: exerciseTag(ex),
+      added: !!ex.finisherFor
+    })),
+    finisherLater: !withFinisher && pick ? pick.sets : 0,
     exerciseCount: warmups.length + working.length,
+    setCount: warmups.reduce((n, ex) => n + setsOf(ex), 0) + workingSets,
     minutes: Math.max(15, Math.round((workingSets * 2.5) / 5) * 5 + (warmups.length ? 5 : 0)),
     muscles,
     main,
     view
   };
+}
+
+// Why an exercise isn't the program's usual one: swapped in for this run, or
+// added for a neglected muscle.
+function exerciseTag(ex) {
+  if (ex.swappedFrom) return `New, instead of ${ex.swappedFrom}`;
+  if (!ex.finisherFor) return null;
+  const { muscle, daysSince } = ex.finisherFor;
+  if (daysSince == null) return `Added, ${muscle} not trained yet`;
+  return `Added, ${muscle} not trained for ${daysSince} day${daysSince === 1 ? '' : 's'}`;
+}
+
+// What was saved for a done card: one entry per exercise, warm-up sets left
+// out.
+function loggedExercises(logs, slot) {
+  const byName = new Map();
+  (logs || []).forEach(l => {
+    if (l.log_date !== slot.doneOn || !l.exercise_name || l.set_type === 'warmup') return;
+    if (!sameProgram(l.plan_name || l.planName, slot.program.name)) return;
+    if (!byName.has(l.exercise_name)) byName.set(l.exercise_name, []);
+    byName.get(l.exercise_name).push(Number(l.reps) || 0);
+  });
+  return [...byName].map(([name, reps]) => ({
+    name,
+    amount: reps[0] > 1 && reps.every(n => n === reps[0])
+      ? `${reps.length} × ${reps[0]}`
+      : `${reps.length} set${reps.length === 1 ? '' : 's'}`
+  }));
 }

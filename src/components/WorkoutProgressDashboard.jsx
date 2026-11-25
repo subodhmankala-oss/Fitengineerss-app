@@ -18,7 +18,7 @@ import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
-import { levelFromHistory } from '../utils/clientTrainingLevel';
+import { trainingLevelFor } from '../utils/clientTrainingLevel';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -83,8 +83,6 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // Workouts tab (see utils/pendingWorkoutAdds.js).
   const [queuedAdds, setQueuedAdds] = useState(() => getPendingWorkoutAdds());
   const [logs, setLogs] = useState([]);
-  // Saved level, else the one their training time puts them at.
-  const trainingLevel = useMemo(() => savedTrainingLevel || levelFromHistory(logs), [savedTrainingLevel, logs]);
   // Ticked sets of a workout still open in the logger — Muscle Balance
   // counts them too (see utils/liveSessionStore.js). Set once userId is known.
   const [liveRows, setLiveRows] = useState([]);
@@ -115,6 +113,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // Taking a break: the next-workout card hides while away, and turns into
   // an Easy restart (2 sets each) for the first workout back.
   const { ownBreaks: clientBreaks } = useClientBreaks();
+  // Saved level, else the one their training time puts them at.
+  const trainingLevel = useMemo(() => trainingLevelFor(savedTrainingLevel, logs, clientBreaks), [savedTrainingLevel, logs, clientBreaks]);
   const breakRunning = !!activeBreak(clientBreaks, getLocalDateString());
   const backFromBreak = !!recentlyEndedBreak(clientBreaks, getLocalDateString(), lastWorkoutDateOf(logs));
   const [, forceDraftTick] = useState(0);
@@ -1111,7 +1111,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         <MissedPartsCard userId={userId} />
       )}
       {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && !breakRunning && (
-        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} easyRestart={backFromBreak} />
+        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} easyRestart={backFromBreak} breaks={clientBreaks} />
       )}
 
       {/* A plan the coach just assigned — shown here until the client starts

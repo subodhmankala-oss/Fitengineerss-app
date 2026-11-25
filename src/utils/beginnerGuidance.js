@@ -1,3 +1,6 @@
+import { getLocalDateString } from './dateUtils.js';
+import { LEVEL_DAYS, WEEKS_PER_LEVEL, levelClock } from './levelClock.js';
+
 // Picks which Workout Library program to recommend next on the client's
 // Home screen — a simple round-robin through whichever level's programs
 // (in the order the library returns them, i.e. created_at asc), based on
@@ -76,7 +79,7 @@ const CATEGORIES = ['gym', 'home'];
 // different purpose (gating which tier a coach sees a client at); kept
 // fully separate on purpose rather than unified, so this doesn't touch
 // coach-facing UI coaches already rely on.
-const WEEKS_PER_LEVEL = 12;
+// Time away doesn't count, and takes some back — see levelClock.
 
 // Distinct program names (squashed) from `programs` that appear anywhere in
 // `sessions` — used only for the "never go backward" floor below (has the
@@ -95,16 +98,21 @@ function completedProgramNames(programs, sessions) {
 // The level the client's tenure alone puts them at — see WEEKS_PER_LEVEL
 // above. `now` is a real Date/timestamp in production, injected in tests
 // for determinism.
-export function tenureLevel(sessions, now) {
-  const dates = (sessions || []).map(s => s.date).filter(Boolean).sort();
-  if (dates.length === 0) return 'beginner';
-  const firstDate = new Date(`${dates[0]}T00:00:00`);
-  const nowMs = now instanceof Date ? now.getTime() : now;
-  const weeksActive = Math.max(0, (nowMs - firstDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-  if (weeksActive >= WEEKS_PER_LEVEL * 2) return 'advanced';
-  if (weeksActive >= WEEKS_PER_LEVEL) return 'intermediate';
-  return 'beginner';
+export function tenureLevel(sessions, now, breaks = []) {
+  const { days } = clockFor(null, sessions, now, breaks);
+  return LEVELS[Math.min(LEVELS.length - 1, Math.floor(days / LEVEL_DAYS))];
 }
+
+// The clock a client's level runs on: from the day their level was chosen,
+// or with none chosen, from their first-ever session.
+function clockFor(pref, sessions, now, breaks) {
+  const today = getLocalDateString(new Date(now));
+  const dates = (sessions || []).map(s => s.date).filter(Boolean);
+  const start = pref ? pref.since : dates.reduce((min, d) => (!min || d < min ? d : min), null);
+  return levelClock({ start, dates, breaks, today });
+}
+
+const isChosen = (pref) => LEVELS.includes(pref?.level) && CATEGORIES.includes(pref?.category);
 
 // Which level a client is currently on, within one category (Gym or Home).
 // Two rules, in order:
@@ -115,8 +123,8 @@ export function tenureLevel(sessions, now) {
 //      into Intermediate/Advanced (e.g. coach-assigned) early in their
 //      tenure; rule 1 alone would keep nudging them toward Beginner until
 //      the clock caught up, even though they're demonstrably past it.
-function determineLevel(programsByLevel, sessions, now) {
-  let level = tenureLevel(sessions, now);
+function determineLevel(programsByLevel, sessions, now, breaks) {
+  let level = tenureLevel(sessions, now, breaks);
 
   LEVELS.forEach(lvl => {
     if (completedProgramNames(programsByLevel[lvl], sessions).size > 0 && LEVELS.indexOf(lvl) > LEVELS.indexOf(level)) {
@@ -173,9 +181,10 @@ function categoryActivity(programsByLevel, sessions) {
  *   per further 12 weeks — the tenure clock and the never-go-backward floor
  *   below don't apply, so opening an Intermediate program from the library
  *   in week 2 doesn't move the suggestion.
+ * @param {Array} [breaks] - the client's breaks (their days don't count).
  */
-export function determineWorkoutGuidance(library, sessions, now = Date.now(), pref = null) {
-  const fromPref = guidanceFromPref(library, sessions, now, pref);
+export function determineWorkoutGuidance(library, sessions, now = Date.now(), pref = null, breaks = []) {
+  const fromPref = guidanceFromPref(library, sessions, now, pref, breaks);
   if (fromPref) return fromPref;
   const safeLib = {
     gym: library?.gym || {},
@@ -199,7 +208,7 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now(), pr
   }
 
   const programsByLevel = safeLib[category];
-  const level = determineLevel(programsByLevel, safeSessions, now);
+  const level = determineLevel(programsByLevel, safeSessions, now, breaks);
   const programs = programsByLevel[level] || [];
   if (programs.length === 0) return null; // this category has no programs at the level it resolved to
 
@@ -212,15 +221,26 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now(), pr
   return { category, level, program: pick.program, reason, lastProgram: pick.lastProgram };
 }
 
+// How far through `level` the client is, on the same clock that decides it:
+// { week: 1–12, lost: days the latest time away took back }. Null on
+// Advanced (nothing to step up to), and for a client placed ahead of that
+// clock, whose step-up it doesn't decide.
+export function levelProgress(level, sessions, now = Date.now(), pref = null, breaks = []) {
+  const at = LEVELS.indexOf(level);
+  if (at < 0 || at === LEVELS.length - 1) return null;
+  const chosen = isChosen(pref) ? pref : null;
+  const { days, lost } = clockFor(chosen, sessions, now, breaks);
+  const daysIn = days - LEVEL_DAYS * (at - (chosen ? LEVELS.indexOf(chosen.level) : 0));
+  if (daysIn < 0) return null;
+  return { week: Math.min(WEEKS_PER_LEVEL, Math.floor(daysIn / 7) + 1), lost };
+}
+
 // The chosen-level path of determineWorkoutGuidance. Null (fall back to the
 // tenure logic) when there's no valid pref or its category has no programs
 // at the level it works out to.
-function guidanceFromPref(library, sessions, now, pref) {
-  if (!LEVELS.includes(pref?.level) || !CATEGORIES.includes(pref?.category)) return null;
-  const nowMs = now instanceof Date ? now.getTime() : now;
-  const sinceMs = pref.since ? new Date(`${pref.since}T00:00:00`).getTime() : nowMs;
-  const weeks = Math.max(0, (nowMs - sinceMs) / (7 * 24 * 60 * 60 * 1000));
-  const stepsUp = Math.floor(weeks / WEEKS_PER_LEVEL);
+function guidanceFromPref(library, sessions, now, pref, breaks) {
+  if (!isChosen(pref)) return null;
+  const stepsUp = Math.floor(clockFor(pref, sessions, now, breaks).days / LEVEL_DAYS);
   const level = LEVELS[Math.min(LEVELS.length - 1, LEVELS.indexOf(pref.level) + stepsUp)];
   const programs = library?.[pref.category]?.[level] || [];
   const pick = pickNextProgramInRotation(programs, Array.isArray(sessions) ? sessions : []);

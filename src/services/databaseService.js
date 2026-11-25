@@ -1653,9 +1653,13 @@ const databaseService = {
           // It's a client
           await restUpsert('clients', {
             user_id: userId,
-              // null until the client redeems a coach's invite code (also guards against a
-              // stale 'coach-id-default' placeholder value leaking into the DB)
-              coach_id: (profile.coach_id && profile.coach_id !== 'coach-id-default') ? profile.coach_id : null,
+              // coach_id is deliberately NOT written here. The coach link is
+              // owned by the invite-code RPC, the coach's Unattach and the
+              // package-complete check. Every caller of this function only
+              // had a cached guess at it (localStorage, or a profile read
+              // that can miss the clients row), and a null guess silently
+              // dropped a connected client off their coach's list on an
+              // ordinary profile save (2026-11-23).
               full_name: profile.userName,
               // Omit the key entirely (not '') when this caller didn't pass a
               // phone — an upsert with phone_number:'' overwrites whatever

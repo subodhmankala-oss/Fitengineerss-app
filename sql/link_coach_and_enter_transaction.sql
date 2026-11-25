@@ -24,6 +24,20 @@
 -- also carries is_new (false when the client was already linked to this
 -- same coach — a renewal/reconnect rather than a first-time join).
 
+--
+-- 2026-11-25:
+--   1. This file now matches production, which already carried the gym-tier
+--      parts (gym_id/gym_status on users, coach_assignments history) applied
+--      directly on 2026-10-14. Running the old copy would have removed them.
+--   2. Joining a coach the client was not linked to starts from a clean
+--      package: total_sessions, program dates and the paused flag are
+--      cleared. They used to survive, so a client who re-joined with a fresh
+--      code still carried the old, nearly-finished package and the
+--      package-complete check detached them again on their next save.
+--      "Not linked" is read from clients.coach_id, the column the coach list
+--      uses; users.coach_id is never cleared on a detach. A client still
+--      linked to this same coach keeps their package.
+
 CREATE OR REPLACE FUNCTION public.link_coach_and_enter_transaction(p_invite_code text, p_client_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -37,9 +51,11 @@ DECLARE
   v_coach_role TEXT;
   v_coach_email TEXT;
   v_coach_status TEXT;
+  v_coach_gym_id UUID;
   v_client_email TEXT;
   v_client_name TEXT;
   v_prev_coach_id UUID;
+  v_linked_coach_id UUID;
   v_is_new BOOLEAN;
   v_validation_time TIMESTAMPTZ;
   v_response JSONB;
@@ -69,10 +85,12 @@ BEGIN
   END IF;
 
   -- Ensure coach exists and is an active coach
-  SELECT u.role, u.email, c.status
-  INTO v_coach_role, v_coach_email, v_coach_status
+  SELECT u.role, u.email, c.status,
+         CASE WHEN u.gym_status = 'active' AND g.status = 'active' THEN u.gym_id END
+  INTO v_coach_role, v_coach_email, v_coach_status, v_coach_gym_id
   FROM public.users u
   LEFT JOIN public.coaches c ON c.user_id = u.id
+  LEFT JOIN public.gyms g ON g.id = u.gym_id
   WHERE u.id = v_coach_id;
 
   IF v_coach_email IS NULL OR NOT (
@@ -94,6 +112,13 @@ BEGIN
   -- First-time join vs. reconnect/renewal with the same coach — read BEFORE
   -- the upsert below overwrites coach_id.
   v_is_new := (v_prev_coach_id IS DISTINCT FROM v_coach_id);
+
+  -- The live link, as the coach's list sees it (NULL after a detach). Also
+  -- read before the upsert overwrites it.
+  SELECT coach_id INTO v_linked_coach_id
+  FROM public.clients
+  WHERE user_id = p_client_id
+  FOR UPDATE;
 
   -- If there is still no real name, try the Google display name from
   -- auth.users — matched by EMAIL (auth.users.id != public.users.id here).
@@ -119,7 +144,9 @@ BEGIN
     coach_id,
     verified,
     full_name,
-    payment_status
+    payment_status,
+    gym_id,
+    gym_status
   ) VALUES (
     p_client_id,
     v_client_email,
@@ -127,7 +154,9 @@ BEGIN
     v_coach_id,
     true,
     v_client_name,
-    'active'
+    'active',
+    v_coach_gym_id,
+    CASE WHEN v_coach_gym_id IS NOT NULL THEN 'active' END
   )
   ON CONFLICT (id) DO UPDATE
   SET role = 'client',
@@ -136,7 +165,9 @@ BEGIN
       payment_status = 'active',
       -- Keep any real existing name; only fill from the resolved name when the
       -- stored value is missing or the 'Warrior' placeholder. Never downgrade.
-      full_name = COALESCE(NULLIF(public.users.full_name, 'Warrior'), v_client_name);
+      full_name = COALESCE(NULLIF(public.users.full_name, 'Warrior'), v_client_name),
+      gym_id = v_coach_gym_id,
+      gym_status = CASE WHEN v_coach_gym_id IS NOT NULL THEN 'active' END;
 
   -- 4. Create or update client profile in public.clients
   INSERT INTO public.clients (
@@ -152,6 +183,16 @@ BEGIN
   SET coach_id = v_coach_id,
       full_name = COALESCE(NULLIF(public.clients.full_name, 'Warrior'), v_client_name);
 
+  -- 4a. A fresh link never inherits the previous package (see header).
+  IF v_linked_coach_id IS DISTINCT FROM v_coach_id THEN
+    UPDATE public.clients
+    SET total_sessions = NULL,
+        program_started_on = NULL,
+        program_est_completion = NULL,
+        paused_at = NULL
+    WHERE user_id = p_client_id;
+  END IF;
+
   -- 4b. Create/update coach-client relationship in coach_clients if it exists
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'coach_clients' AND table_schema = 'public') THEN
     INSERT INTO public.coach_clients (
@@ -165,6 +206,19 @@ BEGIN
     )
     ON CONFLICT (coach_id, client_id) DO UPDATE
     SET status = 'active';
+  END IF;
+
+  -- 4b-ii. Gym-tier assignment history
+  IF v_is_new OR NOT EXISTS (
+    SELECT 1 FROM public.coach_assignments
+    WHERE client_id = p_client_id AND ended_at IS NULL
+  ) THEN
+    UPDATE public.coach_assignments
+    SET ended_at = v_validation_time
+    WHERE client_id = p_client_id AND ended_at IS NULL;
+
+    INSERT INTO public.coach_assignments (client_id, coach_id, gym_id, assigned_by, source, started_at)
+    VALUES (p_client_id, v_coach_id, v_coach_gym_id, NULL, 'invite_code', v_validation_time);
   END IF;
 
   -- 2. Mark invitation as used
@@ -208,6 +262,7 @@ BEGIN
     'success', true,
     'coach_id', v_coach_id,
     'client_id', p_client_id,
+    'gym_id', v_coach_gym_id,
     'is_new', v_is_new,
     'code_used', p_invite_code,
     'expires_at', v_expires_at,

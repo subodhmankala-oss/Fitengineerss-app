@@ -27,6 +27,28 @@ export function missMessageText(gymName, daysAway) {
   return `Hi {name}, we haven’t seen you at ${gymName || 'the gym'} for ${daysAway} days. Everything okay? Your next workout is ready whenever you are.`;
 }
 
+// High-five for an active member: names what they actually did (this week,
+// last 2 weeks or this month), notes when they're training more than before,
+// and gives their trainer a mention. Never "haven't seen you".
+export function highFiveMessageText(client, gymName) {
+  const gym = gymName || 'the gym';
+  const week = client?.workouts7d || 0;
+  const twoWeeks = client?.engagement?.recent14 || 0;
+  const month = client?.workouts28d || 0;
+  const before = client?.engagement?.prior28 || 0;
+  const plural = (n) => `${n} workout${n === 1 ? '' : 's'}`;
+  let win;
+  if (week >= 3) win = `${plural(week)} this week. That's proper consistency and it's going to show.`;
+  else if (twoWeeks >= 3) win = `${plural(twoWeeks)} in the last 2 weeks. You keep turning up, and that's what gets results.`;
+  else if (month >= 1) win = `${plural(month)} this month. Every session is adding up.`;
+  else win = 'Thanks for putting in the work with us.';
+  // Training faster than their usual pace (the 4 weeks before, halved to 2 weeks).
+  const climbing = before > 0 && twoWeeks >= 3 && twoWeeks > before / 2 ? ' You\'re training more than you were last month too!' : '';
+  const trainer = String(client?.trainerName || '').trim().split(/\s+/)[0];
+  const sign = trainer ? `Keep it up, you and ${trainer} are on a roll 💪` : 'Keep it up, see you at your next session 💪';
+  return `Hi {name}! 🙌 High-five from everyone at ${gym}!\n\n${win}${climbing}\n\n${sign}`;
+}
+
 // Receipt right after a payment.
 export function receiptMessageText(gymName, amount, planName) {
   return `Thanks {name}! We received ${rupees(amount)} for your ${planName || 'plan'} at ${gymName || 'the gym'}.`;

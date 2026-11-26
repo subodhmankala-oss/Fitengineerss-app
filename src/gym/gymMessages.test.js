@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planMessageText, renewalMessageText } from './gymMessages';
+import { highFiveMessageText, planMessageText, renewalMessageText } from './gymMessages';
 
 const due = { state: 'due', due: 2500, planName: 'Quarterly' };
 const client = { name: 'Ravi Kumar' };
@@ -38,5 +38,19 @@ describe('renewalMessageText', () => {
   it('sends the payment-due message to someone who still owes money', () => {
     const owing = { ...ending, state: 'due', due: 1200 };
     expect(renewalMessageText(client, 'Iron Den', owing, 'irondenfit@okhdfcbank')).toBe(planMessageText(client, 'Iron Den', owing, 'irondenfit@okhdfcbank'));
+  });
+});
+
+describe('highFiveMessageText', () => {
+  const active = { name: 'Venkata Rao', workouts7d: 4, workouts28d: 10, engagement: { status: 'thriving', recent14: 7, prior28: 6 }, trainerName: 'Rahul Sharma' };
+  it('praises the week, notes the climb, names the trainer — never "haven\'t seen you"', () => {
+    const t = highFiveMessageText(active, 'Fitengineers');
+    expect(t).toBe("Hi {name}! 🙌 High-five from everyone at Fitengineers!\n\n4 workouts this week. That's proper consistency and it's going to show. You're training more than you were last month too!\n\nKeep it up, you and Rahul are on a roll 💪");
+    expect(t).not.toMatch(/seen you/i);
+  });
+  it('falls back to 2 weeks, then the month, without a trainer', () => {
+    expect(highFiveMessageText({ workouts7d: 1, workouts28d: 5, engagement: { recent14: 3, prior28: 8 } }, 'Iron Den'))
+      .toBe("Hi {name}! 🙌 High-five from everyone at Iron Den!\n\n3 workouts in the last 2 weeks. You keep turning up, and that's what gets results.\n\nKeep it up, see you at your next session 💪");
+    expect(highFiveMessageText({ workouts7d: 1, workouts28d: 1, engagement: { recent14: 1, prior28: 0 } }, 'Iron Den')).toContain('1 workout this month.');
   });
 });

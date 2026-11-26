@@ -49,6 +49,20 @@ export function highFiveMessageText(client, gymName) {
   return `Hi {name}! 🙌 High-five from everyone at ${gym}!\n\n${win}${climbing}\n\n${sign}`;
 }
 
+// Welcome for a new member (joined recently, no workout yet). Says who gets
+// them started: their trainer by name, "we're picking your trainer" while
+// they wait for one, or the app itself when they train on their own.
+export function welcomeMessageText(client, gymName) {
+  const gym = gymName || 'the gym';
+  const trainer = String(client?.trainerName || '').trim().split(/\s+/)[0];
+  const next = trainer
+    ? `${trainer} will be your trainer. Your first workout is already waiting in the app, so open it before your first session and you're all set.`
+    : client?.selfGuided
+      ? 'Your first workout is ready in the app. Open it when you get to the gym and it takes you through every set.'
+      : 'We\'re picking the right trainer for you now. In the meantime, open the app and set up your profile so you\'re ready to go.';
+  return `Hi {name}, welcome to ${gym}! 🎉 We're really glad you joined.\n\n${next}\n\nAny questions, just reply here. See you on the floor 💪`;
+}
+
 // Receipt right after a payment.
 export function receiptMessageText(gymName, amount, planName) {
   return `Thanks {name}! We received ${rupees(amount)} for your ${planName || 'plan'} at ${gymName || 'the gym'}.`;

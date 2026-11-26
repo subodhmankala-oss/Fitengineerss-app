@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { highFiveMessageText, planMessageText, renewalMessageText } from './gymMessages';
+import { highFiveMessageText, planMessageText, renewalMessageText, welcomeMessageText } from './gymMessages';
 
 const due = { state: 'due', due: 2500, planName: 'Quarterly' };
 const client = { name: 'Ravi Kumar' };
@@ -52,5 +52,18 @@ describe('highFiveMessageText', () => {
     expect(highFiveMessageText({ workouts7d: 1, workouts28d: 5, engagement: { recent14: 3, prior28: 8 } }, 'Iron Den'))
       .toBe("Hi {name}! 🙌 High-five from everyone at Iron Den!\n\n3 workouts in the last 2 weeks. You keep turning up, and that's what gets results.\n\nKeep it up, see you at your next session 💪");
     expect(highFiveMessageText({ workouts7d: 1, workouts28d: 1, engagement: { recent14: 1, prior28: 0 } }, 'Iron Den')).toContain('1 workout this month.');
+  });
+});
+
+describe('welcomeMessageText', () => {
+  it('names the trainer when there is one — never "haven\'t seen you"', () => {
+    const t = welcomeMessageText({ trainerName: 'Rahul Sharma' }, 'Fitengineers');
+    expect(t).toMatch(/^Hi \{name\}, welcome to Fitengineers! 🎉/);
+    expect(t).toContain('Rahul will be your trainer.');
+    expect(t).not.toMatch(/seen you/i);
+  });
+  it('self-guided and waiting-for-trainer members get their own next step', () => {
+    expect(welcomeMessageText({ selfGuided: true }, 'Iron Den')).toContain('Your first workout is ready in the app.');
+    expect(welcomeMessageText({}, 'Iron Den')).toContain('picking the right trainer for you');
   });
 });

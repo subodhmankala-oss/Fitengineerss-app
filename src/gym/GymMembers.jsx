@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import GymPlanForm from './GymPlanForm';
 import { MEMBER_FILTERS, PLAN_FILTERS, dayStreak, initials, memberPlans, memberRowTag, memberTag, rupees, visitGrid } from './gymView';
-import { highFiveMessageText, messagePlan, sendWhatsapp } from './gymMessages';
+import { highFiveMessageText, messagePlan, sendWhatsapp, welcomeMessageText } from './gymMessages';
 import { agoLabel, messageMember } from '../utils/ownerView';
 import { toWhatsappNumber } from '../utils/whatsappNudge';
 
@@ -58,7 +58,8 @@ export default function GymMembers({ data, biz, service, initialFilter = 'all', 
                   disabled={!canMessage} title={canMessage ? '' : 'No phone number saved for this member'}
                   onClick={() => (moneyTag ? messagePlan(c, gym.name, plan, biz?.settings?.upi_id)
                     : tag.action === 'High-five' ? sendWhatsapp(c, highFiveMessageText(c, gym.name))
-                      : messageMember(c, gym.name))}
+                      : tag.action === 'Welcome' ? sendWhatsapp(c, welcomeMessageText(c, gym.name))
+                        : messageMember(c, gym.name))}
                 >{tag.action}</button>
               </div>
             );

@@ -5420,6 +5420,52 @@ const databaseService = {
     }
   },
 
+  // ─── TEAM CHAT (sql/team_chat.sql) ───
+  // The client's whole chat with the Fitengineers team, oldest first. Rows
+  // are founder_messages: team messages (kind welcome|message) plus the
+  // client's own (kind client, text in clientReply). Returns null on failure
+  // so the sheet can tell "couldn't load" from "no messages yet".
+  async getMyTeamChat() {
+    if (!isSupabaseConfigured) return [];
+    try {
+      const rows = await restRpc('get_my_team_chat', {}, { authed: true });
+      return (rows || []).map(r => ({
+        id: r.id,
+        clientId: r.client_id,
+        kind: r.kind,
+        message: r.message,
+        clientReply: r.client_reply || null,
+        clientReplyAt: r.client_reply_at || null,
+        readAt: r.read_at || null,
+        createdAt: r.created_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Team Chat Error:', e);
+      return null;
+    }
+  },
+
+  async sendTeamMessage(message) {
+    if (!isSupabaseConfigured || !message?.trim()) return { success: false, error: 'Message is empty.' };
+    try {
+      const row = await restRpc('send_team_message', { p_message: message.trim() }, { authed: true });
+      const r = Array.isArray(row) ? row[0] : row;
+      return { success: true, clientId: r?.client_id || null, id: r?.id || null, createdAt: r?.created_at || null };
+    } catch (e) {
+      console.error('Cloud DB Send Team Message Error:', e);
+      return { success: false, error: /too many/i.test(e.message || '') ? 'That’s a lot today. We’ll reply soon.' : 'Couldn’t send. Try again.' };
+    }
+  },
+
+  async markTeamChatRead() {
+    if (!isSupabaseConfigured) return;
+    try {
+      await restRpc('mark_team_chat_read', {}, { authed: true });
+    } catch (e) {
+      console.error('Cloud DB Mark Team Chat Read Error:', e);
+    }
+  },
+
   // Super-admin only (the RPC enforces it).
   async sendFounderMessage(clientId, message) {
     if (!isSupabaseConfigured || !clientId || !message?.trim()) return { success: false, error: 'Message is empty.' };

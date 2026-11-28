@@ -1,7 +1,7 @@
 -- ==========================================
 -- GYM SITE — expenses, so the owner sees profit, not just money collected
 --
--- STATUS: NOT YET APPLIED.
+-- STATUS: APPLIED to prod 2026-11-28.
 -- Purely additive: one new table (RLS on, no policies → service-role API
 -- only, like the other gym tables) and one function called only from
 -- api/admin-write.js with the VERIFIED caller as p_owner_id; EXECUTE revoked

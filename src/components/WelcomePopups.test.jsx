@@ -66,7 +66,10 @@ describe('WelcomePopups', () => {
     permission = 'denied';
     db.getWelcomeSeen.mockResolvedValue(true);
     render(<WelcomePopups userId="u1" userName="Asha" />);
+    expect(screen.getByText('Turn on notifications', { selector: 'h3' })).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Turn on notifications' })); });
     expect(screen.getByText('Notifications are blocked')).toBeTruthy();
+    expect(window.Notification.requestPermission).not.toHaveBeenCalled();
     permission = 'granted';
     await act(async () => { window.dispatchEvent(new Event('focus')); });
     expect(screen.queryByRole('dialog')).toBeNull();

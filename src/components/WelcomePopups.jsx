@@ -10,9 +10,10 @@ import './TeamChat.css';
 //   1. Welcome from the Fitengineers team — once, clients.welcome_seen.
 //   2. Notifications — COMPULSORY. Shown on every open while the phone can do
 //      notifications but they aren't allowed. No "Maybe later":
-//        'default' → one button that opens the phone's Allow prompt.
-//        'denied'  → the phone won't prompt again, so show how to allow it
-//                    in settings + "Check again"; re-checks on return to app.
+//      Always opens on "Turn on notifications" (one button). Tapping it shows
+//      the phone's Allow prompt; if the phone is blocked (now or after they
+//      tap Block) it switches to settings steps + "Check again", and re-checks
+//      on return to the app.
 //      Skipped only when the browser can't do notifications at all (e.g. an
 //      iPhone that hasn't added the app to the Home Screen) — nothing to allow.
 const ICONS = {
@@ -32,6 +33,9 @@ export default function WelcomePopups({ userId, userName }) {
   const [perm, setPerm] = useState(notifPermission);
   const [requesting, setRequesting] = useState(false);
   const [checked, setChecked] = useState(false); // "Check again" found it still off
+  // Every client first sees "Turn on notifications"; the settings steps only
+  // appear after they tap it and the phone turns out to be blocked.
+  const [showSteps, setShowSteps] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -67,6 +71,9 @@ export default function WelcomePopups({ userId, userName }) {
 
   const askPermission = async () => {
     if (requesting) return;
+    // Already blocked: the phone won't show its Allow prompt, so go straight
+    // to the settings steps.
+    if (notifPermission() === 'denied') { setShowSteps(true); recheck(); return; }
     setRequesting(true);
     try {
       await Notification.requestPermission();
@@ -74,7 +81,7 @@ export default function WelcomePopups({ userId, userName }) {
       console.error('Notification permission request failed:', e);
     } finally {
       setRequesting(false);
-      recheck();
+      if (recheck() === 'denied') setShowSteps(true);
     }
   };
 
@@ -105,7 +112,7 @@ export default function WelcomePopups({ userId, userName }) {
         </button>
       </>
     );
-  } else if (perm === 'default') {
+  } else if (!showSteps) {
     body = (
       <>
         <span className="wp-bell"><Icon name="bell" size={26} /></span>

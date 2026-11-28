@@ -31,6 +31,22 @@ describe('AdminClientsList component', () => {
     }
   ];
 
+  it('shows the saved Google photo on a client row, initials when there is none', () => {
+    render(
+      <AdminClientsList
+        clients={[
+          { ...mockClients[0], avatarUrl: 'https://lh3.googleusercontent.com/a/photo' },
+          { ...mockClients[1], email: '' }
+        ]}
+        loadingClients={false}
+        coachesList={mockCoaches}
+      />
+    );
+    expect(screen.getByAltText('Jaswanth Gone').getAttribute('src')).toBe('https://lh3.googleusercontent.com/a/photo');
+    expect(screen.queryByAltText('Subodh Guest')).toBeNull();
+    expect(screen.getByText('SG')).toBeTruthy();
+  });
+
   it('shows a founder-message reply on the matching client row only', () => {
     render(
       <AdminClientsList

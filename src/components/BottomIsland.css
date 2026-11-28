@@ -125,14 +125,13 @@ body.workout-full-screen .bottom-island {
   transition: transform 180ms ease;
 }
 
-/* Client's avatar as the Profile tab: a thin ring, accent while open. */
+/* Client's avatar as the Profile tab: no ring of its own — the open tab's
+   pill already marks it, and a second ring read as a gap (2026-11-28). */
 .nav-avatar-wrap {
   display: flex;
-  margin: -2px;
+  margin: -1px;
   border-radius: 50%;
-  box-shadow: 0 0 0 1.5px rgba(var(--fg-rgb), 0.18);
 }
-.nav-item.active .nav-avatar-wrap { box-shadow: 0 0 0 2px var(--primary-accent); }
 .nav-avatar-wrap .nav-avatar { object-fit: cover; }
 
 .nav-item:active .icon {

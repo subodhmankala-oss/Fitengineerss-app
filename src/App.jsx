@@ -2031,7 +2031,7 @@ function App() {
               email={userEmail}
               name={localStorage.getItem('userName') || ''}
               avatarUrl={localStorage.getItem('userAvatarUrl')}
-              size={26}
+              size={24}
             />
           )}
         />

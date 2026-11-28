@@ -50,6 +50,15 @@ function LinkIcon() {
   );
 }
 
+function MessageIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 9h8M8 13h6" />
+      <path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" />
+    </svg>
+  );
+}
+
 function SettingsRow({ icon, label, value, onTap, last, dot }) {
   return (
     <button className={`cp-row${last ? ' cp-row--last' : ''}`} onClick={onTap}>
@@ -898,39 +907,37 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
   return (
     <div className="cp-container animate-slide-up">
       {/* User card at top */}
+      {/* You, then coach + team chat as two buttons in the same card (mockup
+          option 1, 2026-11-28) — they were the Home header's pills. */}
       <div className="cp-user-card">
-        <Avatar className="cp-avatar" email={userEmail} name={form.userName} avatarUrl={userAvatarUrl} size={44} style={{ fontSize: '1.05rem' }} />
-        <div className="cp-user-info">
-          <div className="cp-user-name">{form.userName || 'Warrior'}</div>
-          <div className="cp-user-email">{userEmail}</div>
+        <div className="cp-user-top">
+          <Avatar className="cp-avatar" email={userEmail} name={form.userName} avatarUrl={userAvatarUrl} size={44} style={{ fontSize: '1.05rem' }} />
+          <div className="cp-user-info">
+            <div className="cp-user-name">{form.userName || 'Warrior'}</div>
+            <div className="cp-user-email">{userEmail}</div>
+          </div>
         </div>
-        {/* The Fitengineers team chat (was the logo in the Home header). */}
-        <button
-          type="button"
-          className="cp-chat-btn"
-          onClick={() => setTeamChatOpen(true)}
-          aria-label={teamUnread ? 'Chat with us (new reply)' : 'Chat with us'}
-        >
-          {/* Soft circle with the logo in a message bubble (mockup option 1,
-              2026-11-28); the red dot is an unread team reply. */}
-          <svg className="cp-chat-bubble" width="24" height="22" viewBox="0 0 44 40" aria-hidden="true">
-            <path d="M8 3h28a5 5 0 0 1 5 5v18a5 5 0 0 1-5 5h-3l1 6-8-6H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z" />
-          </svg>
-          <img className="cp-chat-img" src="/logo.png" alt="" />
-          {teamUnread && <span className="tc-badge-dot" />}
-        </button>
-      </div>
-
-      {/* Coach (was in the Home header) */}
-      <div className="cp-section-label">Coaching</div>
-      <div className="cp-section-card">
-        <SettingsRow
-          icon={<span className="cp-row-svg"><LinkIcon /></span>}
-          label={isLinkedToCoach ? 'Your coach' : 'Link coach'}
-          value={isLinkedToCoach ? (coachName || 'Coach') : undefined}
-          onTap={() => setCoachSheet(isLinkedToCoach ? 'details' : 'connect')}
-          last
-        />
+        <div className="cp-support">
+          <button
+            type="button"
+            className="cp-support-btn"
+            onClick={() => setCoachSheet(isLinkedToCoach ? 'details' : 'connect')}
+            aria-label={isLinkedToCoach ? `Your coach: ${coachName || 'Coach'}` : 'Link coach'}
+          >
+            <LinkIcon />
+            <span className="cp-support-text">{isLinkedToCoach ? (coachName || 'Your coach') : 'Link coach'}</span>
+          </button>
+          <button
+            type="button"
+            className="cp-support-btn"
+            onClick={() => setTeamChatOpen(true)}
+            aria-label={teamUnread ? 'Chat with us (new reply)' : 'Chat with us'}
+          >
+            <MessageIcon />
+            <span className="cp-support-text">Chat with us</span>
+            {teamUnread && <span className="tc-badge-dot cp-support-dot" />}
+          </button>
+        </div>
       </div>
 
       {/* Account section */}

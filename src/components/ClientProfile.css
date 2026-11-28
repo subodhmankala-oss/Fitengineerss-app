@@ -29,50 +29,49 @@
 
 /* ── User hero card ──────────────────────────────────────────────────────── */
 .cp-user-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   margin: 20px 16px 6px;
-  padding: 12px 12px 12px 14px;
+  padding: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 16px;
 }
 
-/* Chat with the Fitengineers team: a quiet tinted circle, logo in a bubble. */
-.cp-chat-btn {
+.cp-user-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Coach + team chat: two tinted buttons under the name. */
+.cp-support {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cp-support-btn {
   position: relative;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  padding: 0;
+  gap: 6px;
+  height: 38px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 50%;
-  background: rgba(var(--accent-rgb), 0.12);
+  border-radius: 11px;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   transition: transform 150ms ease, background 150ms ease;
 }
-.cp-chat-btn:active { transform: scale(0.92); background: rgba(var(--accent-rgb), 0.2); }
-.cp-chat-bubble path {
-  fill: var(--bg-card);
-  stroke: var(--primary-accent);
-  stroke-width: 3;
-  stroke-linejoin: round;
-}
-/* Centred in the bubble's body (above the tail). */
-.cp-chat-img {
-  position: absolute;
-  left: 50%;
-  top: 18px;
-  width: 12px;
-  height: 12px;
-  object-fit: contain;
-  transform: translate(-50%, -50%);
-}
-.cp-chat-btn .tc-badge-dot { top: 1px; right: 1px; }
+.cp-support-btn:active { transform: scale(0.97); background: rgba(var(--accent-rgb), 0.18); }
+.cp-support-btn svg { flex-shrink: 0; }
+.cp-support-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-support-dot { top: 6px; right: 8px; }
 
 .cp-avatar {
   width: 44px;

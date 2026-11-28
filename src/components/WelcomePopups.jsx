@@ -1,24 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import databaseService from '../services/databaseService';
 import { subscribeToPush } from '../utils/pushSubscription';
 import { TeamLogo } from './TeamChatSheet';
+import { notifPermission, enableStepsFor } from '../utils/notifPermission';
 import './TeamChat.css';
 
-// First open after sign-up: two pop-ups, one after the other, instead of three
-// cards stacked on Home (welcome, notifications, founder message).
-//   1. Welcome from the Fitengineers team  — clients.welcome_seen
-//   2. Turn on notifications               — clients.notification_prompt_seen
-// Each flag is server-side, so neither returns on another device. Step 2 is
-// skipped when the browser can't do notifications or the client already
-// allowed / blocked them (a blocked prompt can't be shown again anyway).
-const notifAskable = () => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default';
-
+// Client Home pop-ups, instead of three stacked cards:
+//   1. Welcome from the Fitengineers team — once, clients.welcome_seen.
+//   2. Notifications — COMPULSORY. Shown on every open while the phone can do
+//      notifications but they aren't allowed. No "Maybe later":
+//        'default' → one button that opens the phone's Allow prompt.
+//        'denied'  → the phone won't prompt again, so show how to allow it
+//                    in settings + "Check again"; re-checks on return to app.
+//      Skipped only when the browser can't do notifications at all (e.g. an
+//      iPhone that hasn't added the app to the Home Screen) — nothing to allow.
 const ICONS = {
   calendar: <><rect x="4" y="5" width="16" height="16" rx="2" /><path d="M16 3v4M8 3v4M4 11h16M11 15h1v3" /></>,
   message: <><path d="M8 9h8M8 13h6" /><path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" /></>,
   trophy: <><path d="M8 21h8M12 17v4M7 4h10M17 4v8a5 5 0 0 1-10 0V4" /><path d="M5 9a2 2 0 1 1 0-4h2M19 9a2 2 0 1 0 0-4h-2" /></>,
   bell: <><path d="M10 5a2 2 0 1 1 4 0 7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6" /><path d="M9 17v1a3 3 0 0 0 6 0v-1" /></>,
+  bellOff: <><path d="M9.35 5.35A2 2 0 0 1 14 5a7 7 0 0 1 4 6v3m-1 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 1.3-4.1" /><path d="M9 17v1a3 3 0 0 0 6 0v-1M3 3l18 18" /></>,
   arrow: <path d="M5 12h14M13 18l6-6M13 6l6 6" />,
 };
 const Icon = ({ name, size = 18 }) => (
@@ -26,93 +28,120 @@ const Icon = ({ name, size = 18 }) => (
 );
 
 export default function WelcomePopups({ userId, userName }) {
-  const [steps, setSteps] = useState([]); // e.g. ['welcome', 'notif']
-  const [idx, setIdx] = useState(0);
+  const [welcome, setWelcome] = useState(false);
+  const [perm, setPerm] = useState(notifPermission);
   const [requesting, setRequesting] = useState(false);
+  const [checked, setChecked] = useState(false); // "Check again" found it still off
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    const askNotif = notifAskable();
-    Promise.all([
-      databaseService.getWelcomeSeen(userId),
-      askNotif ? databaseService.getNotificationPromptSeen(userId) : Promise.resolve(true),
-    ]).then(([welcomeSeen, notifSeen]) => {
-      if (cancelled) return;
-      const s = [];
-      if (!welcomeSeen) s.push('welcome');
-      if (!notifSeen && notifAskable()) s.push('notif');
-      setSteps(s);
-    });
+    databaseService.getWelcomeSeen(userId).then((seen) => { if (!cancelled && !seen) setWelcome(true); });
     return () => { cancelled = true; };
   }, [userId]);
 
-  const step = steps[idx];
-  if (!step) return null;
-  const next = () => setIdx(i => i + 1);
-
-  const finishWelcome = () => {
-    databaseService.markWelcomeSeen(userId);
-    next();
-  };
-
-  const closeNotif = () => {
+  const granted = useCallback(() => {
+    subscribeToPush(userName);
     databaseService.markNotificationPromptSeen(userId);
-    next();
-  };
+    window.dispatchEvent(new Event('notificationPermissionChanged'));
+  }, [userId, userName]);
 
-  const enableNotif = async () => {
+  // Coming back from phone settings: re-read the permission.
+  const recheck = useCallback(() => {
+    const p = notifPermission();
+    if (p === 'granted' && perm !== 'granted') granted();
+    setPerm(p);
+    return p;
+  }, [perm, granted]);
+
+  useEffect(() => {
+    if (perm === 'granted' || perm === 'unsupported') return;
+    const onVis = () => { if (document.visibilityState === 'visible') recheck(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', recheck);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', recheck);
+    };
+  }, [perm, recheck]);
+
+  const askPermission = async () => {
     if (requesting) return;
     setRequesting(true);
     try {
-      const result = await Notification.requestPermission();
-      window.dispatchEvent(new Event('notificationPermissionChanged'));
-      if (result === 'granted') await subscribeToPush(userName);
+      await Notification.requestPermission();
     } catch (e) {
       console.error('Notification permission request failed:', e);
     } finally {
       setRequesting(false);
-      closeNotif();
+      recheck();
     }
   };
 
+  const checkAgain = () => { setChecked(recheck() !== 'granted'); };
+
+  const needNotif = perm === 'default' || perm === 'denied';
+  const step = welcome ? 'welcome' : needNotif ? 'notif' : null;
+  if (!step) return null;
+
   const firstName = (userName || '').trim().split(/\s+/)[0] || 'there';
-  const dots = steps.length > 1 && (
+  const dots = welcome && needNotif && (
     <div className="wp-dots" aria-hidden="true">
-      {steps.map((s, i) => <span key={s} className={i === idx ? 'on' : ''} />)}
+      <span className={step === 'welcome' ? 'on' : ''} /><span className={step === 'notif' ? 'on' : ''} />
     </div>
   );
 
+  let body;
+  if (step === 'welcome') {
+    body = (
+      <>
+        <TeamLogo size={56} />
+        <h3 id="wp-title" className="wp-title">Welcome, {firstName}</h3>
+        <p className="wp-text">We’re the Fitengineers team. We built this app to coach you through every workout, step by step.</p>
+        <p className="wp-text">Stuck anytime? Tap our logo at the top of Home and message us. We read every one.</p>
+        {dots}
+        <button type="button" className="wp-primary" onClick={() => { databaseService.markWelcomeSeen(userId); setWelcome(false); }}>
+          Let’s go <Icon name="arrow" size={16} />
+        </button>
+      </>
+    );
+  } else if (perm === 'default') {
+    body = (
+      <>
+        <span className="wp-bell"><Icon name="bell" size={26} /></span>
+        <h3 id="wp-title" className="wp-title">Turn on notifications</h3>
+        <p className="wp-text">Fitengineers needs notifications to coach you.</p>
+        <ul className="wp-reasons">
+          <li><Icon name="calendar" /> Reminder on your workout days</li>
+          <li><Icon name="message" /> Notes from your coach and our team</li>
+          <li><Icon name="trophy" /> New personal bests</li>
+        </ul>
+        {dots}
+        <button type="button" className="wp-primary" onClick={askPermission} disabled={requesting}>
+          {requesting ? 'Waiting for your answer…' : 'Turn on notifications'}
+        </button>
+        <p className="wp-hint">On the next prompt, tap Allow.</p>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <span className="wp-bell wp-bell-off"><Icon name="bellOff" size={26} /></span>
+        <h3 id="wp-title" className="wp-title">Notifications are blocked</h3>
+        <p className="wp-text">Fitengineers needs notifications to coach you. Turn them on in your phone:</p>
+        <ol className="wp-steps">
+          {enableStepsFor().map((s, i) => <li key={i}><span className="wp-num">{i + 1}</span>{s}</li>)}
+        </ol>
+        <button type="button" className="wp-primary" onClick={checkAgain}>Check again</button>
+        {checked && <p className="wp-hint wp-hint-warn" role="status">Still off. Follow the steps above, then come back.</p>}
+      </>
+    );
+  }
+
   return createPortal(
     <div className="wp-backdrop">
-      <div className="wp-card" role="dialog" aria-modal="true" aria-labelledby="wp-title" key={step}>
-        {step === 'welcome' ? (
-          <>
-            <TeamLogo size={56} />
-            <h3 id="wp-title" className="wp-title">Welcome, {firstName}</h3>
-            <p className="wp-text">We’re the Fitengineers team. We built this app to coach you through every workout, step by step.</p>
-            <p className="wp-text">Stuck anytime? Tap our logo at the top of Home and message us. We read every one.</p>
-            {dots}
-            <button type="button" className="wp-primary" onClick={finishWelcome}>
-              Let’s go <Icon name="arrow" size={16} />
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="wp-bell"><Icon name="bell" size={26} /></span>
-            <h3 id="wp-title" className="wp-title">Never miss a training day</h3>
-            <ul className="wp-reasons">
-              <li><Icon name="calendar" /> Reminder on your workout days</li>
-              <li><Icon name="message" /> Notes from your coach and our team</li>
-              <li><Icon name="trophy" /> New personal bests</li>
-            </ul>
-            {dots}
-            <button type="button" className="wp-primary" onClick={enableNotif} disabled={requesting}>
-              {requesting ? 'Turning on…' : 'Turn on notifications'}
-            </button>
-            <button type="button" className="wp-later" onClick={closeNotif} disabled={requesting}>Maybe later</button>
-          </>
-        )}
+      <div className="wp-card" role="dialog" aria-modal="true" aria-labelledby="wp-title" key={`${step}-${perm}`}>
+        {body}
       </div>
     </div>,
     document.body

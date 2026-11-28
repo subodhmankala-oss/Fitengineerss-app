@@ -64,6 +64,14 @@ export function welcomeMessageText(client, gymName) {
 }
 
 // Receipt right after a payment.
+// A member on a plan freeze: confirm the dates, no "we haven't seen you".
+export function freezeMessageText(client, gymName, plan) {
+  const gym = gymName || 'the gym';
+  const f = plan?.freeze;
+  if (!f) return `Hi {name}, your plan at ${gym} is on hold. See you soon!`;
+  return `Hi {name}, your ${plan.planName} at ${gym} is frozen till ${shortDate(f.endsOn)}, so you don't lose any days. It now ends on ${shortDate(plan.endsOn)}. See you back on ${shortDate(f.backOn)}!`;
+}
+
 export function receiptMessageText(gymName, amount, planName) {
   return `Thanks {name}! We received ${rupees(amount)} for your ${planName || 'plan'} at ${gymName || 'the gym'}.`;
 }

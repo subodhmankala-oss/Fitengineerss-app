@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import GymFreezeForm from './GymFreezeForm';
 import GymPlanForm from './GymPlanForm';
-import { MEMBER_FILTERS, PLAN_FILTERS, dayStreak, initials, memberPlans, memberRowTag, memberTag, rupees, visitGrid } from './gymView';
-import { highFiveMessageText, messagePlan, sendWhatsapp, welcomeMessageText } from './gymMessages';
+import { MEMBER_FILTERS, PLAN_FILTERS, dayStreak, freezeReasonLabel, initials, memberPlans, memberRowTag, memberTag, rupees, shortDay, visitGrid } from './gymView';
+import { freezeMessageText, highFiveMessageText, messagePlan, sendWhatsapp, welcomeMessageText } from './gymMessages';
 import { agoLabel, messageMember } from '../utils/ownerView';
 import { toWhatsappNumber } from '../utils/whatsappNudge';
 
@@ -57,6 +58,7 @@ export default function GymMembers({ data, biz, service, initialFilter = 'all', 
                   type="button" className={`gx-btn ${tag.tone === 'green' ? 'gx-btn-soft' : 'gx-btn-dark'}`}
                   disabled={!canMessage} title={canMessage ? '' : 'No phone number saved for this member'}
                   onClick={() => (moneyTag ? messagePlan(c, gym.name, plan, biz?.settings?.upi_id)
+                    : plan?.state === 'frozen' ? sendWhatsapp(c, freezeMessageText(c, gym.name, plan))
                     : tag.action === 'High-five' ? sendWhatsapp(c, highFiveMessageText(c, gym.name))
                       : tag.action === 'Welcome' ? sendWhatsapp(c, welcomeMessageText(c, gym.name))
                         : messageMember(c, gym.name))}
@@ -95,6 +97,16 @@ function MemberPanel({ client, trainers, biz, plan, today, service, onChanged })
     : choice === '__self__' ? `${client.name} will train on their own, with no trainer.`
       : `${client.name} will be coached by ${trainerName(choice)}${client.trainerName ? ` instead of ${client.trainerName}` : ''}. ${trainerName(choice)} gets a notification.`;
 
+  const freeze = plan?.freeze;
+  const canFreeze = plan && !freeze && plan.daysLeft >= 0 && today;
+  const endFreeze = async () => {
+    if (busy || !freeze) return;
+    setBusy(true); setMsg('');
+    const r = await service.endGymFreeze(freeze.id);
+    setBusy(false);
+    if (r.success) { setMsg(freeze.running ? `Welcome back. ${r.daysBack} unused day${r.daysBack === 1 ? '' : 's'} taken off the plan.` : 'Freeze cancelled.'); onChanged(); } else setMsg(r.error || 'Could not end the freeze.');
+  };
+
   const save = async () => {
     if (!choice || busy) return;
     setBusy(true); setMsg('');
@@ -127,13 +139,26 @@ function MemberPanel({ client, trainers, biz, plan, today, service, onChanged })
           <p className="gx-panel-note">
             {plan ? `${plan.planName} · ${plan.daysLeft >= 0 ? `ends in ${plan.daysLeft} day${plan.daysLeft === 1 ? '' : 's'}` : 'ended'}${plan.due ? ` · ${rupees(plan.due)} due` : ''}` : 'No plan recorded yet.'}
           </p>
+          {freeze && (
+            <p className="gx-panel-note" data-testid="freeze-note">
+              {freeze.running ? 'Frozen' : 'Freeze starts'} {freeze.running ? `till ${shortDay(freeze.endsOn)}` : `${shortDay(freeze.startsOn)}, back ${shortDay(freeze.backOn)}`}
+              {freeze.reason ? ` · ${freezeReasonLabel(freeze.reason)}` : ''} · plan already moved to end {shortDay(plan.endsOn)}
+            </p>
+          )}
           {!planForm && (
             <div className="gx-actions">
               {plan?.due > 0 && <button type="button" className="gx-btn gx-btn-light" onClick={() => setPlanForm('pay')}>Record payment</button>}
               <button type="button" className="gx-btn gx-btn-light" onClick={() => setPlanForm('start')}>{plan ? 'Renew plan' : 'Start a plan'}</button>
+              {canFreeze && <button type="button" className="gx-btn gx-btn-light" onClick={() => setPlanForm('freeze')}>Freeze plan</button>}
+              {freeze && <button type="button" className="gx-btn gx-btn-light" disabled={busy} onClick={endFreeze}>{freeze.running ? 'End freeze — back today' : 'Cancel freeze'}</button>}
             </div>
           )}
-          {planForm && (
+          {planForm === 'freeze' && (
+            <div className="gx-form-dark">
+              <GymFreezeForm member={client} plan={plan} today={today} service={service} onDone={() => { setPlanForm(null); onChanged(); }} onCancel={() => setPlanForm(null)} />
+            </div>
+          )}
+          {planForm && planForm !== 'freeze' && (
             <div className="gx-form-dark">
               <GymPlanForm mode={planForm} member={client} plans={biz.plans} current={plan} service={service} onDone={() => { setPlanForm(null); onChanged(); }} onCancel={() => setPlanForm(null)} />
             </div>

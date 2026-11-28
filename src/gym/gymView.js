@@ -39,8 +39,8 @@ export function memberTag(client) {
 
 export const MEMBER_FILTERS = [
   { key: 'all', label: 'Everyone', dot: '#1b2646', test: () => true },
-  { key: 'stopped', label: 'Stopped coming', dot: '#f05b6b', test: (c) => ['quiet', 'inactive'].includes(c.engagement?.status) },
-  { key: 'slipping', label: 'Slipping', dot: '#ffb02e', test: (c) => c.engagement?.status === 'slipping' },
+  { key: 'stopped', label: 'Stopped coming', dot: '#f05b6b', test: (c, plans) => ['quiet', 'inactive'].includes(c.engagement?.status) && !isFrozen(plans?.[c.id]) },
+  { key: 'slipping', label: 'Slipping', dot: '#ffb02e', test: (c, plans) => c.engagement?.status === 'slipping' && !isFrozen(plans?.[c.id]) },
   { key: 'new', label: 'New', dot: '#4a66c4', test: (c) => c.engagement?.status === 'new' },
   { key: 'active', label: 'Active', dot: '#2fbf8a', test: (c) => ['thriving', 'steady'].includes(c.engagement?.status) },
   { key: 'waiting', label: 'Waiting for a trainer', dot: '#94a3b8', test: (c) => !c.trainerName && !c.selfGuided }
@@ -50,6 +50,7 @@ export const MEMBER_FILTERS = [
 export const PLAN_FILTERS = [
   { key: 'ends', label: 'Ends soon', dot: '#ffb02e', test: (c, plans) => ['ends-soon', 'expired'].includes(plans[c.id]?.state) },
   { key: 'due', label: 'Payment due', dot: '#f08a2e', test: (c, plans) => plans[c.id]?.state === 'due' },
+  { key: 'frozen', label: 'Frozen', dot: '#4a66c4', test: (c, plans) => !!plans[c.id]?.freeze },
   { key: 'notrenew', label: 'Likely not to renew', dot: '#f05b6b', test: (c, plans) => isLikelyNotToRenew(c, plans[c.id]) }
 ];
 
@@ -75,25 +76,65 @@ export function rankTrainers(trainers) {
 const dayNumber = (iso) => Math.floor(Date.parse(`${String(iso).slice(0, 10)}T00:00:00Z`) / 86400000);
 export const ENDS_SOON_DAYS = 7;
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// YYYY-MM-DD plus n days, and "27 Jan" for a YYYY-MM-DD.
+export const addDays = (iso, n) => new Date((dayNumber(iso) + n) * 86400000).toISOString().slice(0, 10);
+export const shortDay = (iso) => `${Number(String(iso).slice(8, 10))} ${MONTH_SHORT[Number(String(iso).slice(5, 7)) - 1]}`;
 
 export const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
 // Each member's CURRENT membership (the one that ends last) with what has been
-// paid against it. state: due (still owes money) > expired > ends-soon > active.
+// paid against it. state: due (still owes money) > frozen > expired > ends-soon > active.
+// `freeze` is the member's running or upcoming plan freeze (sql/gym_plan_freeze.sql);
+// the plan end date already includes the frozen days.
 export function memberPlans(biz, today) {
   const paid = {};
   (biz?.paidByMembership || []).forEach((p) => { paid[p.membership_id] = (paid[p.membership_id] || 0) + p.amount_inr; });
+  const freezeOf = memberFreezes(biz, today);
   const out = {};
   (biz?.memberships || []).forEach((m) => {
     const prev = out[m.member_id];
     if (prev && prev.endsOn >= m.ends_on) return;
     const daysLeft = dayNumber(m.ends_on) - dayNumber(today);
     const due = Math.max(0, m.price_inr - (paid[m.id] || 0));
-    const state = due > 0 ? 'due' : daysLeft < 0 ? 'expired' : daysLeft <= ENDS_SOON_DAYS ? 'ends-soon' : 'active';
-    out[m.member_id] = { membershipId: m.id, planName: m.plan_name, endsOn: m.ends_on, daysLeft, price: m.price_inr, paid: paid[m.id] || 0, due, state };
+    const freeze = freezeOf[m.member_id] || null;
+    const state = due > 0 ? 'due' : freeze?.running ? 'frozen' : daysLeft < 0 ? 'expired' : daysLeft <= ENDS_SOON_DAYS ? 'ends-soon' : 'active';
+    out[m.member_id] = { membershipId: m.id, planName: m.plan_name, endsOn: m.ends_on, daysLeft, price: m.price_inr, paid: paid[m.id] || 0, due, state, freeze };
   });
   return out;
 }
+
+// ─── Plan freeze ───
+export const FREEZE_DAYS = [7, 15, 30];
+export const FREEZE_MAX_DAYS = 90;
+export const FREEZE_REASONS = [
+  { key: 'travel', label: 'Travel' }, { key: 'illness', label: 'Illness' }, { key: 'injury', label: 'Injury' },
+  { key: 'exams', label: 'Exams' }, { key: 'other', label: 'Other' }
+];
+export const freezeReasonLabel = (key) => FREEZE_REASONS.find((r) => r.key === key)?.label || '';
+
+// Each member's freeze that is running today or still to come (at most one).
+// running = today is a frozen day; daysLeft = frozen days from today on.
+export function memberFreezes(biz, today) {
+  const out = {};
+  if (!today) return out;
+  (biz?.freezes || []).forEach((f) => {
+    if (f.ends_on < today) return;
+    const running = f.starts_on <= today;
+    const daysLeft = dayNumber(f.ends_on) - dayNumber(running ? today : f.starts_on) + 1;
+    const backOn = addDays(f.ends_on, 1);
+    out[f.member_id] = { id: f.id, startsOn: f.starts_on, endsOn: f.ends_on, backOn, reason: f.reason || null, running, daysLeft };
+  });
+  return out;
+}
+
+// The plan end date after freezing it for `days` more days.
+export function frozenEndDate(endsOn, days) {
+  return addDays(endsOn, days);
+}
+
+// A member who froze their plan is away on purpose: leave them out of the
+// "stopped coming / slipping / we miss you / likely to leave" lists.
+export const isFrozen = (plan) => !!plan?.freeze?.running;
 
 // Money in by calendar month: the last `count` months ending with today's,
 // oldest first, plus this month's total. Month keys are YYYY-MM.
@@ -118,6 +159,7 @@ export const GYM_COLOURS = {
 // The tag a member row shows: money state wins over training health.
 export function memberRowTag(client, plan) {
   if (plan?.state === 'due') return { label: 'Payment due', tone: 'amber', action: 'Collect' };
+  if (plan?.state === 'frozen') return { label: `Frozen till ${shortDay(plan.freeze.endsOn)}`, tone: 'blue', action: 'Message' };
   if (plan?.state === 'expired') return { label: 'Plan ended', tone: 'red', action: 'Renew' };
   if (plan?.state === 'ends-soon') return { label: 'Ends soon', tone: 'amber', action: 'Remind' };
   return memberTag(client);
@@ -324,7 +366,7 @@ export function newMemberJourney(clients) {
 export const NOT_RENEW_DAYS = 14;
 export const NOT_RENEW_ENDED_MAX = 60;
 export function isLikelyNotToRenew(client, plan) {
-  if (!plan || plan.daysLeft > NOT_RENEW_DAYS || plan.daysLeft < -NOT_RENEW_ENDED_MAX) return false;
+  if (!plan || isFrozen(plan) || plan.daysLeft > NOT_RENEW_DAYS || plan.daysLeft < -NOT_RENEW_ENDED_MAX) return false;
   return TRAINING_AT_RISK.includes(client?.engagement?.status);
 }
 

@@ -90,4 +90,21 @@ describe('api/admin-write: gym UPI id and sent messages', () => {
     }
     expect(rpcs).toHaveLength(0);
   });
+
+  it('freezes a plan for the verified caller and validates days / reason first', async () => {
+    const res = await call('gym-freeze-membership', { memberId: MEMBER, days: 15, reason: 'travel', ownerId: 'someone-else' });
+    expect(res.statusCode).toBe(200);
+    expect(rpcs).toEqual([{ fn: 'gym_freeze_membership', body: { p_owner_id: OWNER_ID, p_member_id: MEMBER, p_days: 15, p_reason: 'travel', p_starts_on: null } }]);
+    rpcs.length = 0;
+    for (const bad of [{ memberId: MEMBER, days: 0 }, { memberId: MEMBER, days: 91 }, { memberId: MEMBER, days: 7, reason: 'party' }, { memberId: 'x', days: 7 }, { memberId: MEMBER, days: 7, startsOn: 'soon' }]) {
+      expect((await call('gym-freeze-membership', bad)).statusCode).toBe(400);
+    }
+    expect(rpcs).toHaveLength(0);
+  });
+
+  it('ends a freeze by id', async () => {
+    expect((await call('gym-end-freeze', { freezeId: MEMBER })).statusCode).toBe(200);
+    expect(rpcs).toEqual([{ fn: 'gym_end_freeze', body: { p_owner_id: OWNER_ID, p_freeze_id: MEMBER } }]);
+    expect((await call('gym-end-freeze', { freezeId: 'nope' })).statusCode).toBe(400);
+  });
 });

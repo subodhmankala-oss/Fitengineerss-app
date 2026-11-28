@@ -471,6 +471,17 @@ const handleGymPayMembership = gymBusinessAction('gym_pay_membership', 'gym-pay-
     ? { p_owner_id: c.id, p_membership_id: b.membershipId, p_amount_inr: Number(b.amountInr), p_method: String(b.method || 'upi'), p_paid_on: b.paidOn || null }
     : null
 ));
+// Freeze a member's plan / end a freeze early (sql/gym_plan_freeze.sql).
+const FREEZE_REASONS = ['travel', 'illness', 'injury', 'exams', 'other'];
+const handleGymFreezeMembership = gymBusinessAction('gym_freeze_membership', 'gym-freeze-membership', (b, c) => (
+  UUID_RE.test(String(b.memberId || '')) && isInt(Number(b.days), 1, 90) && isDate(b.startsOn)
+    && (b.reason == null || b.reason === '' || FREEZE_REASONS.includes(b.reason))
+    ? { p_owner_id: c.id, p_member_id: b.memberId, p_days: Number(b.days), p_reason: b.reason || null, p_starts_on: b.startsOn || null }
+    : null
+));
+const handleGymEndFreeze = gymBusinessAction('gym_end_freeze', 'gym-end-freeze', (b, c) => (
+  UUID_RE.test(String(b.freezeId || '')) ? { p_owner_id: c.id, p_freeze_id: b.freezeId } : null
+));
 const handleGymSavePlans = gymBusinessAction('gym_save_plans', 'gym-save-plans', (b, c) => (
   Array.isArray(b.plans) && b.plans.length <= 20 && b.plans.every((p) =>
     p && typeof p.name === 'string' && p.name.trim().length >= 1 && p.name.length <= 60
@@ -628,6 +639,8 @@ const ACTION_HANDLERS = {
   'owner-unassign-client': handleOwnerUnassignClient,
   'gym-start-membership': handleGymStartMembership,
   'gym-pay-membership': handleGymPayMembership,
+  'gym-freeze-membership': handleGymFreezeMembership,
+  'gym-end-freeze': handleGymEndFreeze,
   'gym-save-plans': handleGymSavePlans,
   'gym-save-settings': handleGymSaveSettings,
   'gym-save-upi': handleGymSaveUpi,

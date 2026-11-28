@@ -3,7 +3,7 @@ import GymInvite from './GymInvite';
 import GymTodayMessages from './GymTodayMessages';
 import GymFollowUps from './GymFollowUps';
 import { FirstThirtyDaysCard, NotRenewCard } from './GymOwnerCards';
-import { busyLabel, greeting, istDate, istTime, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees, visitsToday, whoIsIn } from './gymView';
+import { busyLabel, greeting, isFrozen, istDate, istTime, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees, visitsToday, whoIsIn } from './gymView';
 
 const HOW = {
   coach: { label: 'With trainer', tone: 'violet' },
@@ -25,14 +25,15 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
   const first = (owner?.name || '').split(' ')[0];
   const trainedWeek = clients.filter((c) => c.workouts7d > 0).length;
   const workoutsWeek = clients.reduce((s, c) => s + c.workouts7d, 0);
-  const stopped = clients.filter((c) => ['quiet', 'inactive'].includes(c.engagement?.status)).length;
-  const slipping = clients.filter((c) => c.engagement?.status === 'slipping').length;
+  const plans = biz && insights?.today ? memberPlans(biz, insights.today) : {};
+  // Members who froze their plan are away on purpose, so they don't count here.
+  const stopped = clients.filter((c) => ['quiet', 'inactive'].includes(c.engagement?.status) && !isFrozen(plans[c.id])).length;
+  const slipping = clients.filter((c) => c.engagement?.status === 'slipping' && !isFrozen(plans[c.id])).length;
   const waiting = clients.filter((c) => !c.trainerName && !c.selfGuided).length;
   const ranked = rankTrainers(trainers).slice(0, 3);
   const weekly = insights?.weekly || [];
   const today = insights?.today;
 
-  const plans = biz && insights?.today ? memberPlans(biz, insights.today) : {};
   const dueN = clients.filter((c) => plans[c.id]?.state === 'due').length;
   const endsN = clients.filter((c) => ['ends-soon', 'expired'].includes(plans[c.id]?.state)).length;
   const money = biz && insights?.today ? monthlyCollections(biz.payments, insights.today, 6) : null;

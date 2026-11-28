@@ -48,7 +48,8 @@ export function todaysMessages({ clients, plans, biz, today, gymName }) {
     if (on.renewal && plan && plan.state === 'ends-soon' && plan.daysLeft >= 0 && plan.daysLeft <= RENEWAL_DAYS) {
       add(c, 'renewal', String(plan.endsOn).slice(0, 10), planMessageText(c, gymName, plan));
     }
-    if (on.miss && c.lastWorkout) {
+    // A frozen plan means they're away on purpose: no "we miss you".
+    if (on.miss && c.lastWorkout && !plan?.freeze?.running) {
       const away = dayNum(today) - dayNum(c.lastWorkout);
       if (away >= MISS_FROM_DAYS && away <= MISS_TO_DAYS) add(c, 'miss', String(c.lastWorkout).slice(0, 10), missMessageText(gymName, away));
     }

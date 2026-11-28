@@ -183,7 +183,8 @@ body.workout-full-screen .bottom-island {
 }
 
 /* Client: Instagram-style icons (BottomIsland iconOnly). Evenly spaced, no
-   names, no pill; the open tab is darker and bolder, the avatar gets a ring. */
+   names, no pill; the open tab is bolder in the logo blue, the avatar gets a
+   blue ring. */
 .bottom-island--icons {
   width: auto;
   height: 52px;
@@ -198,7 +199,7 @@ body.workout-full-screen .bottom-island {
 }
 .bottom-island--icons .nav-item.active {
   flex-basis: 52px;
-  color: var(--text-main);
+  color: var(--accent-text);
 }
 .bottom-island--icons .icon svg {
   width: 25px;
@@ -207,14 +208,14 @@ body.workout-full-screen .bottom-island {
   transition: stroke-width 200ms ease;
 }
 .bottom-island--icons .nav-item.active .icon svg { stroke-width: 2.4; }
-.bottom-island--icons .nav-item.active .duo { fill: rgba(var(--fg-rgb), 0.14); }
+.bottom-island--icons .nav-item.active .duo { fill: rgba(var(--accent-rgb), 0.18); }
 .bottom-island--icons .nav-avatar-wrap {
   margin: 0;
   padding: 2px;
   transition: box-shadow 200ms ease;
 }
 .bottom-island--icons .nav-item.active .nav-avatar-wrap {
-  box-shadow: 0 0 0 1.75px var(--text-main);
+  box-shadow: 0 0 0 1.75px var(--accent-text);
 }
 
 /* The coach's running Live Log clock. */

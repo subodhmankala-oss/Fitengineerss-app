@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
-import FounderMessageCard from './FounderMessageCard';
 import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
-import WelcomeBanner from './WelcomeBanner';
-import NotificationPrompt from './NotificationPrompt';
+import WelcomePopups from './WelcomePopups';
+import TeamChatSheet, { TeamLogo } from './TeamChatSheet';
+import { hasUnreadTeamMessage } from '../utils/teamChat';
 import NextWorkoutBanner from './NextWorkoutBanner';
 import MissedPartsCard from './MissedPartsCard';
 import ClientBreakCard from './ClientBreakCard';
@@ -94,6 +94,16 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   }, [userId]);
   const [loading, setLoading] = useState(true);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  // Header badge → chat with the Fitengineers team (sql/team_chat.sql). The
+  // red dot shows when the team sent a message the client hasn't opened.
+  const [teamChatOpen, setTeamChatOpen] = useState(false);
+  const [teamUnread, setTeamUnread] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.getMyTeamChat().then((rows) => { if (!cancelled && rows) setTeamUnread(hasUnreadTeamMessage(rows)); });
+    return () => { cancelled = true; };
+  }, [userId]);
+  const clearTeamUnread = useCallback(() => setTeamUnread(false), []);
   // Once connected, the pill opens a read-only "who is my coach" view
   // instead of the connect flow — that flow only makes sense pre-connection.
   // openTestimonial: the coach's ask-for-a-testimonial link lands here with
@@ -963,22 +973,26 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               </>
             )}
           </button>
+          <button
+            type="button"
+            className="tc-badge-btn"
+            onClick={() => setTeamChatOpen(true)}
+            aria-label={teamUnread ? 'Message the Fitengineers team (new reply)' : 'Message the Fitengineers team'}
+            title="Message the Fitengineers team"
+          >
+            <TeamLogo size={32} />
+            {teamUnread && <span className="tc-badge-dot" />}
+          </button>
         </div>
       </div>
 
-      {/* One-time welcome card for a brand-new client — shown in-app instead
-          of as a push (a push can be missed/denied/arrive before they've
-          even opened the dashboard). Stays until dismissed. */}
-      <WelcomeBanner userId={userId} userName={userName} />
+      {teamChatOpen && (
+        <TeamChatSheet userName={userName} onClose={() => setTeamChatOpen(false)} onRead={clearTeamUnread} />
+      )}
 
-      {/* One-time "turn on notifications?" ask for a brand-new client, right
-          after their first login — surfaces the toggle instead of leaving it
-          buried in profile settings until they stumble onto it. */}
-      <NotificationPrompt userId={userId} userName={userName} />
-
-      {/* Personal message from the founder (automatic welcome for new
-          clients, or one sent from Super-Admin) — photo, message, reply. */}
-      <FounderMessageCard />
+      {/* First open after sign-up: welcome from the team, then the
+          notifications ask — two pop-ups instead of three stacked cards. */}
+      <WelcomePopups userId={userId} userName={userName} />
 
       {/* Unread notes from the coach — the fallback if the client missed the
           push notification when the coach sent it. */}

@@ -215,7 +215,8 @@ body.workout-full-screen .bottom-island {
   transition: box-shadow 200ms ease;
 }
 .bottom-island--icons .nav-item.active .nav-avatar-wrap {
-  box-shadow: 0 0 0 1.75px var(--accent-text);
+  /* The logo's own blue, thick enough not to read as black beside pink. */
+  box-shadow: 0 0 0 2.25px var(--primary-accent-light);
 }
 
 /* The coach's running Live Log clock. */

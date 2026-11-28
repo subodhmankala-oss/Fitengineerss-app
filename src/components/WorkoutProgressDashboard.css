@@ -12,7 +12,9 @@
   /* Edge-to-edge: no side gutters — cards/sections span the full screen
      width. Vertical padding kept; horizontal removed. Direct children that
      need breathing room carry their own horizontal padding. */
-  padding: 20px 0 90px 0; /* bottom = space for bottom nav */
+  /* Top: 8px, not 20 — that gap sat under the old header row, removed in
+     #606, and left an empty band above the workout card (2026-11-28). */
+  padding: 8px 0 90px 0; /* bottom = space for bottom nav */
   background: var(--bg-app);
   overflow-y: auto;
 }

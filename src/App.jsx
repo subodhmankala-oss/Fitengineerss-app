@@ -2024,6 +2024,7 @@ function App() {
           activeTab={activeTab}
           onSelect={setActiveTab}
           hasDot={hasNavDot}
+          iconOnly
           // The client's own photo / initials is the Profile tab.
           profileIcon={(
             <Avatar

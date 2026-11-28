@@ -31,67 +31,70 @@
 .cp-user-card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 28px 20px 20px;
+  gap: 12px;
+  margin: 20px 16px 6px;
+  padding: 12px 12px 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
 }
 
+/* Chat with the Fitengineers team: a quiet tinted circle, logo in a bubble. */
 .cp-chat-btn {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   flex-shrink: 0;
-  padding: 4px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   border: 0;
-  background: none;
-  font-family: inherit;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.12);
   cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease;
 }
-.cp-chat-btn:active { transform: scale(0.94); }
-.cp-chat-logo { position: relative; display: flex; }
+.cp-chat-btn:active { transform: scale(0.92); background: rgba(var(--accent-rgb), 0.2); }
 .cp-chat-bubble path {
-  fill: rgba(var(--accent-rgb), 0.1);
+  fill: var(--bg-card);
   stroke: var(--primary-accent);
-  stroke-width: 1.6;
+  stroke-width: 3;
   stroke-linejoin: round;
 }
 /* Centred in the bubble's body (above the tail). */
 .cp-chat-img {
   position: absolute;
   left: 50%;
-  top: 17px;
-  width: 22px;
-  height: 22px;
+  top: 18px;
+  width: 12px;
+  height: 12px;
   object-fit: contain;
   transform: translate(-50%, -50%);
 }
-.cp-chat-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--accent-text);
-  white-space: nowrap;
-}
+.cp-chat-btn .tc-badge-dot { top: 1px; right: 1px; }
 
 .cp-avatar {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
   font-weight: 800;
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
 .cp-user-info { flex: 1; min-width: 0; }
 
 .cp-user-name {
-  font-size: 1.05rem;
-  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--text-main);
 }
 

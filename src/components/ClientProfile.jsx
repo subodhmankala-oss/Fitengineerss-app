@@ -899,7 +899,7 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
     <div className="cp-container animate-slide-up">
       {/* User card at top */}
       <div className="cp-user-card">
-        <Avatar className="cp-avatar" email={userEmail} name={form.userName} avatarUrl={userAvatarUrl} size={56} style={{ fontSize: '1.4rem' }} />
+        <Avatar className="cp-avatar" email={userEmail} name={form.userName} avatarUrl={userAvatarUrl} size={44} style={{ fontSize: '1.05rem' }} />
         <div className="cp-user-info">
           <div className="cp-user-name">{form.userName || 'Warrior'}</div>
           <div className="cp-user-email">{userEmail}</div>
@@ -911,16 +911,13 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
           onClick={() => setTeamChatOpen(true)}
           aria-label={teamUnread ? 'Chat with us (new reply)' : 'Chat with us'}
         >
-          {/* The Fitengineers logo inside a square message bubble, tail
-              bottom-right (mockup option 2, 2026-11-28). */}
-          <span className="cp-chat-logo">
-            <svg className="cp-chat-bubble" width="44" height="40" viewBox="0 0 44 40" aria-hidden="true">
-              <path d="M8 3h28a5 5 0 0 1 5 5v18a5 5 0 0 1-5 5h-3l1 6-8-6H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z" />
-            </svg>
-            <img className="cp-chat-img" src="/logo.png" alt="" />
-            {teamUnread && <span className="tc-badge-dot" />}
-          </span>
-          <span className="cp-chat-label">Chat with us</span>
+          {/* Soft circle with the logo in a message bubble (mockup option 1,
+              2026-11-28); the red dot is an unread team reply. */}
+          <svg className="cp-chat-bubble" width="24" height="22" viewBox="0 0 44 40" aria-hidden="true">
+            <path d="M8 3h28a5 5 0 0 1 5 5v18a5 5 0 0 1-5 5h-3l1 6-8-6H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z" />
+          </svg>
+          <img className="cp-chat-img" src="/logo.png" alt="" />
+          {teamUnread && <span className="tc-badge-dot" />}
         </button>
       </div>
 

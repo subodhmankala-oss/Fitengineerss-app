@@ -176,3 +176,12 @@
   .streak-pop,
   .streak-newbest { animation: none; }
 }
+
+/* Small version on the line of Home's top card ("Day 4 of 4 · 🔥 3"). */
+.streak-inline { display: inline-flex; flex-shrink: 0; }
+.streak-inline .streak-badge {
+  padding: 1px 7px 1px 5px;
+  font-size: 0.72rem;
+  gap: 3px;
+}
+.streak-inline .streak-badge .streak-flame { font-size: 0.75rem; }

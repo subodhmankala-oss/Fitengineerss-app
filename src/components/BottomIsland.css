@@ -125,6 +125,15 @@ body.workout-full-screen .bottom-island {
   transition: transform 180ms ease;
 }
 
+/* Client's avatar as the Profile tab: no ring of its own — the open tab's
+   pill already marks it, and a second ring read as a gap (2026-11-28). */
+.nav-avatar-wrap {
+  display: flex;
+  margin: -1px;
+  border-radius: 50%;
+}
+.nav-avatar-wrap .nav-avatar { object-fit: cover; }
+
 .nav-item:active .icon {
   transform: scale(0.88);
 }
@@ -171,6 +180,43 @@ body.workout-full-screen .bottom-island {
   right: -3px;
   width: 8px;
   height: 8px;
+}
+
+/* Client: Instagram-style icons (BottomIsland iconOnly). Evenly spaced, no
+   names, no pill; the open tab is bolder in the logo blue, the avatar gets a
+   blue ring. */
+.bottom-island--icons {
+  width: auto;
+  height: 52px;
+  padding: 0 14px;
+  gap: 8px;
+  border-radius: 26px;
+}
+.bottom-island--icons .nav-item {
+  flex: 0 0 52px;
+  flex-basis: 52px;
+  color: var(--text-muted);
+}
+.bottom-island--icons .nav-item.active {
+  flex-basis: 52px;
+  color: var(--accent-text);
+}
+.bottom-island--icons .icon svg {
+  width: 25px;
+  height: 25px;
+  stroke-width: 1.8;
+  transition: stroke-width 200ms ease;
+}
+.bottom-island--icons .nav-item.active .icon svg { stroke-width: 2.4; }
+.bottom-island--icons .nav-item.active .duo { fill: rgba(var(--accent-rgb), 0.18); }
+.bottom-island--icons .nav-avatar-wrap {
+  margin: 0;
+  padding: 2px;
+  transition: box-shadow 200ms ease;
+}
+.bottom-island--icons .nav-item.active .nav-avatar-wrap {
+  /* The logo's own blue, thick enough not to read as black beside pink. */
+  box-shadow: 0 0 0 2.25px var(--primary-accent-light);
 }
 
 /* The coach's running Live Log clock. */

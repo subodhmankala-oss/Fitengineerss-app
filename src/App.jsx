@@ -49,6 +49,8 @@ const isOAuthReturnUrl = () => {
   return new URLSearchParams(window.location.search).has('code');
 };
 import { isSuperAdmin } from './services/accessControl';
+import { hasUnreadTeamMessage } from './utils/teamChat';
+import Avatar from './components/Avatar';
 import './index.css';
 
 // Fetches the logger once Home has settled, so Start opens it without a
@@ -596,7 +598,17 @@ function App() {
     markNotificationsSeen(n => n.appTab === activeTab && !n.section);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, unreadNotifications]);
-  const hasNavDot = (tab) => unreadNotifications.some(n => n.appTab === tab);
+  // A Fitengineers team message the client hasn't opened (sql/team_chat.sql):
+  // a dot on the Profile tab, where the team chat lives now that Home has no
+  // header (2026-11-28).
+  const [teamUnread, setTeamUnread] = useState(false);
+  useEffect(() => {
+    if (!isClientSession) { setTeamUnread(false); return undefined; }
+    let cancelled = false;
+    databaseService.getMyTeamChat().then((rows) => { if (!cancelled && rows) setTeamUnread(hasUnreadTeamMessage(rows)); });
+    return () => { cancelled = true; };
+  }, [isClientSession]);
+  const hasNavDot = (tab) => unreadNotifications.some(n => n.appTab === tab) || (tab === 'profile' && teamUnread);
 
   // Gate: set when a logged-in session's email_confirmed_at is null (email/password
   // signup that hasn't clicked the confirmation link yet). Takes priority over the
@@ -1803,6 +1815,8 @@ function App() {
           initialSection={deepLinkOpenMeasurements ? 'measurements' : null}
           dotSections={new Set(unreadNotifications.filter(n => n.appTab === 'profile' && n.section).map(n => n.section))}
           onSectionOpen={(section) => markNotificationsSeen(n => n.appTab === 'profile' && n.section === section)}
+          teamUnread={teamUnread}
+          onTeamRead={() => setTeamUnread(false)}
         />
       );
       default: return renderHomeDashboard();
@@ -2006,7 +2020,22 @@ function App() {
       </main>
       
       {isNavVisible && (
-        <BottomIsland activeTab={activeTab} onSelect={setActiveTab} hasDot={hasNavDot} />
+        <BottomIsland
+          activeTab={activeTab}
+          onSelect={setActiveTab}
+          hasDot={hasNavDot}
+          iconOnly
+          // The client's own photo / initials is the Profile tab.
+          profileIcon={(
+            <Avatar
+              className="nav-avatar"
+              email={userEmail}
+              name={localStorage.getItem('userName') || ''}
+              avatarUrl={localStorage.getItem('userAvatarUrl')}
+              size={24}
+            />
+          )}
+        />
       )}
       {renderResetPasswordModal()}
     </div>

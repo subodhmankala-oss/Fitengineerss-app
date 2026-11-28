@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import databaseService from '../services/databaseService';
-import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
 import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
 import WelcomePopups from './WelcomePopups';
-import TeamChatSheet, { TeamLogo } from './TeamChatSheet';
-import { hasUnreadTeamMessage } from '../utils/teamChat';
 import NextWorkoutBanner from './NextWorkoutBanner';
 import MissedPartsCard from './MissedPartsCard';
 import ClientBreakCard from './ClientBreakCard';
@@ -15,7 +12,6 @@ import { activeBreak, recentlyEndedBreak, lastWorkoutDateOf } from '../utils/cli
 import CoachPlanHomeCard from './CoachPlanHomeCard';
 import WorkoutStreakCard from './WorkoutStreakCard';
 import WelcomeBackScreen from './WelcomeBackScreen';
-import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import useClientTrainingLevel from '../hooks/useClientTrainingLevel';
 import { trainingLevelFor } from '../utils/clientTrainingLevel';
@@ -93,23 +89,11 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
     return () => window.removeEventListener(LIVE_ROWS_EVENT, read);
   }, [userId]);
   const [loading, setLoading] = useState(true);
-  const [showConnectModal, setShowConnectModal] = useState(false);
-  // Header badge → chat with the Fitengineers team (sql/team_chat.sql). The
-  // red dot shows when the team sent a message the client hasn't opened.
-  const [teamChatOpen, setTeamChatOpen] = useState(false);
-  const [teamUnread, setTeamUnread] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    databaseService.getMyTeamChat().then((rows) => { if (!cancelled && rows) setTeamUnread(hasUnreadTeamMessage(rows)); });
-    return () => { cancelled = true; };
-  }, [userId]);
-  const clearTeamUnread = useCallback(() => setTeamUnread(false), []);
-  // Once connected, the pill opens a read-only "who is my coach" view
-  // instead of the connect flow — that flow only makes sense pre-connection.
+  // "Who is my coach" — Profile → Coach has its own copy; this one is for
   // openTestimonial: the coach's ask-for-a-testimonial link lands here with
   // the form already open (see App.jsx).
   const [showCoachDetailsModal, setShowCoachDetailsModal] = useState(openTestimonial);
-  // Only the first open writes; tapping the coach pill later is a normal visit.
+  // Only the first open writes.
   const [testimonialFormOnOpen, setTestimonialFormOnOpen] = useState(openTestimonial);
   // The form is open now — App can forget the link.
   useEffect(() => {
@@ -910,86 +894,13 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   const daysSinceLastLog = latestLogDate ? (mountedAt - new Date(`${latestLogDate}T00:00:00`).getTime()) / 86400000 : Infinity;
   const showWelcomeBack = !loading && logs.length > 0 && plansLoaded && clientPlans.length === 0 && !bypassWelcomeBack && daysSinceLastLog >= 7;
 
+  // No header on Home any more (2026-11-28): the avatar is the Profile tab,
+  // Link coach and the team chat live in Profile, and the streak pill sits on
+  // the top card's first line.
+  const streakPill = !loading ? <WorkoutStreakCard logs={logs} className="streak-inline" /> : null;
+
   return (
     <div className="workout-progress-container animate-slide-up">
-      {/* Top Header Panel */}
-      <div className="dashboard-header-panel">
-        <div className="profile-group">
-          <Avatar
-            className="avatar-shield"
-            email={localStorage.getItem('userEmail')}
-            name={userName}
-            avatarUrl={localStorage.getItem('userAvatarUrl')}
-            size={40}
-            style={{ borderRadius: 'var(--radius-md)' }}
-          />
-          <div className="profile-titles">
-            {/* "Welcome back" reads oddly for a client who's never logged a
-                workout yet — logs.length is the same "first-time" signal
-                the empty state below already uses. */}
-            <span className="welcome-span">{logs.length === 0 ? 'Welcome' : 'Welcome back'}</span>
-            <h2 className="profile-name-text">{userName}</h2>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
-          {/* Workout streak — derived from the logs already loaded here. Its
-              detail popover anchors to this (relative) row's right edge. */}
-          {!loading && <WorkoutStreakCard logs={logs} />}
-          <button
-            type="button"
-            onClick={() => {
-              if (coachStatusPending) return;
-              if (isLinkedToCoach) setShowCoachDetailsModal(true);
-              else setShowConnectModal(true);
-            }}
-            disabled={coachStatusPending}
-            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Link your coach')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              // Accent styling when connected to a coach; the plain state is a
-              // quiet outline pill so it doesn't compete with the name.
-              background: isLinkedToCoach && !coachStatusPending ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
-              border: coachStatusPending ? '1px solid rgba(var(--fg-rgb), 0.06)' : (isLinkedToCoach ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid rgba(var(--fg-rgb), 0.12)'),
-              color: coachStatusPending ? 'rgba(var(--fg-rgb), 0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : 'var(--text-muted)'),
-              borderRadius: '999px', padding: '5px 11px', fontSize: '0.78rem', fontWeight: 500,
-              cursor: coachStatusPending ? 'default' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit'
-            }}
-          >
-            {coachStatusPending ? (
-              'Checking…'
-            ) : isLinkedToCoach ? (
-              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 }}>
-                <span style={{ fontSize: '0.6rem', fontWeight: 500, opacity: 0.8 }}>Coach</span>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{coachName || 'Coach'}</span>
-              </span>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 15l6 -6" />
-                  <path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" />
-                  <path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" />
-                </svg>
-                Link coach
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className="tc-badge-btn"
-            onClick={() => setTeamChatOpen(true)}
-            aria-label={teamUnread ? 'Message the Fitengineers team (new reply)' : 'Message the Fitengineers team'}
-            title="Message the Fitengineers team"
-          >
-            <TeamLogo size={32} />
-            {teamUnread && <span className="tc-badge-dot" />}
-          </button>
-        </div>
-      </div>
-
-      {teamChatOpen && (
-        <TeamChatSheet userName={userName} onClose={() => setTeamChatOpen(false)} onRead={clearTeamUnread} />
-      )}
-
       {/* First open after sign-up: welcome from the team, then the
           notifications ask — two pop-ups instead of three stacked cards. */}
       <WelcomePopups userId={userId} userName={userName} />
@@ -1125,7 +1036,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         <MissedPartsCard userId={userId} />
       )}
       {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && !breakRunning && (
-        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} easyRestart={backFromBreak} breaks={clientBreaks} />
+        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} easyRestart={backFromBreak} breaks={clientBreaks} streak={streakPill} />
       )}
 
       {/* A plan the coach just assigned — shown here until the client starts
@@ -1180,7 +1091,10 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               marginBottom: '4px',
               flexShrink: 0
             }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+                {streakPill}
+              </span>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
                 Your coach hasn't set your program length yet. Your session progress will appear here once they do. 🗓️
               </p>
@@ -1239,7 +1153,10 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', zIndex: 1 }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+                {streakPill}
+              </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {totalSessionsDone} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
               </h3>
@@ -1798,27 +1715,6 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             />
           )}
         </div>
-      )}
-      {showConnectModal && (
-        <ConnectCoachModal
-          onClose={() => setShowConnectModal(false)}
-          onSuccess={async (coachId) => {
-            localStorage.setItem('clientLinkedToCoach', 'true');
-            if (coachId) {
-              localStorage.setItem('userCoachId', coachId);
-              const resolvedName = await databaseService.getCoachNameById(coachId);
-              const displayName = resolvedName || coachId;
-              localStorage.setItem('userCoachName', displayName);
-              setCoachName(displayName);
-            }
-            setIsLinkedToCoach(true);
-            setShowConnectModal(false);
-            // The coach-side 'client_connected' notification (push + email)
-            // is fired from connectClientToCoach itself now — it used to live
-            // here, which meant the HomeTracker mount of this same modal
-            // never sent it (2026-09-16).
-          }}
-        />
       )}
       {showCoachDetailsModal && (
         <CoachDetailsModal

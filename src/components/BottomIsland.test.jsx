@@ -35,4 +35,14 @@ describe('BottomIsland', () => {
     expect(screen.getByRole('button', { name: 'Home, new' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Profile' })).toBeTruthy();
   });
+
+  it('iconOnly: no pill and no names, the avatar is the Profile tab', () => {
+    const { container } = render(
+      <BottomIsland activeTab="profile" onSelect={() => {}} iconOnly profileIcon={<span className="av">TE</span>} />
+    );
+    expect(container.querySelector('.bottom-island-pill')).toBeNull();
+    expect(container.querySelector('.nav-item-label')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Profile' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'Profile' }).querySelector('.av')).toBeTruthy();
+  });
 });

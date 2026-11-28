@@ -29,34 +29,78 @@
 
 /* ── User hero card ──────────────────────────────────────────────────────── */
 .cp-user-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 28px 20px 20px;
+  margin: 20px 16px 6px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
 }
 
+.cp-user-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Coach + team chat: two tinted buttons under the name. */
+.cp-support {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cp-support-btn {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease;
+}
+.cp-support-btn:active { transform: scale(0.97); background: rgba(var(--accent-rgb), 0.18); }
+.cp-support-btn svg { flex-shrink: 0; }
+.cp-support-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-support-dot { top: 6px; right: 8px; }
+
 .cp-avatar {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
   font-weight: 800;
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
+.cp-user-info { flex: 1; min-width: 0; }
+
 .cp-user-name {
-  font-size: 1.05rem;
-  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--text-main);
 }
 
 .cp-user-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.78rem;
   color: var(--text-muted);
   margin-top: 2px;

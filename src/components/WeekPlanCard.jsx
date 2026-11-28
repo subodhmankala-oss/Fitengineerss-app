@@ -23,8 +23,10 @@ const HEAT = { main: '#ef4444', also: '#f59e0b' };
  * (nextLevelLabel) under it; null = neither (Advanced has no next level).
  * plan: buildWeekPlan() · sessionFor(slot): what the logger will build ·
  * loggedFor(slot): what was saved for a done one · note: replaces "Day 2 of 4".
+ * streak: the workout streak pill, shown after "Day 2 of 4" (Home has no
+ * header any more, so it lives here).
  */
-export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, progress, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide }) {
+export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, progress, note, days, hintKey, sessionFor, loggedFor, onStart, onChangeDays, onHide, streak = null }) {
   const [open, setOpen] = useState(false);
   const { slots, main, doneCount, weekDone, nextWeek, nextProgram } = plan;
 
@@ -47,12 +49,15 @@ export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, progres
       <SwipeToHide onHide={onHide} hintKey={hintKey} hideLabel="Hide this week">
         <div className="wpc-card">
           <div className="wpc-main">
-            <button
-              type="button"
+            {/* A div, not a button: the streak pill inside is its own button. */}
+            <div
+              role="button"
+              tabIndex={0}
               className="wpc-open"
               aria-haspopup="dialog"
               aria-label={`See ${program.name}${session.focus.length ? ` — ${session.focus.join(', ')}` : ''}`}
               onClick={() => setOpen(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } }}
             >
               {session.muscles.length > 0 && (
                 // --status-color tints the thumbnail's backdrop (.muscle-thumb).
@@ -73,13 +78,14 @@ export default function WeekPlanCard({ plan, levelLabel, nextLevelLabel, progres
                     ))}
                   </span>
                   <span className={note || weekDone ? 'wpc-note' : ''}>{note || line}</span>
+                  {streak}
                 </span>
                 <span className="wpc-name">{program.name}</span>
                 <span className="wpc-stats">
                   {session.minutes} min · {session.exerciseCount} exercise{session.exerciseCount === 1 ? '' : 's'} · {session.setCount} sets
                 </span>
               </span>
-            </button>
+            </div>
             <button type="button" className="wpc-play" aria-label={`Start ${program.name}`} onClick={() => onStart(slot)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11-6.86a1 1 0 0 0 0-1.7l-11-6.86A1 1 0 0 0 8 5.14z" /></svg>
             </button>

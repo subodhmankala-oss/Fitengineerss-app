@@ -44,7 +44,7 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program, pr
 // easyRestart: back from a break ("Taking a break") — every exercise capped
 // at 2 sets for the first workout back. breaks: their days don't count
 // towards (or against) the level's 12 weeks.
-export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, easyRestart = false, breaks = null }) {
+export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, easyRestart = false, breaks = null, streak = null }) {
   const [library, setLibrary] = useState(null); // null = still loading
   const [pref, setPref] = useState(undefined); // undefined = still loading
   const [training, setTraining] = useState(undefined); // { days, since }; undefined = still loading
@@ -222,6 +222,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts, 
       onStart={(slot) => startProgram(userId, onNavigateToWorkouts, category, level, toDo(slot.program), pref, runsBefore(slot))}
       onChangeDays={saveDays}
       onHide={hideWeek}
+      streak={streak}
     />
   );
 }

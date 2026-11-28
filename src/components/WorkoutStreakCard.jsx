@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { computeWorkoutStreak, nextStreakMilestone, streakTier, recentStreakDays } from '../utils/workoutStreak';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '../utils/dateUtils';
 import './WorkoutStreakCard.css';
@@ -25,27 +26,36 @@ const hintFor = ({ status, keepAliveBy }) => {
   return 'One workout starts a new streak. Let’s go!';
 };
 
-// Client-only streak: a compact flame pill for the Home header (tap → detail
-// popover). Hidden until the client has logged a workout so a brand-new
-// client isn't greeted with "0".
-export default function WorkoutStreakCard({ logs }) {
+const POP_WIDTH = 300;
+const EDGE = 16;
+
+// Client-only streak: a compact flame pill (tap → detail popover). It sits on
+// Home's top card, so the popover is portalled to <body> and placed under the
+// badge — a card's overflow:hidden must not clip it. Hidden until the client
+// has logged a workout so a brand-new client isn't greeted with "0".
+export default function WorkoutStreakCard({ logs, className = '' }) {
   const streak = useMemo(() => computeWorkoutStreak(logs), [logs]);
   const week = useMemo(() => recentStreakDays(logs), [logs]);
-  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState(null); // badge rect while open
   const wrapRef = useRef(null);
+  const popRef = useRef(null);
 
-  // Close the badge's detail popover on an outside tap or Escape.
+  // Close on an outside tap, Escape, or when the page scrolls under it.
   useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    if (!anchor) return undefined;
+    const inside = (t) => wrapRef.current?.contains(t) || popRef.current?.contains(t);
+    const onDown = (e) => { if (!inside(e.target)) setAnchor(null); };
+    const onKey = (e) => { if (e.key === 'Escape') setAnchor(null); };
+    const onScroll = (e) => { if (!inside(e.target)) setAnchor(null); };
     document.addEventListener('pointerdown', onDown);
     document.addEventListener('keydown', onKey);
+    document.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('pointerdown', onDown);
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('scroll', onScroll, true);
     };
-  }, [open]);
+  }, [anchor]);
 
   if (streak.status === 'none') return null;
 
@@ -56,6 +66,19 @@ export default function WorkoutStreakCard({ logs }) {
   const milestone = nextStreakMilestone(current);
   const isNewBest = !lapsed && current >= 2 && current === best;
   const title = lapsed ? 'No active streak' : `${current} ${current === 1 ? 'workout' : 'workouts'} in a row`;
+
+  const toggle = (e) => {
+    e.stopPropagation();
+    setAnchor(a => (a ? null : e.currentTarget.getBoundingClientRect()));
+  };
+
+  let popStyle;
+  if (anchor) {
+    const vw = window.innerWidth;
+    const width = Math.min(POP_WIDTH, vw - EDGE * 2);
+    const left = Math.max(EDGE, Math.min(anchor.left, vw - width - EDGE));
+    popStyle = { position: 'fixed', top: anchor.bottom + 10, left, right: 'auto', width, transformOrigin: `${anchor.left - left + 12}px 0` };
+  }
 
   const detail = (
     <div className={`streak-detail ${stateClass}`}>
@@ -100,25 +123,24 @@ export default function WorkoutStreakCard({ logs }) {
   );
 
   return (
-    // Not position:relative — the popover anchors to the caller's positioned
-    // container so it can align with the screen edge instead of this narrow
-    // badge (which would push it off-screen on a phone).
-    <div ref={wrapRef}>
+    <span ref={wrapRef} className={className}>
       <button
         type="button"
         className={`streak-badge ${stateClass}`}
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
+        onClick={toggle}
+        onKeyDown={(e) => e.stopPropagation()}
+        aria-expanded={!!anchor}
         aria-label={`${title}. Tap for details`}
       >
         <span className="streak-flame" aria-hidden="true">🔥</span>
         {current}
       </button>
-      {open && (
-        <div role="dialog" aria-label="Workout streak" className={`streak-pop ${stateClass}`}>
+      {anchor && createPortal(
+        <div ref={popRef} role="dialog" aria-label="Workout streak" className={`streak-pop ${stateClass}`} style={popStyle}>
           {detail}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </span>
   );
 }

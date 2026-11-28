@@ -14,6 +14,9 @@ import useClientBreaks from '../hooks/useClientBreaks';
 import { activeBreak, formatBreakDateShort } from '../utils/clientBreaks';
 import { getLocalDateString } from '../utils/dateUtils';
 import ClientBreakSheet from './ClientBreakSheet';
+import ConnectCoachModal from './ConnectCoachModal';
+import CoachDetailsModal from './CoachDetailsModal';
+import TeamChatSheet, { TeamLogo } from './TeamChatSheet';
 import { BreakCalendarIcon } from './ClientBreakIcons';
 import './ClientProfile.css';
 
@@ -37,6 +40,16 @@ function BackArrow() {
   );
 }
 
+function LinkIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 15l6 -6" />
+      <path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" />
+      <path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" />
+    </svg>
+  );
+}
+
 function SettingsRow({ icon, label, value, onTap, last, dot }) {
   return (
     <button className={`cp-row${last ? ' cp-row--last' : ''}`} onClick={onTap}>
@@ -54,7 +67,14 @@ function SettingsRow({ icon, label, value, onTap, last, dot }) {
 // dotSections / onSectionOpen: sections an unread push notification points
 // at (e.g. a measurement reminder → 'measurements') get a blue dot on their
 // row, and opening the section tells App.jsx it's been seen.
-export default function ClientProfile({ handleLogout, initialSection = null, dotSections = new Set(), onSectionOpen }) {
+// teamUnread / onTeamRead: a Fitengineers team message not opened yet (App
+// also dots the Profile tab for it). Coach and team chat moved here from the
+// Home header (2026-11-28).
+export default function ClientProfile({ handleLogout, initialSection = null, dotSections = new Set(), onSectionOpen, teamUnread = false, onTeamRead }) {
+  const [coachSheet, setCoachSheet] = useState(null); // 'connect' | 'details'
+  const [teamChatOpen, setTeamChatOpen] = useState(false);
+  const [coachName, setCoachName] = useState(() => localStorage.getItem('userCoachName') || '');
+  const [isLinkedToCoach, setIsLinkedToCoach] = useState(() => localStorage.getItem('clientLinkedToCoach') === 'true');
   // Lets App.jsx jump straight to a sub-section (e.g. Measurements, from the
   // measurement-reminder push notification's deep link) instead of landing
   // on the plain settings list and leaving the user to find it themselves.
@@ -886,6 +906,24 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
         </div>
       </div>
 
+      {/* Coach + the Fitengineers team (were in the Home header) */}
+      <div className="cp-section-label">Coaching</div>
+      <div className="cp-section-card">
+        <SettingsRow
+          icon={<span className="cp-row-svg"><LinkIcon /></span>}
+          label={isLinkedToCoach ? 'Your coach' : 'Link coach'}
+          value={isLinkedToCoach ? (coachName || 'Coach') : undefined}
+          onTap={() => setCoachSheet(isLinkedToCoach ? 'details' : 'connect')}
+        />
+        <SettingsRow
+          icon={<span className="cp-row-svg"><TeamLogo size={22} /></span>}
+          label="Message the Fitengineers team"
+          dot={teamUnread}
+          onTap={() => setTeamChatOpen(true)}
+          last
+        />
+      </div>
+
       {/* Account section */}
       <div className="cp-section-label">Account</div>
       <div className="cp-section-card">
@@ -925,6 +963,34 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
       <button className="cp-logout-btn" onClick={handleLogout}>Log Out</button>
 
       <div className="cp-app-version">Fitengineers · v3</div>
+
+      {coachSheet === 'connect' && (
+        <ConnectCoachModal
+          onClose={() => setCoachSheet(null)}
+          onSuccess={async (coachId) => {
+            localStorage.setItem('clientLinkedToCoach', 'true');
+            if (coachId) {
+              localStorage.setItem('userCoachId', coachId);
+              const resolvedName = await databaseService.getCoachNameById(coachId);
+              const displayName = resolvedName || coachId;
+              localStorage.setItem('userCoachName', displayName);
+              setCoachName(displayName);
+            }
+            setIsLinkedToCoach(true);
+            setCoachSheet(null);
+          }}
+        />
+      )}
+      {coachSheet === 'details' && (
+        <CoachDetailsModal
+          coachId={localStorage.getItem('userCoachId')}
+          coachName={coachName}
+          onClose={() => setCoachSheet(null)}
+        />
+      )}
+      {teamChatOpen && (
+        <TeamChatSheet userName={form.userName} onClose={() => setTeamChatOpen(false)} onRead={onTeamRead} />
+      )}
 
       {breakSheetOpen && (
         <ClientBreakSheet

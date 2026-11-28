@@ -39,11 +39,12 @@ const CLIENT_TABS = [
  * Floating bottom tabs: a small capsule. Only the open tab shows its name; the
  * tinted, ringed pill slides and the tab widens together. The client app's main
  * tabs by default; the coach's client screen passes its own (CoachDetailTabs).
- * `isLive` marks a tab whose clock is running.
+ * `isLive` marks a tab whose clock is running. `profileIcon` (the client's
+ * avatar) replaces the Profile tab's outline person.
  */
 export default function BottomIsland({
   activeTab, onSelect, hasDot = () => false, isLive = () => false,
-  tabs = CLIENT_TABS, label: navLabel = 'Main', className = '',
+  tabs = CLIENT_TABS, label: navLabel = 'Main', className = '', profileIcon = null,
 }) {
   const activeIndex = tabs.findIndex((t) => t.id === activeTab);
   return (
@@ -67,7 +68,9 @@ export default function BottomIsland({
               onClick={() => onSelect(id)}
             >
               <span className="icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">{icon}</svg>
+                {id === 'profile' && profileIcon
+                  ? <span className="nav-avatar-wrap" aria-hidden="true">{profileIcon}</span>
+                  : <svg viewBox="0 0 24 24" aria-hidden="true">{icon}</svg>}
                 {live && <span className="nav-live-dot" aria-hidden="true" />}
                 {dot && !live && <span className="unread-dot nav-unread-dot" aria-hidden="true" />}
               </span>

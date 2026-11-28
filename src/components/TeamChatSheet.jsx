@@ -13,7 +13,7 @@ export function TeamLogo({ size = 28 }) {
   );
 }
 
-// Home header badge → this sheet. The client's chat with the Fitengineers
+// Profile → Message the Fitengineers team → this sheet. The client's chat with the Fitengineers
 // team: the team intro, team messages from Super-Admin, and the client's own
 // messages. Sending pushes the team (founder_reply → Super-Admin Inbox).
 export default function TeamChatSheet({ userName, onClose, onRead }) {

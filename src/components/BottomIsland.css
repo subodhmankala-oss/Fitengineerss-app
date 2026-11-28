@@ -125,6 +125,16 @@ body.workout-full-screen .bottom-island {
   transition: transform 180ms ease;
 }
 
+/* Client's avatar as the Profile tab: a thin ring, accent while open. */
+.nav-avatar-wrap {
+  display: flex;
+  margin: -2px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(var(--fg-rgb), 0.18);
+}
+.nav-item.active .nav-avatar-wrap { box-shadow: 0 0 0 2px var(--primary-accent); }
+.nav-avatar-wrap .nav-avatar { object-fit: cover; }
+
 .nav-item:active .icon {
   transform: scale(0.88);
 }

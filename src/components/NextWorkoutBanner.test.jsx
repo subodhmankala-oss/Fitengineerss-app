@@ -16,6 +16,7 @@ vi.mock('../services/databaseService', () => ({
 
 import databaseService from '../services/databaseService';
 import NextWorkoutBanner from './NextWorkoutBanner';
+import WorkoutStreakCard from './WorkoutStreakCard';
 
 const gymBeginner = [
   { name: 'Beginner Full Body A', exercises: [] },
@@ -219,6 +220,25 @@ describe('NextWorkoutBanner — the week', () => {
     expect(card().getAttribute('aria-label')).toMatch(/^See Beginner Lower & Core/);
     expect(bars()).toEqual(['later', 'now', 'later']);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('the streak pill sits on the card’s first line and opens its own popover, not the workout', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    show({ logs: [...lastWeek, did('2026-11-10', 'Beginner Full Body B')], streak: <WorkoutStreakCard logs={[did('2026-11-10', 'x'), did('2026-11-11', 'y')]} className="streak-inline" /> });
+    await screen.findByText(/^Day \d of 3$/);
+    const pill = screen.getByRole('button', { name: /workouts in a row/ });
+    expect(document.querySelector('.wpc-line').contains(pill)).toBe(true);
+    fireEvent.click(pill);
+    expect(screen.getByRole('dialog', { name: 'Workout streak' })).toBeTruthy();
+    expect(document.querySelector('.wws-day')).toBeNull(); // the workout sheet stayed shut
+  });
+
+  it('Enter on the card opens the workout', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    show({ logs: lastWeek });
+    await screen.findByText('Day 2 of 3');
+    fireEvent.keyDown(card(), { key: 'Enter' });
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('a saved workout’s bar turns green and the card moves on', async () => {

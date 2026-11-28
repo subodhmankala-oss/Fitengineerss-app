@@ -35,6 +35,27 @@
   padding: 28px 20px 20px;
 }
 
+.cp-chat-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 4px;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cp-chat-btn:active { transform: scale(0.94); }
+.cp-chat-logo { position: relative; display: flex; }
+.cp-chat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+
 .cp-avatar {
   width: 56px;
   height: 56px;
@@ -50,6 +71,8 @@
   box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
+.cp-user-info { flex: 1; min-width: 0; }
+
 .cp-user-name {
   font-size: 1.05rem;
   font-weight: 800;
@@ -57,6 +80,9 @@
 }
 
 .cp-user-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.78rem;
   color: var(--text-muted);
   margin-top: 2px;

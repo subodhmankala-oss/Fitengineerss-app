@@ -904,9 +904,22 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
           <div className="cp-user-name">{form.userName || 'Warrior'}</div>
           <div className="cp-user-email">{userEmail}</div>
         </div>
+        {/* The Fitengineers team chat (was the logo in the Home header). */}
+        <button
+          type="button"
+          className="cp-chat-btn"
+          onClick={() => setTeamChatOpen(true)}
+          aria-label={teamUnread ? 'Chat with us (new reply)' : 'Chat with us'}
+        >
+          <span className="cp-chat-logo">
+            <TeamLogo size={34} />
+            {teamUnread && <span className="tc-badge-dot" />}
+          </span>
+          <span className="cp-chat-label">Chat with us</span>
+        </button>
       </div>
 
-      {/* Coach + the Fitengineers team (were in the Home header) */}
+      {/* Coach (was in the Home header) */}
       <div className="cp-section-label">Coaching</div>
       <div className="cp-section-card">
         <SettingsRow
@@ -914,12 +927,6 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
           label={isLinkedToCoach ? 'Your coach' : 'Link coach'}
           value={isLinkedToCoach ? (coachName || 'Coach') : undefined}
           onTap={() => setCoachSheet(isLinkedToCoach ? 'details' : 'connect')}
-        />
-        <SettingsRow
-          icon={<span className="cp-row-svg"><TeamLogo size={22} /></span>}
-          label="Message the Fitengineers team"
-          dot={teamUnread}
-          onTap={() => setTeamChatOpen(true)}
           last
         />
       </div>

@@ -35,15 +35,6 @@ function BackArrow() {
   );
 }
 
-function CloseIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
 function SettingsRow({ icon, label, value, onTap, last }) {
   return (
     <button className={`cp-row${last ? ' cp-row--last' : ''}`} onClick={onTap}>
@@ -546,27 +537,29 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
   return (
     <Overlay>
       <div className="cp-container animate-slide-up">
-        <div className="cp-user-card" style={{ paddingRight: 12 }}>
-          <Avatar className="cp-avatar" email={userEmail} name={form.userName} avatarUrl={userAvatarUrl} size={56} style={{ fontSize: '1.4rem' }} />
-          <div className="cp-user-info" style={{ flex: 1, minWidth: 0 }}>
-            <div className="cp-user-name">{form.userName || 'Coach'}</div>
-            <div className="cp-user-email">{userEmail}</div>
+        {/* Title bar with back arrow, then a tappable "you" card that opens
+            Business Profile (mockup option 2, 2026-11-28). The old card held
+            the ✕ inside it and stacked once #606 moved the row layout into
+            .cp-user-top. */}
+        {onClose && (
+          <div className="cp-main-header">
+            <button type="button" className="cp-back-btn" onClick={onClose} aria-label="Back"><BackArrow /></button>
+            <h2 className="cp-main-title">Profile</h2>
           </div>
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
-                color: 'var(--text-main)', borderRadius: '10px', padding: '9px', cursor: 'pointer'
-              }}
-            >
-              <CloseIcon />
-            </button>
-          )}
-        </div>
+        )}
+        <button
+          type="button"
+          className="cp-user-card cp-user-card--tap"
+          onClick={() => { setForm(readProfile()); setActiveSection('business'); }}
+          aria-label="Edit Business Profile"
+        >
+          <Avatar className="cp-avatar" email={userEmail} name={form.userName} avatarUrl={userAvatarUrl} size={48} style={{ fontSize: '1.15rem' }} />
+          <span className="cp-user-info">
+            <span className="cp-user-name">{form.userName || 'Coach'}</span>
+            <span className="cp-user-email">{userEmail}</span>
+          </span>
+          <span className="cp-user-chev"><ChevronRight /></span>
+        </button>
 
         <div className="cp-section-label">Account</div>
         <div className="cp-section-card">

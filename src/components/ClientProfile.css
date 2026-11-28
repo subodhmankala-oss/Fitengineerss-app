@@ -88,6 +88,36 @@
 
 .cp-user-info { flex: 1; min-width: 0; }
 
+/* Coach Profile: "‹ Profile" title bar + tappable you-card (option 2). */
+.cp-main-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 0;
+}
+.cp-main-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+.cp-main-header + .cp-user-card { margin-top: 14px; }
+.cp-user-card--tap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.15s;
+}
+.cp-user-card--tap:active { transform: scale(0.985); }
+.cp-user-card--tap .cp-user-name,
+.cp-user-card--tap .cp-user-email { display: block; }
+.cp-user-chev { display: flex; color: var(--text-muted); flex-shrink: 0; }
+
 .cp-user-name {
   overflow: hidden;
   text-overflow: ellipsis;

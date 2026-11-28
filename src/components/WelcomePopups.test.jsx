@@ -20,6 +20,7 @@ afterEach(cleanup);
 let permission;
 beforeEach(() => {
   vi.clearAllMocks();
+  sessionStorage.clear();
   permission = 'default';
   const N = { requestPermission: vi.fn(async () => permission) };
   Object.defineProperty(N, 'permission', { get: () => permission, configurable: true });
@@ -60,6 +61,25 @@ describe('WelcomePopups', () => {
     expect(screen.getByText('Notifications are blocked')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
     expect(screen.getByText(/Still off/)).toBeTruthy();
+  });
+
+  it('lets a blocked client in with Not now for this visit only', async () => {
+    permission = 'denied';
+    db.getWelcomeSeen.mockResolvedValue(true);
+    const { unmount } = render(<WelcomePopups userId="u1" userName="Asha" />);
+    expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Turn on notifications' })); });
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    unmount();
+    render(<WelcomePopups userId="u1" userName="Asha" />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    cleanup();
+    sessionStorage.clear(); // app closed and reopened
+    render(<WelcomePopups userId="u1" userName="Asha" />);
+    expect(screen.getByText('Turn on notifications', { selector: 'h3' })).toBeTruthy();
   });
 
   it('clears the blocked pop-up when the client comes back with notifications on', async () => {

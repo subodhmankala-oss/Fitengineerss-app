@@ -28,6 +28,8 @@ const Icon = ({ name, size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>
 );
 
+const SNOOZE_KEY = 'notifPopupSnoozed';
+
 export default function WelcomePopups({ userId, userName }) {
   const [welcome, setWelcome] = useState(false);
   const [perm, setPerm] = useState(notifPermission);
@@ -36,6 +38,13 @@ export default function WelcomePopups({ userId, userName }) {
   // Every client first sees "Turn on notifications"; the settings steps only
   // appear after they tap it and the phone turns out to be blocked.
   const [showSteps, setShowSteps] = useState(false);
+  // Escape hatch on the blocked screen only: some browsers (in-app browsers,
+  // locked-down phones) can never allow notifications, and a strict pop-up
+  // would lock those clients out. "Not now" lets them in for this visit;
+  // sessionStorage clears when the app is closed, so it asks again next open.
+  const [snoozed, setSnoozed] = useState(() => {
+    try { return sessionStorage.getItem(SNOOZE_KEY) === '1'; } catch { return false; }
+  });
 
   useEffect(() => {
     if (!userId) return;
@@ -87,7 +96,7 @@ export default function WelcomePopups({ userId, userName }) {
 
   const checkAgain = () => { setChecked(recheck() !== 'granted'); };
 
-  const needNotif = perm === 'default' || perm === 'denied';
+  const needNotif = (perm === 'default' || perm === 'denied') && !snoozed;
   const step = welcome ? 'welcome' : needNotif ? 'notif' : null;
   if (!step) return null;
 
@@ -141,6 +150,13 @@ export default function WelcomePopups({ userId, userName }) {
         </ol>
         <button type="button" className="wp-primary" onClick={checkAgain}>Check again</button>
         {checked && <p className="wp-hint wp-hint-warn" role="status">Still off. Follow the steps above, then come back.</p>}
+        <button
+          type="button"
+          className="wp-later"
+          onClick={() => { try { sessionStorage.setItem(SNOOZE_KEY, '1'); } catch { /* private mode */ } setSnoozed(true); }}
+        >
+          Not now
+        </button>
       </>
     );
   }

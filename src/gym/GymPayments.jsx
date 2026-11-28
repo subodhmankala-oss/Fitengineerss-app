@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import GymPlanForm from './GymPlanForm';
+import GymProfit from './GymProfit';
 import { initials, memberPlans, monthlyCollections, rupees } from './gymView';
 import { messagePlan } from './gymMessages';
 import GymUpiPanel from './GymUpiPanel';
@@ -9,8 +10,9 @@ import { toWhatsappNumber } from '../utils/whatsappNudge';
 const STATE_LABEL = { due: 'Payment due', expired: 'Plan ended', 'ends-soon': 'Ends soon' };
 const STATE_TONE = { due: 'amber', expired: 'red', 'ends-soon': 'amber' };
 
-// Payments: this month's money, who needs attention (owes money / plan ending
-// or ended), recent payments, and a place to start a plan for anyone.
+// Payments: this month's money, profit after expenses, who needs attention
+// (owes money / plan ending or ended), recent payments, and a place to start a
+// plan for anyone.
 export default function GymPayments({ data, biz, bizError, service, onChanged }) {
   const { clients, gym, insights } = data;
   const today = insights?.today;
@@ -60,6 +62,8 @@ export default function GymPayments({ data, biz, bizError, service, onChanged })
         <div className="gx-tile gx-tile-amber"><span className="gx-tile-label">Still to collect</span><span className="gx-big">{rupees(dueTotal)}</span><span className="gx-tile-sub">{dueCount} member{dueCount === 1 ? '' : 's'} owe money on a plan</span></div>
         <div className="gx-tile gx-tile-blue"><span className="gx-tile-label">Plans ending this week</span><span className="gx-big">{endingCount}</span><span className="gx-tile-sub">{noPlan} member{noPlan === 1 ? ' has' : 's have'} no plan recorded yet</span></div>
       </div>
+
+      {today && <GymProfit biz={biz} today={today} service={service} onChanged={onChanged} />}
 
       <section className="gx-card">
         <h2 className="gx-h2">Start a plan or record a payment</h2>

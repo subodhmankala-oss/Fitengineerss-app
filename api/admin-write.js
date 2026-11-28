@@ -482,6 +482,19 @@ const handleGymFreezeMembership = gymBusinessAction('gym_freeze_membership', 'gy
 const handleGymEndFreeze = gymBusinessAction('gym_end_freeze', 'gym-end-freeze', (b, c) => (
   UUID_RE.test(String(b.freezeId || '')) ? { p_owner_id: c.id, p_freeze_id: b.freezeId } : null
 ));
+// Gym expenses, for profit (sql/gym_expenses.sql).
+const EXPENSE_CATEGORIES = ['rent', 'salaries', 'electricity', 'equipment', 'maintenance', 'marketing', 'other'];
+const handleGymExpense = gymBusinessAction('gym_expense_action', 'gym-expense', (b, c) => {
+  const base = { p_owner_id: c.id, p_op: b.op, p_expense_id: null, p_category: null, p_amount_inr: null, p_spent_on: null, p_note: null, p_monthly: null };
+  if (b.op === 'add') {
+    return EXPENSE_CATEGORIES.includes(b.category) && isInt(Number(b.amountInr), 1, 100000000) && /^\d{4}-\d{2}-\d{2}$/.test(String(b.spentOn || ''))
+      && (b.note == null || (typeof b.note === 'string' && b.note.length <= 80))
+      ? { ...base, p_category: b.category, p_amount_inr: Number(b.amountInr), p_spent_on: b.spentOn, p_note: b.note ? b.note.trim() : null, p_monthly: b.monthly === true }
+      : null;
+  }
+  if (b.op === 'delete' || b.op === 'stop') return UUID_RE.test(String(b.expenseId || '')) ? { ...base, p_expense_id: b.expenseId } : null;
+  return null;
+});
 const handleGymSavePlans = gymBusinessAction('gym_save_plans', 'gym-save-plans', (b, c) => (
   Array.isArray(b.plans) && b.plans.length <= 20 && b.plans.every((p) =>
     p && typeof p.name === 'string' && p.name.trim().length >= 1 && p.name.length <= 60
@@ -641,6 +654,7 @@ const ACTION_HANDLERS = {
   'gym-pay-membership': handleGymPayMembership,
   'gym-freeze-membership': handleGymFreezeMembership,
   'gym-end-freeze': handleGymEndFreeze,
+  'gym-expense': handleGymExpense,
   'gym-save-plans': handleGymSavePlans,
   'gym-save-settings': handleGymSaveSettings,
   'gym-save-upi': handleGymSaveUpi,

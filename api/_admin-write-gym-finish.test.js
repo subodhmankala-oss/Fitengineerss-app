@@ -107,4 +107,25 @@ describe('api/admin-write: gym UPI id and sent messages', () => {
     expect(rpcs).toEqual([{ fn: 'gym_end_freeze', body: { p_owner_id: OWNER_ID, p_freeze_id: MEMBER } }]);
     expect((await call('gym-end-freeze', { freezeId: 'nope' })).statusCode).toBe(400);
   });
+
+  it('adds, stops and deletes expenses for the verified caller only', async () => {
+    expect((await call('gym-expense', { op: 'add', category: 'rent', amountInr: 80000, spentOn: '2026-11-01', note: ' Shop ', monthly: true, ownerId: 'x' })).statusCode).toBe(200);
+    expect(rpcs[0]).toEqual({ fn: 'gym_expense_action', body: { p_owner_id: OWNER_ID, p_op: 'add', p_expense_id: null, p_category: 'rent', p_amount_inr: 80000, p_spent_on: '2026-11-01', p_note: 'Shop', p_monthly: true } });
+    expect((await call('gym-expense', { op: 'stop', expenseId: MEMBER })).statusCode).toBe(200);
+    expect((await call('gym-expense', { op: 'delete', expenseId: MEMBER })).statusCode).toBe(200);
+    expect(rpcs.map((r) => r.body.p_op)).toEqual(['add', 'stop', 'delete']);
+    rpcs.length = 0;
+    for (const bad of [
+      { op: 'add', category: 'party', amountInr: 10, spentOn: '2026-11-01' },
+      { op: 'add', category: 'rent', amountInr: 0, spentOn: '2026-11-01' },
+      { op: 'add', category: 'rent', amountInr: 10, spentOn: 'today' },
+      { op: 'add', category: 'rent', amountInr: 10, spentOn: '2026-11-01', note: 'x'.repeat(81) },
+      { op: 'delete', expenseId: 'nope' },
+      { op: 'edit', expenseId: MEMBER }
+    ]) {
+      expect((await call('gym-expense', bad)).statusCode).toBe(400);
+    }
+    expect(rpcs).toHaveLength(0);
+    expect((await call('gym-expense', { op: 'delete', expenseId: MEMBER }, null)).statusCode).toBe(401);
+  });
 });

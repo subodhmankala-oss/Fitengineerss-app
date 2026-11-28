@@ -513,3 +513,21 @@
 .gx-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
 .gx-table th, .gx-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--gx-line, #e8ebf0); white-space: nowrap; }
 .gx-table th { font-size: 0.72rem; font-weight: 700; color: #6b7280; }
+
+/* profit */
+.gx-tile-green { background: #dcf5ea; color: var(--navy); }
+.gx-tile-red { background: #fde2e5; color: var(--navy); }
+.gx-cost { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; align-items: center; padding: 8px 12px; border-radius: 12px; background: #f5f7fc; }
+.gx-cost-bar { height: 8px; border-radius: 999px; background: #e3e8f5; overflow: hidden; }
+.gx-cost-bar i { display: block; height: 100%; border-radius: 999px; background: #f0a63a; }
+.gx-bars.short { height: 130px; }
+.gx-bar i.neg { background: #f3a3ad; }
+.gx-bar i.now.neg { background: #e0566a; }
+.gx-bar-n.neg { color: #c0364b; }
+.gx-pay-actions { grid-template-columns: 1fr auto auto; }
+.gx-switch-row { display: flex; align-items: center; gap: 10px; font-size: 0.86rem; }
+@media (max-width: 520px) {
+  .gx-cost { grid-template-columns: 1fr auto; }
+  .gx-cost-bar { grid-column: 1 / -1; grid-row: 2; }
+  .gx-pay-actions { grid-template-columns: 1fr auto; }
+}

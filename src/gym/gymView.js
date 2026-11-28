@@ -152,6 +152,47 @@ export function monthlyCollections(payments, today, count = 6) {
   return { months, thisMonth: months[months.length - 1].total };
 }
 
+// ─── Profit ───
+export const EXPENSE_CATEGORIES = [
+  { key: 'rent', label: 'Rent' }, { key: 'salaries', label: 'Salaries' }, { key: 'electricity', label: 'Electricity' },
+  { key: 'equipment', label: 'Equipment' }, { key: 'maintenance', label: 'Repairs' }, { key: 'marketing', label: 'Marketing' },
+  { key: 'other', label: 'Other' }
+];
+export const PAYOUTS_CATEGORY = { key: 'payouts', label: 'Trainer PT payouts' };
+export const expenseLabel = (key) => (key === 'payouts' ? PAYOUTS_CATEGORY.label : EXPENSE_CATEGORIES.find((c) => c.key === key)?.label || 'Other');
+
+// Does an expense count in month YYYY-MM? One-off: its own month. Monthly:
+// every month from its start month through its stop month (or for ever).
+export function expenseInMonth(e, month) {
+  const start = String(e.spent_on).slice(0, 7);
+  if (!e.monthly) return start === month;
+  if (month < start) return false;
+  return !e.stopped_on || month <= String(e.stopped_on).slice(0, 7);
+}
+
+// Collected, spent and profit for the last `count` months ending with today's,
+// oldest first. Spent = expenses (monthly ones repeat) + trainer PT payouts
+// marked paid for that month. byCategory is biggest first.
+export function monthlyProfit(biz, today, count = 6) {
+  const { months } = monthlyCollections(biz?.payments, today, count);
+  const rows = months.map((m) => {
+    const cat = {};
+    const items = [];
+    (biz?.expenses || []).forEach((e) => {
+      if (!expenseInMonth(e, m.key)) return;
+      cat[e.category] = (cat[e.category] || 0) + e.amount_inr;
+      items.push(e);
+    });
+    (biz?.payouts || []).forEach((p) => {
+      if (String(p.month).slice(0, 7) === m.key && p.amount_inr > 0) cat.payouts = (cat.payouts || 0) + p.amount_inr;
+    });
+    const spent = Object.values(cat).reduce((a, b) => a + b, 0);
+    const byCategory = Object.entries(cat).map(([key, total]) => ({ key, label: expenseLabel(key), total })).sort((a, b) => b.total - a.total);
+    return { key: m.key, label: m.label, collected: m.total, spent, profit: m.total - spent, byCategory, items };
+  });
+  return { months: rows, thisMonth: rows[rows.length - 1] };
+}
+
 export const GYM_COLOURS = {
   blue: '#4a66c4', teal: '#1f8a9a', green: '#2e8b57', orange: '#d2551a', pink: '#b3236b'
 };

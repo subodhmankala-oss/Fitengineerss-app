@@ -1000,7 +1000,12 @@ async function handleGymBusiness(req, res) {
       soft(`gym_high_fives?gym_id=eq.${gid}&day=gte.${monthStart}&select=trainer_id,day`, 'gym-business high-fives')
     ]);
     // Plan freezes (sql/gym_plan_freeze.sql): null until applied.
-    const freezes = await soft(`gym_plan_freezes?gym_id=eq.${gid}&ends_on=gte.${since}&select=id,member_id,membership_id,starts_on,ends_on,reason&order=ends_on.desc&limit=2000`, 'gym-business freezes');
+    // Expenses (sql/gym_expenses.sql): null until applied. Monthly ones count
+    // every month from when they started, so they are read however old.
+    const [freezes, expenses] = await Promise.all([
+      soft(`gym_plan_freezes?gym_id=eq.${gid}&ends_on=gte.${since}&select=id,member_id,membership_id,starts_on,ends_on,reason&order=ends_on.desc&limit=2000`, 'gym-business freezes'),
+      soft(`gym_expenses?gym_id=eq.${gid}&or=(spent_on.gte.${since},monthly.eq.true)&select=id,category,amount_inr,spent_on,note,monthly,stopped_on&order=spent_on.desc&limit=3000`, 'gym-business expenses')
+    ]);
     const [leads, checkins, payouts, messageLog] = await Promise.all([
       soft(`gym_leads?gym_id=eq.${gid}&select=*&order=created_at.desc&limit=500`, 'gym-business leads'),
       soft(`gym_checkins?gym_id=eq.${gid}&or=(out_at.is.null,in_at.gte.${recent})&select=id,member_id,in_at,out_at&order=in_at.desc&limit=2000`, 'gym-business checkins'),
@@ -1014,7 +1019,7 @@ async function handleGymBusiness(req, res) {
       ? await svcSelect(`gym_payments?membership_id=in.(${memberIds.join(',')})&select=membership_id,amount_inr&limit=20000`, 'gym-business paid')
       : [];
     const activity = await gymActivity(gid).catch((e) => { console.warn('gym-business activity skipped:', e.message); return null; });
-    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null, freezes, leads, checkins, payouts, messageLog, trainerDays, highFives, activity });
+    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null, freezes, expenses, leads, checkins, payouts, messageLog, trainerDays, highFives, activity });
   } catch (err) {
     console.error('gym-business error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read your gym’s plans and payments.' });

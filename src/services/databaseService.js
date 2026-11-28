@@ -3451,6 +3451,7 @@ const databaseService = {
   startGymMembership(body) { return this.gymBusinessWrite('gym-start-membership', body); },
   freezeGymMembership(body) { return this.gymBusinessWrite('gym-freeze-membership', body); },
   endGymFreeze(freezeId) { return this.gymBusinessWrite('gym-end-freeze', { freezeId }); },
+  gymExpense(body) { return this.gymBusinessWrite('gym-expense', body); },
   payGymMembership(body) { return this.gymBusinessWrite('gym-pay-membership', body); },
   saveGymPlans(plans) { return this.gymBusinessWrite('gym-save-plans', { plans }); },
   saveGymSettings(settings) { return this.gymBusinessWrite('gym-save-settings', settings); },

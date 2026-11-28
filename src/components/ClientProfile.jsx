@@ -16,7 +16,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 import ClientBreakSheet from './ClientBreakSheet';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
-import TeamChatSheet, { TeamLogo } from './TeamChatSheet';
+import TeamChatSheet from './TeamChatSheet';
 import { BreakCalendarIcon } from './ClientBreakIcons';
 import './ClientProfile.css';
 
@@ -911,8 +911,13 @@ export default function ClientProfile({ handleLogout, initialSection = null, dot
           onClick={() => setTeamChatOpen(true)}
           aria-label={teamUnread ? 'Chat with us (new reply)' : 'Chat with us'}
         >
+          {/* The Fitengineers logo inside a square message bubble, tail
+              bottom-right (mockup option 2, 2026-11-28). */}
           <span className="cp-chat-logo">
-            <TeamLogo size={34} />
+            <svg className="cp-chat-bubble" width="44" height="40" viewBox="0 0 44 40" aria-hidden="true">
+              <path d="M8 3h28a5 5 0 0 1 5 5v18a5 5 0 0 1-5 5h-3l1 6-8-6H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z" />
+            </svg>
+            <img className="cp-chat-img" src="/logo.png" alt="" />
             {teamUnread && <span className="tc-badge-dot" />}
           </span>
           <span className="cp-chat-label">Chat with us</span>

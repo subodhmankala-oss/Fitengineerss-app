@@ -49,6 +49,22 @@
 }
 .cp-chat-btn:active { transform: scale(0.94); }
 .cp-chat-logo { position: relative; display: flex; }
+.cp-chat-bubble path {
+  fill: rgba(var(--accent-rgb), 0.1);
+  stroke: var(--primary-accent);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+/* Centred in the bubble's body (above the tail). */
+.cp-chat-img {
+  position: absolute;
+  left: 50%;
+  top: 17px;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+}
 .cp-chat-label {
   font-size: 0.72rem;
   font-weight: 600;

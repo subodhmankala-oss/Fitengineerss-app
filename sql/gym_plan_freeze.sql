@@ -1,7 +1,7 @@
 -- ==========================================
 -- GYM SITE — freeze a member's plan (travel, illness, exams…)
 --
--- STATUS: NOT YET APPLIED.
+-- STATUS: APPLIED to prod 2026-11-28.
 -- Purely additive: one new table (RLS on, no policies → service-role API
 -- only, like the other gym tables) and two functions called only from
 -- api/admin-write.js with the VERIFIED caller as p_owner_id; EXECUTE revoked
@@ -102,7 +102,7 @@ BEGIN
   IF FOUND THEN
     UPDATE public.gym_memberships SET
       starts_on = CASE WHEN id = v_m.id THEN starts_on ELSE starts_on - v_unused END,
-      ends_on = GREATEST(starts_on, ends_on - v_unused)
+      ends_on = ends_on - v_unused
     WHERE member_id = v_f.member_id AND gym_id = v_gym AND (id = v_m.id OR starts_on > v_m.ends_on);
   END IF;
 

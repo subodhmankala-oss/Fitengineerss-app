@@ -1825,6 +1825,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const [shareClientIds, setShareClientIds] = useState([]);
   const [shareSearch, setShareSearch] = useState('');
   const [sharingPlan, setSharingPlan] = useState(false);
+  // Plan id whose "Send to client" save is in flight (see handleSendPlanToClient).
+  const [sendingPlanId, setSendingPlanId] = useState(null);
 
   const fetchClientPlans = async (clientId) => {
     setLoadingPlans(true);
@@ -5146,6 +5148,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setSharePlanSource(null);
     setShareClientIds([]);
     setShareSearch('');
+  };
+
+  // A plan Live Log saved after a session is stored with isAssigned: false,
+  // so the client's Log Sets → Coach Assigned never shows it. This coach list
+  // used to label those "Assigned to <client>" too, so coaches believed the
+  // client had them — confirmed 2026-11-28: one client had 24 such plans and
+  // an empty Coach Assigned section. One tap now makes it a real assignment.
+  const handleSendPlanToClient = async (plan) => {
+    if (!plan?.id || sendingPlanId) return;
+    setSendingPlanId(plan.id);
+    try {
+      const saved = await databaseService.saveWorkoutPlan({
+        id: plan.id,
+        userId: selectedClient.id,
+        planName: (plan.planName || '').trim(),
+        exercises: plan.exercises || [],
+        createdBy: 'coach',
+        isAssigned: true
+      });
+      if (saved?.syncError) {
+        alert(planSaveFailedMessage(saved.syncError));
+        return;
+      }
+      setClientPlans(prev => prev.map(p => (p.id === plan.id ? { ...p, isAssigned: true } : p)));
+      notifyEvent('plan_assigned', { clientUserId: selectedClient.id, planName: (plan.planName || '').trim() });
+    } catch (err) {
+      console.error('Failed to send plan to client:', err);
+      alert(err.message || 'Could not send this plan. Please try again.');
+    } finally {
+      setSendingPlanId(null);
+    }
   };
 
   const handleSharePlan = async () => {
@@ -10270,10 +10303,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                   <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', display: 'block' }}>{plan.planName}</strong>
-                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginTop: '3px' }}>
-                                    📋 Assigned to: {selectedClient.userName}
-                                    {assignedDateLabel && ` · ${assignedDateLabel}`}
-                                  </span>
+                                  {plan.isAssigned === false ? (
+                                    <span data-testid="plan-not-sent" style={{ fontSize: '0.68rem', color: 'var(--warning, #d97706)', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginTop: '3px' }}>
+                                      Saved from Live Log · not on client's app
+                                      {assignedDateLabel && ` · ${assignedDateLabel}`}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginTop: '3px' }}>
+                                      📋 Assigned to: {selectedClient.userName}
+                                      {assignedDateLabel && ` · ${assignedDateLabel}`}
+                                    </span>
+                                  )}
+                                  {plan.isAssigned === false && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendPlanToClient(plan)}
+                                      disabled={sendingPlanId === plan.id}
+                                      style={{ marginTop: '8px', padding: '6px 12px', background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.35)', color: 'var(--accent-text)', fontSize: '0.78rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+                                    >
+                                      {sendingPlanId === plan.id ? 'Sending…' : `Send to ${selectedClient.userName?.split(' ')[0] || 'client'}`}
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="plan-actions" style={{ position: 'relative' }}>
                                   <button
